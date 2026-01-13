@@ -2,8 +2,8 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Supabase 라이브러리를 importmap을 통해 안전하게 불러옵니다.
-import { createClient } from '@supabase/supabase-js';
+// 수정된 부분: 라이브러리 이름 대신 ESM 주소를 직접 사용합니다.
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
 
 // Vercel 설정값 불러오기
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
