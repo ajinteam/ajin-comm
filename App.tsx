@@ -15,10 +15,8 @@ import Dashboard from './components/Dashboard';
 import { pullStateFromCloud, pushStateToCloud, supabase } from './supabase';
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
-    const saved = localStorage.getItem('ajin_active_user');
-    return saved ? JSON.parse(saved) : null;
-  });
+  // 1. 로그인창이 먼저 나오게 하기 위해 자동 로그인 로직 제거 (null 초기화)
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [userAccounts, setUserAccounts] = useState<UserAccount[]>([]);

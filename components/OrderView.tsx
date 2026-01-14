@@ -140,7 +140,6 @@ const RenderDocumentTable = React.memo(({
           </table>
         </div>
 
-        {/* 수정 요청: 날짜, 구매처, 제목 라인이 너무 길어지지 않게 너비 제한 */}
         <div className="space-y-1 mb-4 text-base w-[400px] max-w-full">
           <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
             <span className="w-24 font-bold">{labels.date}</span>
@@ -309,7 +308,6 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setIsTranslating(true);
     setOriginalOrder({...activeOrder});
     try {
-      // Fix: Use process.env.API_KEY exclusively for GenAI as per coding guidelines
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const prompt = `Translate the following order document into Vietnamese.
       CRITICAL: Keep English text (product codes, names like 'AJIN', 'MASTER', brand names) exactly as they are.
@@ -580,7 +578,13 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   if (!activeOrder) {
     const isSearchableFolder = sub.includes('(완료)');
     const filtered = orders.filter(o => o.status === sub);
-    const searchFiltered = filtered.filter(o => {
+    
+    // 2. 파일은 수정날짜(createdAt) 순으로 10개씩 순차적으로 보관되게 (정렬 및 슬라이스 추가)
+    const sortedAndLimited = [...filtered]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10);
+
+    const searchFiltered = sortedAndLimited.filter(o => {
       if (!searchTerm.trim()) return true;
       const lowerSearch = searchTerm.toLowerCase();
       const hasMatchInRows = o.rows.some(r => r.model.toLowerCase().includes(lowerSearch) || r.itemName.toLowerCase().includes(lowerSearch));
@@ -750,7 +754,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       <div className="print-area overflow-x-auto">
         <RenderDocumentTable rows={activeOrder.rows} isCreate={false} order={activeOrder} isPreviewing={isPreviewing} handleRowEdit={handleRowEdit} handleRowDelete={handleRowDelete} handleRowKeyDown={handleRowKeyDown} handleStampAction={handleStampAction} handleFinalComplete={handleFinalComplete} userAccounts={userAccounts} isVietnameseLabels={isVietnameseLabels} translatedLocation={translatedLocation} />
       </div>
-      {rejectingOrder && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl"><h3 className="text-lg md:text-xl font-black text-slate-900 mb-4 text-center">결재 반송 확인</h3><div className="flex gap-4"><button onClick={() => setRejectingOrder(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleRejectAction(rejectingOrder)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">반송</button></div></div></div>}
+      {rejectingOrder && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 md:p-8 max-sm w-full shadow-2xl"><h3 className="text-lg md:text-xl font-black text-slate-900 mb-4 text-center">결재 반송 확인</h3><div className="flex gap-4"><button onClick={() => setRejectingOrder(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleRejectAction(rejectingOrder)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">반송</button></div></div></div>}
     </div>
   );
 };

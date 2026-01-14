@@ -698,7 +698,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
         return activeRows.every(r => !!r.qtyConfirm);
       });
 
-  const searchFiltered = filtered.filter(inv => {
+  // 2. 파일은 수정날짜(createdAt) 순으로 10개씩 순차적으로 보관되게 (정렬 및 슬라이스 추가)
+  const sortedAndLimited = [...filtered]
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 10);
+
+  const searchFiltered = sortedAndLimited.filter(inv => {
     if (!searchTerm.trim()) return true;
     const lower = searchTerm.toLowerCase();
     const hasItem = inv.rows.some(r => r.itemName.toLowerCase().includes(lower) || r.model.toLowerCase().includes(lower));
