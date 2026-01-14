@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState } from '../types';
 import { pushStateToCloud } from '../supabase';
@@ -6,6 +7,7 @@ interface InvoiceViewProps {
   sub: InvoiceSubCategory;
   currentUser: UserAccount;
   setView: (v: ViewState) => void;
+  dataVersion: number;
 }
 
 const formatAmPm = (timeStr: string) => {
@@ -44,7 +46,7 @@ const AutoExpandingTextarea = React.memo(({
   );
 });
 
-const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) => {
+const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, dataVersion }) => {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<InvoiceItem | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -84,10 +86,18 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
     
   const [formRows, setFormRows] = useState<InvoiceRow[]>(createInitialRows(5));
 
+  // dataVersion 변경 시 데이터를 재로드하여 동기화 반영
   useEffect(() => {
     const saved = localStorage.getItem('ajin_invoices');
-    if (saved) setInvoices(JSON.parse(saved));
-  }, []);
+    if (saved) {
+      const parsedInvoices = JSON.parse(saved);
+      setInvoices(parsedInvoices);
+      if (activeInvoice) {
+        const updatedActive = parsedInvoices.find((i: InvoiceItem) => i.id === activeInvoice.id);
+        if (updatedActive) setActiveInvoice(updatedActive);
+      }
+    }
+  }, [dataVersion]);
   
   // 카테고리나 검색어 변경 시 1페이지로 리셋
   useEffect(() => {

@@ -190,22 +190,24 @@ const App: React.FC = () => {
         
         <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar scroll-smooth">
           <div className="max-w-7xl mx-auto">
-            {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} key={`dash-${dataVersion}`} />}
+            {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} dataVersion={dataVersion} key={`dash-${dataVersion}`} />}
             {view.type === 'ORDER' && (
               <OrderView 
-                key={`order-${view.sub}-${dataVersion}`}
+                key={`order-${view.sub}`}
                 sub={view.sub} 
                 currentUser={currentUser}
                 userAccounts={userAccounts}
                 setView={handleSetView}
+                dataVersion={dataVersion}
               />
             )}
             {view.type === 'INVOICE' && (
               <InvoiceView 
-                key={`invoice-${view.sub}-${dataVersion}`}
+                key={`invoice-${view.sub}`}
                 sub={view.sub} 
                 currentUser={currentUser} 
                 setView={handleSetView}
+                dataVersion={dataVersion}
               />
             )}
             {view.type === 'SETTINGS' && isMaster && (

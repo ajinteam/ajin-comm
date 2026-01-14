@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -8,6 +9,7 @@ interface OrderViewProps {
   currentUser: UserAccount;
   userAccounts: UserAccount[];
   setView: (v: ViewState) => void;
+  dataVersion: number;
 }
 
 const AutoExpandingTextarea = React.memo(({ 
@@ -259,7 +261,7 @@ const createInitialRows = (count: number): OrderRow[] =>
     dept: '', model: '', itemName: '', price: '', unitPrice: '', remarks: ''
   }));
 
-const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, setView }) => {
+const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, setView, dataVersion }) => {
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [activeOrder, setActiveOrder] = useState<OrderItem | null>(null);
   const [originalOrder, setOriginalOrder] = useState<OrderItem | null>(null);
@@ -288,10 +290,19 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     return new Date().toLocaleString('ko-KR', { hour12: true });
   };
 
+  // dataVersion이 변경될 때마다 로컬 데이터를 다시 로드하지만, activeOrder 상태는 보존함
   useEffect(() => {
     const saved = localStorage.getItem('ajin_orders');
-    if (saved) setOrders(JSON.parse(saved));
-  }, []);
+    if (saved) {
+      const parsedOrders = JSON.parse(saved);
+      setOrders(parsedOrders);
+      // 만약 현재 열린 문서가 있다면 최신 데이터로 업데이트 시도 (동기화 반영)
+      if (activeOrder) {
+        const updatedActive = parsedOrders.find((o: OrderItem) => o.id === activeOrder.id);
+        if (updatedActive) setActiveOrder(updatedActive);
+      }
+    }
+  }, [dataVersion]);
   
   // 카테고리나 검색어 변경 시 1페이지로 리셋
   useEffect(() => {

@@ -5,10 +5,13 @@ import { pushStateToCloud } from '../supabase';
 
 interface DashboardProps {
   user: UserAccount;
-  setView: (v: ViewState) => void;
+  // Updated to allow Promise as it is passed from App.tsx handleSetView
+  setView: (v: ViewState) => void | Promise<void>;
+  // Added dataVersion to match the props passed from App.tsx
+  dataVersion?: number;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
+const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => {
   const isMaster = user.loginId === 'AJ5200';
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [newNotice, setNewNotice] = useState('');
@@ -50,7 +53,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
       });
       setCompletedInvoicesCount(pendingInvoices.length);
     }
-  }, []);
+    // Added dataVersion to dependency array to refresh counts when synced from cloud
+  }, [dataVersion]);
 
   const saveNotices = (notices: Announcement[]) => {
     setAnnouncements(notices);
