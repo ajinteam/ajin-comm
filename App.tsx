@@ -27,6 +27,7 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
 
+  // 초기 앱 기동 시 클라우드 데이터 우선 로드
   useEffect(() => {
     const initApp = async () => {
       setIsSyncing(true);
@@ -54,16 +55,18 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
+  // PC-모바일 실시간 교차 동기화 로직
   useEffect(() => {
     if (!supabase) return;
 
+    // 1. Supabase Realtime 구독
     const channel = supabase
-      .channel('realtime-sync')
+      .channel('db-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ajin-comm-backup' },
         async () => {
-          console.log('Sync Update Detected...');
+          console.log('[Cloud Sync] DB Change Detected');
           setIsSyncing(true);
           await pullStateFromCloud();
           setDataVersion(v => v + 1);
@@ -72,23 +75,34 @@ const App: React.FC = () => {
       )
       .subscribe();
 
+    // 2. Window Focus 기반 동기화 (PC에서 수정 후 모바일에서 열었을 때 즉시 반영)
+    const handleFocus = async () => {
+      if (!currentUser) return;
+      console.log('[Cloud Sync] Focus detected, syncing data...');
+      setIsSyncing(true);
+      const updated = await pullStateFromCloud();
+      if (updated) {
+        setDataVersion(v => v + 1);
+      }
+      setIsSyncing(false);
+    };
+
+    window.addEventListener('focus', handleFocus);
+
     return () => {
       supabase.removeChannel(channel);
+      window.removeEventListener('focus', handleFocus);
     };
-  }, []);
+  }, [currentUser]);
 
   const handleSetView = async (v: ViewState) => {
-    // 뷰 전환 시 자동 동기화 수행
+    // 메뉴 이동 시 현재 작업 내용 클라우드 강제 동기화
     setIsSyncing(true);
-    try {
-      await pushStateToCloud();
-    } catch (e) {
-      console.error('Cloud Sync Error:', e);
-    } finally {
-      setIsSyncing(false);
-      setView(v);
-      closeSidebar();
-    }
+    await pushStateToCloud();
+    setIsSyncing(false);
+    
+    setView(v);
+    setIsSidebarOpen(false);
   };
 
   const handleLogin = (loginId: string) => {
@@ -129,15 +143,12 @@ const App: React.FC = () => {
     setIsSyncing(false);
   };
 
-  const closeSidebar = () => setIsSidebarOpen(false);
-  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-white p-6">
         <div className="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mb-6"></div>
         <h1 className="text-xl font-black tracking-widest uppercase mb-2">AJIN COMMUNICATIONS</h1>
-        <p className="text-slate-500 text-sm font-bold animate-pulse">Initializing cloud database...</p>
+        <p className="text-slate-500 text-sm font-bold animate-pulse">Syncing Cloud Data...</p>
       </div>
     );
   }
@@ -155,7 +166,7 @@ const App: React.FC = () => {
         setView={handleSetView} 
         user={currentUser} 
         isOpen={isSidebarOpen}
-        onClose={closeSidebar}
+        onClose={() => setIsSidebarOpen(false)}
       />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -168,7 +179,7 @@ const App: React.FC = () => {
             else alert('설정 권한이 없습니다.');
           }}
           onHome={() => { handleSetView({ type: 'DASHBOARD' }); }}
-          onToggleSidebar={toggleSidebar}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           isSyncing={isSyncing}
         />
         
@@ -203,15 +214,14 @@ const App: React.FC = () => {
         </main>
       </div>
       
-      {/* Mobile-only subtle sync indicator at the very bottom */}
       {isSyncing && (
-        <div className="fixed bottom-4 right-4 md:hidden z-[100] animate-bounce">
+        <div className="fixed bottom-4 right-4 md:bottom-8 md:right-8 z-[100] animate-bounce">
           <div className="bg-blue-600 text-white px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-2 border border-blue-400">
             <svg className="animate-spin h-3 w-3 text-white" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span className="text-[10px] font-black uppercase tracking-wider">Cloud Saving</span>
+            <span className="text-[10px] font-black uppercase tracking-wider">Sync Active</span>
           </div>
         </div>
       )}
