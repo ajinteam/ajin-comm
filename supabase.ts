@@ -1,25 +1,24 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Safe environment variable access to prevent "Cannot read properties of undefined"
+// 다양한 환경(Vite, Node, Browser process.env)에서 변수를 안전하게 가져옵니다.
 const getEnvVar = (name: string): string => {
   try {
-    // Check for Vite environment (import.meta.env)
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       return (import.meta as any).env[name] || '';
     }
-    // Check for standard process.env (Node/Webpack/Common environment)
     if (typeof process !== 'undefined' && process.env) {
       return process.env[name] || '';
     }
   } catch (e) {
-    // Silent fail if environment access is restricted
+    // ignore
   }
   return '';
 };
 
-const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
-const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
+// 표준 Supabase 키 및 Vite 접두사가 붙은 키를 모두 확인합니다.
+const supabaseUrl = getEnvVar('SUPABASE_URL') || getEnvVar('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnvVar('SUPABASE_ANON_KEY') || getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 export const supabase = (supabaseUrl && supabaseAnonKey) 
   ? createClient(supabaseUrl, supabaseAnonKey)
@@ -30,7 +29,7 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
  */
 export const pushStateToCloud = async () => {
   if (!supabase) {
-    console.warn('Supabase client is not initialized. Skipping cloud sync.');
+    console.warn('[Cloud Sync] Supabase client is not initialized. Sync skipped.');
     return;
   }
   
@@ -51,12 +50,12 @@ export const pushStateToCloud = async () => {
       );
 
     if (error) {
-      console.error('Cloud sync failed:', error.message);
+      console.error('[Cloud Sync] Push failed:', error.message, error.details);
     } else {
-      console.log('Cloud backup successfully synced.');
+      console.log('[Cloud Sync] Backup successfully synced to Supabase.');
     }
   } catch (err) {
-    console.error('Push error:', err);
+    console.error('[Cloud Sync] Push logic error:', err);
   }
 };
 
@@ -64,14 +63,22 @@ export const pushStateToCloud = async () => {
  * Supabase에서 최신 데이터를 가져와 LocalStorage를 업데이트합니다.
  */
 export const pullStateFromCloud = async () => {
-  if (!supabase) return null;
+  if (!supabase) {
+    console.warn('[Cloud Sync] Supabase client is not initialized. Pull skipped.');
+    return null;
+  }
   
   try {
     const { data, error } = await supabase
       .from('ajin-comm-backup')
       .select('dataload')
       .eq('id', 1)
-      .single();
+      .maybeSingle(); // single() 대신 maybeSingle()로 데이터 없을 때 에러 방지
+
+    if (error) {
+      console.error('[Cloud Sync] Pull failed:', error.message);
+      return null;
+    }
 
     if (data && data.dataload) {
       const { accounts, orders, invoices, notices } = data.dataload;
@@ -79,10 +86,11 @@ export const pullStateFromCloud = async () => {
       if (orders) localStorage.setItem('ajin_orders', JSON.stringify(orders));
       if (invoices) localStorage.setItem('ajin_invoices', JSON.stringify(invoices));
       if (notices) localStorage.setItem('ajin_notices', JSON.stringify(notices));
+      console.log('[Cloud Sync] Data successfully pulled from cloud.');
       return data.dataload;
     }
   } catch (err) {
-    console.error('Cloud pull failed:', err);
+    console.error('[Cloud Sync] Pull logic error:', err);
   }
   return null;
 };

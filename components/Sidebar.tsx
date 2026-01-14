@@ -35,7 +35,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
           setView({ type, sub } as ViewState);
           onClose();
         }}
-        className={`w-full text-left px-4 py-2.5 text-sm font-semibold rounded-xl transition-all ${
+        className={`w-full text-left px-4 py-2 text-sm font-semibold rounded-xl transition-all ${
           isActive
             ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/20 translate-x-1'
             : 'text-slate-400 hover:bg-slate-800 hover:text-white'
@@ -82,23 +82,25 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-8 mt-4 overflow-y-auto pb-8 custom-scrollbar">
-          {/* Order Management Group */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 px-3 mb-2">
-              <div className="w-1 h-4 bg-blue-500 rounded-full"></div>
-              <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
+        <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto pb-8 custom-scrollbar">
+          {/* 상위 카테고리: 주문서 */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">
                 주문서
               </h2>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5 ml-2 border-l border-slate-800">
               {renderSubMenu(OrderSubCategory.CREATE, 'ORDER')}
               {renderSubMenu(OrderSubCategory.PENDING, 'ORDER')}
               {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
               {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
               
-              <div className="mt-4 pt-4 border-t border-slate-900/50">
-                <p className="px-4 text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-wider">완료 보관함</p>
+              <div className="mt-3 pt-2">
+                <p className="px-4 text-[9px] text-slate-600 font-bold mb-1 uppercase tracking-wider">완료 보관함</p>
                 {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
                 {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
                 {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
@@ -106,20 +108,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             </div>
           </div>
 
-          {/* Invoice Management Group */}
-          <div className="space-y-2">
-            <div className="flex items-center gap-2 px-3 mb-2">
-              <div className="w-1 h-4 bg-emerald-500 rounded-full"></div>
-              <h2 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em]">
+          {/* 상위 카테고리: 송장 */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">
                 송장
               </h2>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-0.5 ml-2 border-l border-slate-800">
               {renderSubMenu(InvoiceSubCategory.CREATE, 'INVOICE')}
               {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
               
-              <div className="mt-4 pt-4 border-t border-slate-900/50">
-                <p className="px-4 text-[10px] text-slate-600 font-bold mb-2 uppercase tracking-wider">지역별 분류</p>
+              <div className="mt-3 pt-2">
+                <p className="px-4 text-[9px] text-slate-600 font-bold mb-1 uppercase tracking-wider">지역별 분류</p>
                 {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
                 {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
                 {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
