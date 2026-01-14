@@ -28,8 +28,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       setAnnouncements(JSON.parse(savedNotices));
     } else {
       const initial = [
-        { id: '1', content: 'AJ5200 마스터 권한 기능이 활성화되었습니다.', date: '2024.03.01', isNew: true },
-        { id: '2', content: '신규 시스템 업데이트 안내 (1)', date: '2024.03.01' }
+        { id: '1', content: '관리자 권한 기능이 활성화되었습니다.', date: '2026.01.14', isNew: true },
+        { id: '2', content: '신규 시스템 업데이트 안내 (1)', date: '2026.01.14' }
       ];
       setAnnouncements(initial);
       localStorage.setItem('ajin_notices', JSON.stringify(initial));
@@ -110,7 +110,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all text-left"
         >
           <p className="text-slate-500 text-xs md:text-sm font-medium mb-1">결재 대기</p>
-          <p className={`text-2xl md:text-3xl font-bold text-slate-900 ${pendingOrdersCount > 0 ? 'animate-blink text-red-600' : ''}`}>처리 대기중</p>
+          <p className={`text-2xl md:text-3xl font-bold text-slate-900 ${pendingOrdersCount > 0 ? 'animate-blink text-red-600' : ''}`}>결재 대기중</p>
           <p className="text-blue-600 text-[10px] md:text-xs mt-4 font-semibold uppercase tracking-wider">상세보기 →</p>
         </button>
 
@@ -119,7 +119,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           className="bg-white p-5 md:p-6 rounded-2xl shadow-sm border border-slate-200 hover:border-blue-500 hover:shadow-md transition-all text-left"
         >
           <p className="text-slate-500 text-xs md:text-sm font-medium mb-1">결재 완료</p>
-          <p className={`text-2xl md:text-3xl font-bold text-slate-900 ${approvedOrdersCount > 0 ? 'animate-blink text-blue-600' : ''}`}>데이터 확인</p>
+          <p className={`text-2xl md:text-3xl font-bold text-slate-900 ${approvedOrdersCount > 0 ? 'animate-blink text-blue-600' : ''}`}>결재완료 확인</p>
           <p className="text-blue-600 text-[10px] md:text-xs mt-4 font-semibold uppercase tracking-wider">상세보기 →</p>
         </button>
 
@@ -129,7 +129,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         >
           <p className="text-slate-500 text-xs md:text-sm font-medium mb-1">송장 완료</p>
           <p className={`text-2xl md:text-3xl font-bold text-slate-900 ${completedInvoicesCount > 0 ? 'animate-blink text-emerald-600' : ''}`}>
-            {completedInvoicesCount > 0 ? '확인 필요' : '데이터 확인'}
+            {completedInvoicesCount > 0 ? '송장 확인 필요' : '데이터 확인'}
           </p>
           <p className="text-blue-600 text-[10px] md:text-xs mt-4 font-semibold uppercase tracking-wider">상세보기 →</p>
         </button>
