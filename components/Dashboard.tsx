@@ -134,7 +134,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
           <div>
             <p className="text-white/60 text-[10px] md:text-sm mb-1">로그인 계정</p>
             <p className="text-lg md:text-xl font-mono font-bold tracking-tight flex items-center gap-2 truncate">
-              {user.loginId}
+              {user.initials}
               {isMaster && <span className="text-[8px] md:text-[10px] bg-white/20 px-1.5 md:px-2 py-0.5 rounded backdrop-blur-sm">MASTER</span>}
             </p>
           </div>

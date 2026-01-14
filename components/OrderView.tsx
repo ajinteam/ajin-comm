@@ -263,7 +263,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const [suggestions, setSuggestions] = useState<OrderRow[]>([]);
   const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>(window.innerWidth < 768 ? 'ICON' : 'DETAIL');
+  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
 
   const isMaster = currentUser.loginId === 'AJ5200';
   const [formLocation, setFormLocation] = useState<'SEOUL' | 'DAECHEON' | 'VIETNAM'>('SEOUL');

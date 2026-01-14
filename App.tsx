@@ -152,7 +152,7 @@ const App: React.FC = () => {
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header 
-          userName={currentUser.loginId} 
+          userName={currentUser.initials} 
           isMaster={isMaster}
           onLogout={handleLogout} 
           onSettings={() => {

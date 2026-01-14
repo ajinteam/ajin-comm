@@ -52,7 +52,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
-  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>(window.innerWidth < 768 ? 'ICON' : 'DETAIL');
+  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
   const isMaster = currentUser.loginId === 'AJ5200';
