@@ -25,22 +25,25 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 let pushTimer: any = null;
 
 /**
- * LocalStorage의 데이터를 Supabase 클라우드에 즉시 또는 지연 저장합니다.
+ * LocalStorage의 데이터를 Supabase 클라우드에 백업합니다.
  */
 export const pushStateToCloud = async () => {
   if (!supabase) return;
   
   if (pushTimer) clearTimeout(pushTimer);
   
-  // 모바일에서의 즉각적인 반응을 위해 지연 시간을 500ms로 단축
   pushTimer = setTimeout(async () => {
     try {
+      const updatedAt = new Date().toISOString();
+      // 로컬 타임스탬프 기록
+      localStorage.setItem('ajin_last_local_update', updatedAt);
+
       const dataload = {
         accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
         orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
         invoices: JSON.parse(localStorage.getItem('ajin_invoices') || '[]'),
         notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
-        updatedAt: new Date().toISOString()
+        updatedAt: updatedAt
       };
 
       const { error } = await supabase
@@ -50,16 +53,16 @@ export const pushStateToCloud = async () => {
       if (error) {
         console.error('[Cloud Sync] Push failed:', error.message);
       } else {
-        console.log('[Cloud Sync] Backup successfully synced to Supabase.');
+        console.log('[Cloud Sync] Backup synced with timestamp:', updatedAt);
       }
     } catch (err) {
       console.error('[Cloud Sync] Push error:', err);
     }
-  }, 500);
+  }, 800);
 };
 
 /**
- * 클라우드에서 최신 데이터를 강제로 가져옵니다.
+ * 클라우드에서 데이터를 가져오되, 로컬보다 최신인 경우에만 갱신합니다.
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
@@ -77,13 +80,22 @@ export const pullStateFromCloud = async () => {
     }
 
     if (data && data.dataload) {
-      const { accounts, orders, invoices, notices } = data.dataload;
-      if (accounts) localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
-      if (orders) localStorage.setItem('ajin_orders', JSON.stringify(orders));
-      if (invoices) localStorage.setItem('ajin_invoices', JSON.stringify(invoices));
-      if (notices) localStorage.setItem('ajin_notices', JSON.stringify(notices));
-      console.log('[Cloud Sync] Data successfully pulled from cloud.');
-      return data.dataload;
+      const cloudUpdatedAt = data.dataload.updatedAt;
+      const localUpdatedAt = localStorage.getItem('ajin_last_local_update') || '';
+
+      // 클라우드 데이터가 로컬보다 최신이거나 같은 경우에만 업데이트
+      if (!localUpdatedAt || cloudUpdatedAt > localUpdatedAt) {
+        const { accounts, orders, invoices, notices } = data.dataload;
+        if (accounts) localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
+        if (orders) localStorage.setItem('ajin_orders', JSON.stringify(orders));
+        if (invoices) localStorage.setItem('ajin_invoices', JSON.stringify(invoices));
+        if (notices) localStorage.setItem('ajin_notices', JSON.stringify(notices));
+        localStorage.setItem('ajin_last_local_update', cloudUpdatedAt);
+        console.log('[Cloud Sync] Local updated with fresher cloud data:', cloudUpdatedAt);
+        return data.dataload;
+      } else {
+        console.log('[Cloud Sync] Local data is already up-to-date or newer. Pull skipped.');
+      }
     }
   } catch (err) {
     console.error('[Cloud Sync] Pull error:', err);

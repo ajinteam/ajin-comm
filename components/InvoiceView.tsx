@@ -89,7 +89,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
   const saveInvoices = (items: InvoiceItem[]) => {
     setInvoices(items);
     localStorage.setItem('ajin_invoices', JSON.stringify(items));
-    pushStateToCloud(); // Sync to Supabase
+    pushStateToCloud();
   };
 
   const itemLibrary = useMemo(() => {
@@ -103,43 +103,39 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
   }, [invoices]);
 
   const updateRowField = useCallback((rowId: string, field: keyof InvoiceRow, value: any) => {
-    setFormRows(prev => prev.map(row => {
-      if (row.id === rowId) {
-        const existingLog = row.modLog;
-        const newLog = existingLog ? existingLog : { 
-          userId: currentUser.initials, 
-          timestamp: getCurrentAmPmTime(), 
-          type: 'EDIT' as const 
-        };
-        return { ...row, [field]: value, modLog: newLog };
-      }
-      return row;
-    }));
+    // 편집 중인 폼 데이터 업데이트
+    if (!activeInvoice) {
+      setFormRows(prev => prev.map(row => row.id === rowId ? { ...row, [field]: value } : row));
+    }
 
+    // 저장된 문서 편집 시 동기화 강화
     if (activeInvoice) {
-      setInvoices(prev => {
-        const updated = prev.map(inv => {
-          if (inv.id === activeInvoice.id) {
-            const updatedRows = inv.rows.map(row => {
-              if (row.id === rowId) {
-                return { 
-                  ...row, 
-                  [field]: value, 
-                  modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } 
-                } as InvoiceRow;
-              }
-              return row;
-            });
-            return { ...inv, rows: updatedRows } as InvoiceItem;
-          }
-          return inv;
-        });
-        localStorage.setItem('ajin_invoices', JSON.stringify(updated));
-        const current = updated.find(i => i.id === activeInvoice.id);
-        if (current) setActiveInvoice(current);
-        return updated;
+      const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
+      const updatedList = currentFullList.map((inv: InvoiceItem) => {
+        if (inv.id === activeInvoice.id) {
+          const updatedRows = inv.rows.map(row => {
+            if (row.id === rowId) {
+              return { 
+                ...row, 
+                [field]: value, 
+                modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } 
+              } as InvoiceRow;
+            }
+            return row;
+          });
+          return { ...inv, rows: updatedRows } as InvoiceItem;
+        }
+        return inv;
       });
-      pushStateToCloud(); // Sync for active edits
+
+      // 1. LocalStorage 즉시 업데이트
+      localStorage.setItem('ajin_invoices', JSON.stringify(updatedList));
+      // 2. State 업데이트
+      setInvoices(updatedList);
+      const currentActive = updatedList.find((i: InvoiceItem) => i.id === activeInvoice.id);
+      if (currentActive) setActiveInvoice(currentActive);
+      // 3. 클라우드 전송 트리거
+      pushStateToCloud();
     }
     
     if (field === 'itemName') {
@@ -166,32 +162,31 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
     const fields: (keyof InvoiceRow)[] = ['model', 'drawingNo', 'itemName', 'qty', 'qtyExtra', 'completionExtra', 'completionStatus', 'remarks'];
 
     if (activeInvoice) {
-      setInvoices(prev => {
-        const updated = prev.map(inv => {
-          if (inv.id === activeInvoice.id) {
-            let newRows = [...inv.rows];
-            grid.forEach((pRow, rOffset) => {
-              const rIdx = startRowIdx + rOffset;
-              if (!newRows[rIdx]) {
-                newRows[rIdx] = { id: Math.random().toString(36).substr(2, 9), model: '', drawingNo: '', itemName: '', qty: '', qtyExtra: '', completionExtra: '', completionStatus: '', remarks: '' };
+      const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
+      const updatedList = currentFullList.map((inv: InvoiceItem) => {
+        if (inv.id === activeInvoice.id) {
+          let newRows = [...inv.rows];
+          grid.forEach((pRow, rOffset) => {
+            const rIdx = startRowIdx + rOffset;
+            if (!newRows[rIdx]) {
+              newRows[rIdx] = { id: Math.random().toString(36).substr(2, 9), model: '', drawingNo: '', itemName: '', qty: '', qtyExtra: '', completionExtra: '', completionStatus: '', remarks: '' };
+            }
+            pRow.forEach((pCell, cOffset) => {
+              const cIdx = startColIdx + cOffset;
+              if (cIdx < fields.length) {
+                const field = fields[cIdx];
+                newRows[rIdx] = { ...newRows[rIdx], [field]: pCell, modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } } as InvoiceRow;
               }
-              pRow.forEach((pCell, cOffset) => {
-                const cIdx = startColIdx + cOffset;
-                if (cIdx < fields.length) {
-                  const field = fields[cIdx];
-                  newRows[rIdx] = { ...newRows[rIdx], [field]: pCell, modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } } as InvoiceRow;
-                }
-              });
             });
-            return { ...inv, rows: newRows } as InvoiceItem;
-          }
-          return inv;
-        });
-        localStorage.setItem('ajin_invoices', JSON.stringify(updated));
-        const current = updated.find(i => i.id === activeInvoice.id);
-        if (current) setActiveInvoice(current);
-        return updated;
+          });
+          return { ...inv, rows: newRows } as InvoiceItem;
+        }
+        return inv;
       });
+      localStorage.setItem('ajin_invoices', JSON.stringify(updatedList));
+      setInvoices(updatedList);
+      const current = updatedList.find((i: InvoiceItem) => i.id === activeInvoice.id);
+      if (current) setActiveInvoice(current);
       pushStateToCloud();
     } else {
       setFormRows(prev => {
@@ -228,18 +223,17 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
           if (!activeInvoice) {
             setFormRows(prev => [...prev, newRow]);
           } else {
-            setInvoices(prev => {
-              const updated = prev.map(inv => {
-                if (inv.id === activeInvoice.id) {
-                  return { ...inv, rows: [...inv.rows, newRow] } as InvoiceItem;
-                }
-                return inv;
-              });
-              localStorage.setItem('ajin_invoices', JSON.stringify(updated));
-              const current = updated.find(i => i.id === activeInvoice.id);
-              if (current) setActiveInvoice(current);
-              return updated;
+            const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
+            const updated = currentFullList.map((inv: InvoiceItem) => {
+              if (inv.id === activeInvoice.id) {
+                return { ...inv, rows: [...inv.rows, newRow] } as InvoiceItem;
+              }
+              return inv;
             });
+            localStorage.setItem('ajin_invoices', JSON.stringify(updated));
+            setInvoices(updated);
+            const current = updated.find((i: InvoiceItem) => i.id === activeInvoice.id);
+            if (current) setActiveInvoice(current);
             pushStateToCloud();
           }
           setTimeout(() => (document.querySelector(`[data-row="${nextRowIdx}"][data-col="0"]`) as HTMLTextAreaElement)?.focus(), 50);
@@ -280,53 +274,51 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
     const isAlreadyConfirmed = activeInvoice?.rows.find(r => r.id === rowId)?.qtyConfirm;
     if (isAlreadyConfirmed) return;
 
-    // 수량 확인 시 팝업 노출 추가
     setModal({
       type: 'ADD_ROW_CONFIRM',
       message: '수량 확인을 실행하시겠습니까? 확인 후에는 해당 행의 수정이 불가능합니다.',
       onConfirm: () => {
-        setInvoices(prev => {
-          const updated = prev.map(inv => {
-            if (inv.id === activeInvoice?.id) {
-              const updatedRows = inv.rows.map(row => 
-                row.id === rowId ? { 
-                  ...row, 
-                  qtyConfirm: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } 
-                } : row
-              ) as InvoiceRow[];
-              return { ...inv, rows: updatedRows } as InvoiceItem;
-            }
-            return inv;
-          });
-          localStorage.setItem('ajin_invoices', JSON.stringify(updated));
-          const currentActive = updated.find(i => i.id === activeInvoice?.id);
-          if (currentActive) {
-            setActiveInvoice(currentActive);
-            const activeRows = currentActive.rows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
-            const allConfirmed = activeRows.length > 0 && activeRows.every(r => !!r.qtyConfirm);
-            if (allConfirmed) {
-              const finalUpdated = updated.map(inv => inv.id === activeInvoice.id ? {
-                ...inv,
-                stamps: { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
-              } : inv) as InvoiceItem[];
-              localStorage.setItem('ajin_invoices', JSON.stringify(finalUpdated));
-              setInvoices(finalUpdated);
-
-              setModal({
-                type: 'ALERT',
-                message: '모든 수량확인이 완료되어 해당 수신처 폴더로 저장(분류)되었습니다.',
-                onConfirm: () => {
-                  setModal(null);
-                  setActiveInvoice(null);
-                }
-              });
-              return finalUpdated;
-            }
+        const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
+        let allConfirmed = false;
+        let finalUpdated = currentFullList.map((inv: InvoiceItem) => {
+          if (inv.id === activeInvoice?.id) {
+            const updatedRows = inv.rows.map(row => 
+              row.id === rowId ? { 
+                ...row, 
+                qtyConfirm: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } 
+              } : row
+            ) as InvoiceRow[];
+            
+            const activeRows = updatedRows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
+            allConfirmed = activeRows.length > 0 && activeRows.every(r => !!r.qtyConfirm);
+            
+            return { 
+              ...inv, 
+              rows: updatedRows,
+              stamps: allConfirmed ? { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } } : inv.stamps
+            } as InvoiceItem;
           }
-          pushStateToCloud();
-          setModal(null); // 팝업 닫기
-          return updated;
+          return inv;
         });
+
+        localStorage.setItem('ajin_invoices', JSON.stringify(finalUpdated));
+        setInvoices(finalUpdated);
+        
+        if (allConfirmed) {
+          setModal({
+            type: 'ALERT',
+            message: '모든 수량확인이 완료되어 해당 수신처 폴더로 저장(분류)되었습니다.',
+            onConfirm: () => {
+              setModal(null);
+              setActiveInvoice(null);
+            }
+          });
+        } else {
+          const currentActive = finalUpdated.find((i: InvoiceItem) => i.id === activeInvoice?.id);
+          if (currentActive) setActiveInvoice(currentActive);
+          setModal(null);
+        }
+        pushStateToCloud();
       }
     });
   };
@@ -339,35 +331,32 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
       index: index,
       message: '정말 삭제하시겠습니까?',
       onConfirm: () => {
-        setInvoices(prev => {
-          const updated = prev.map(inv => {
-            if (inv.id === activeInvoice?.id) {
-              let updatedRows = inv.rows.map(row => 
-                row.id === rowId ? { 
-                  ...row, 
-                  isDeleted: true, 
-                  modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'DELETE' as const } 
-                } : row
-              ) as InvoiceRow[];
-              const newRow = { 
-                id: `NEW-${Math.random().toString(36).substr(2, 9)}`, 
-                model: '', drawingNo: '', itemName: '', qty: '', qtyExtra: '', completionExtra: '', completionStatus: '', remarks: '' 
-              };
-              updatedRows.splice(index + 1, 0, newRow);
-              return { ...inv, rows: updatedRows } as InvoiceItem;
-            }
-            return inv;
-          });
-          
-          localStorage.setItem('ajin_invoices', JSON.stringify(updated));
-          const currentActive = updated.find(i => i.id === activeInvoice?.id);
-          if (currentActive) {
-            setActiveInvoice(currentActive);
+        const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
+        const updated = currentFullList.map((inv: InvoiceItem) => {
+          if (inv.id === activeInvoice?.id) {
+            let updatedRows = inv.rows.map(row => 
+              row.id === rowId ? { 
+                ...row, 
+                isDeleted: true, 
+                modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'DELETE' as const } 
+              } : row
+            ) as InvoiceRow[];
+            const newRow = { 
+              id: `NEW-${Math.random().toString(36).substr(2, 9)}`, 
+              model: '', drawingNo: '', itemName: '', qty: '', qtyExtra: '', completionExtra: '', completionStatus: '', remarks: '' 
+            };
+            updatedRows.splice(index + 1, 0, newRow);
+            return { ...inv, rows: updatedRows } as InvoiceItem;
           }
-          pushStateToCloud();
-          setModal(null);
-          return updated;
+          return inv;
         });
+        
+        localStorage.setItem('ajin_invoices', JSON.stringify(updated));
+        setInvoices(updated);
+        const currentActive = updated.find((i: InvoiceItem) => i.id === activeInvoice?.id);
+        if (currentActive) setActiveInvoice(currentActive);
+        pushStateToCloud();
+        setModal(null);
       }
     });
   };
@@ -519,7 +508,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
             <tbody>
               {rows.map((row, idx) => {
                 const isRowEditableInLockedDoc = row.id && typeof row.id === 'string' && row.id.startsWith('NEW-');
-                // 수정 요청 사항: 확인(qtyConfirm)이 완료된 행은 비활성화
                 const finalDisabled = row.isDeleted || !!row.qtyConfirm || (isReadOnly && !isRowEditableInLockedDoc);
 
                 return (
