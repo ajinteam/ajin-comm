@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -139,6 +140,7 @@ const RenderDocumentTable = React.memo(({
           </table>
         </div>
 
+        {/* 수정 요청: 날짜, 구매처, 제목 라인이 너무 길어지지 않게 너비 제한 */}
         <div className="space-y-1 mb-4 text-base w-[400px] max-w-full">
           <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
             <span className="w-24 font-bold">{labels.date}</span>
@@ -308,7 +310,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setOriginalOrder({...activeOrder});
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Translate the following order document into Vietnamese. Return ONLY a JSON object.
+      const prompt = `Translate the following order document into Vietnamese.
       CRITICAL: Keep English text (product codes, names like 'AJIN', 'MASTER', brand names) exactly as they are.
       Translate fields: title, location_name (Seoul, Daecheon, Vietnam), and the table rows (dept, model, itemName, price, remarks).
       Input: ${JSON.stringify({ 
@@ -319,7 +321,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
-        contents: [{ parts: [{ text: prompt }] }],
+        contents: prompt,
         config: { 
           responseMimeType: "application/json",
           responseSchema: {
@@ -337,20 +339,15 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
                     itemName: { type: Type.STRING },
                     price: { type: Type.STRING },
                     remarks: { type: Type.STRING }
-                  },
-                  required: ["dept", "model", "itemName", "price", "remarks"]
+                  }
                 }
               }
-            },
-            required: ["title", "location_name", "rows"]
+            }
           }
         }
       });
 
-      const responseText = response.text;
-      if (!responseText) throw new Error('No response from AI');
-      
-      const translatedData = JSON.parse(responseText.trim());
+      const translatedData = JSON.parse(response.text.trim());
       setTranslatedLocation(translatedData.location_name);
       const updatedOrder = {
         ...activeOrder,
@@ -368,7 +365,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       setIsVietnameseLabels(true);
       alert('베트남어 번역이 완료되었습니다.');
     } catch (e) {
-      console.error('Translation error:', e);
+      console.error(e);
       alert('번역 중 오류가 발생했습니다. API 키 설정을 확인해 주세요.');
     } finally {
       setIsTranslating(false);
