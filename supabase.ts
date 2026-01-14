@@ -12,8 +12,13 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
  * 모든 LocalStorage 데이터를 Supabase의 단일 로우(id: 1)에 통합 저장합니다.
  */
 export const pushStateToCloud = async () => {
-  if (!supabase) return;
+  // 1. 클라이언트 초기화 확인
+  if (!supabase) {
+    console.error('Supabase 연결에 실패했습니다. 환경 변수(VITE_...)를 확인하세요.');
+    return;
+  }
   
+  // 2. 저장할 데이터 구성
   const dataload = {
     accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
     orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
@@ -22,13 +27,21 @@ export const pushStateToCloud = async () => {
     updatedAt: new Date().toISOString()
   };
 
-  try {
-    await supabase
-      .from('ajin-comm-backup')
-      .upsert([{ id: 1, dataload: dataload }], { onConflict: 'id' });
-    console.log('Cloud backup synced.');
-  } catch (err) {
-    console.error('Cloud sync failed:', err);
+  console.log('데이터 전송 시도:', dataload);
+
+  // 3. Supabase에 데이터 업서트(저장/수정)
+  const { error } = await supabase
+    .from('ajin-comm-backup')
+    .upsert(
+      { id: 1, dataload: dataload }, 
+      { onConflict: 'id' }
+    );
+
+  // 4. 결과 확인 및 상세 에러 출력
+  if (error) {
+    console.error('클라우드 저장 실패 원인:', error.message); // 여기에 401, 403 등의 진짜 이유가 찍힙니다.
+  } else {
+    console.log('클라우드 동기화 성공!');
   }
 };
 
