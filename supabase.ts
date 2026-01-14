@@ -25,14 +25,14 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 let pushTimer: any = null;
 
 /**
- * LocalStorage의 모든 데이터를 Supabase 클라우드에 백업합니다.
- * 디바운스(800ms)를 적용하여 연속적인 데이터 변경 시 서버 부하를 최소화합니다.
+ * LocalStorage의 데이터를 Supabase 클라우드에 즉시 또는 지연 저장합니다.
  */
 export const pushStateToCloud = async () => {
   if (!supabase) return;
   
   if (pushTimer) clearTimeout(pushTimer);
   
+  // 모바일에서의 즉각적인 반응을 위해 지연 시간을 500ms로 단축
   pushTimer = setTimeout(async () => {
     try {
       const dataload = {
@@ -55,11 +55,11 @@ export const pushStateToCloud = async () => {
     } catch (err) {
       console.error('[Cloud Sync] Push error:', err);
     }
-  }, 800);
+  }, 500);
 };
 
 /**
- * 클라우드에서 최신 데이터를 가져와 로컬 저장소를 동기화합니다.
+ * 클라우드에서 최신 데이터를 강제로 가져옵니다.
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;

@@ -27,12 +27,11 @@ const App: React.FC = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [dataVersion, setDataVersion] = useState(0);
 
-  // 초기 앱 기동 시 클라우드 데이터 우선 로드
+  // 초기 로드 시 클라우드 데이터 우선 동기화
   useEffect(() => {
     const initApp = async () => {
       setIsSyncing(true);
       await pullStateFromCloud();
-      setIsSyncing(false);
       
       const saved = localStorage.getItem('ajin_accounts');
       let accounts: UserAccount[] = saved ? JSON.parse(saved) : [];
@@ -51,22 +50,23 @@ const App: React.FC = () => {
       setUserAccounts(accounts);
       localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
       setIsLoading(false);
+      setIsSyncing(false);
     };
     initApp();
   }, []);
 
-  // PC-모바일 실시간 교차 동기화 로직
+  // 교차 기기 동기화 핵심 로직
   useEffect(() => {
     if (!supabase) return;
 
-    // 1. Supabase Realtime 구독
+    // 1. Realtime 구독 (PC에서 변경 시 모바일에 알림)
     const channel = supabase
       .channel('db-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'ajin-comm-backup' },
         async () => {
-          console.log('[Cloud Sync] DB Change Detected');
+          console.log('[Cloud Sync] Realtime Update Detected');
           setIsSyncing(true);
           await pullStateFromCloud();
           setDataVersion(v => v + 1);
@@ -75,10 +75,10 @@ const App: React.FC = () => {
       )
       .subscribe();
 
-    // 2. Window Focus 기반 동기화 (PC에서 수정 후 모바일에서 열었을 때 즉시 반영)
-    const handleFocus = async () => {
+    // 2. 모바일/PC 포커스 및 탭 전환 감지 (WebSocket 끊김 대비)
+    const handleSync = async () => {
       if (!currentUser) return;
-      console.log('[Cloud Sync] Focus detected, syncing data...');
+      console.log('[Cloud Sync] Manual Re-sync triggered (Focus/Visibility)');
       setIsSyncing(true);
       const updated = await pullStateFromCloud();
       if (updated) {
@@ -87,18 +87,25 @@ const App: React.FC = () => {
       setIsSyncing(false);
     };
 
-    window.addEventListener('focus', handleFocus);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        handleSync();
+      }
+    };
+
+    window.addEventListener('focus', handleSync);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
       supabase.removeChannel(channel);
-      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('focus', handleSync);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
   }, [currentUser]);
 
   const handleSetView = async (v: ViewState) => {
-    // 메뉴 이동 시 현재 작업 내용 클라우드 강제 동기화
     setIsSyncing(true);
-    await pushStateToCloud();
+    await pushStateToCloud(); // 메뉴 이동 전 현재 데이터 클라우드 저장
     setIsSyncing(false);
     
     setView(v);
@@ -221,7 +228,7 @@ const App: React.FC = () => {
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            <span className="text-[10px] font-black uppercase tracking-wider">Sync Active</span>
+            <span className="text-[10px] font-black uppercase tracking-wider">Cloud Saving</span>
           </div>
         </div>
       )}
