@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 import { pushStateToCloud } from '../supabase';
 
 interface OrderViewProps {
@@ -56,7 +56,12 @@ const RenderDocumentTable = React.memo(({
     return userAccounts.find((u: UserAccount) => u.loginId === userId)?.initials || userId;
   };
   const isCompleted = !isCreate && order?.stamps?.final;
-  const isLocked = !isCreate && order?.status.includes('(완료)');
+  
+  const isLocked = !isCreate;
+  const isFinalApproved = !isCreate && order && (
+    order.status === OrderSubCategory.APPROVED || 
+    order.status.includes('완료')
+  );
 
   const showManager = location === 'SEOUL';
   const showDirector = location === 'SEOUL';
@@ -135,7 +140,8 @@ const RenderDocumentTable = React.memo(({
           </table>
         </div>
 
-        <div className="space-y-1 mb-4 text-base max-w-[100%] md:max-w-[50%]">
+        {/* 수정 요청: 날짜, 구매처, 제목 라인이 너무 길어지지 않게 너비 제한 */}
+        <div className="space-y-1 mb-4 text-base w-[400px] max-w-full">
           <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
             <span className="w-24 font-bold">{labels.date}</span>
             {isCreate ? <input type="text" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none font-medium border-b border-transparent hover:border-slate-200 focus:border-blue-500 transition-all py-0.5"/> : <span>{order?.date}</span>}
@@ -169,46 +175,51 @@ const RenderDocumentTable = React.memo(({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row: OrderRow, idx: number) => (
-              <tr key={row.id} className={`${row.isDeleted ? 'bg-red-50' : ''} relative`}>
-                <td className="border-2 border-slate-900 p-0 align-top relative">
-                  <AutoExpandingTextarea value={row.dept} dataRow={idx} dataCol={0} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'dept', e.target.value) : handleRowEdit(order!, row.id, 'dept', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                <td className="border-2 border-slate-900 p-0 align-top relative">
-                  <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={1} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'model', e.target.value) : handleRowEdit(order!, row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                <td className="border-2 border-slate-900 p-0 align-top relative">
-                  <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'itemName', e.target.value) : handleRowEdit(order!, row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                  {isCreate && suggestionTarget?.rowId === row.id && suggestionTarget?.field === 'itemName' && suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-2xl z-50 rounded-b-lg overflow-hidden max-h-48 overflow-y-auto">
-                      {suggestions.map((item: OrderRow, sIdx: number) => (
-                        <button key={sIdx} onClick={() => selectSuggestion(row.id, item)} className="w-full text-left px-3 py-2 text-[10px] md:text-xs hover:bg-blue-50 border-b border-slate-100 last:border-0 flex flex-col">
-                          <span className="font-bold text-blue-700">{item.itemName}</span>
-                          <span className="text-[8px] md:text-[10px] text-slate-500">{item.model} | {item.dept}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td className="border-2 border-slate-900 p-0 align-top">
-                  <AutoExpandingTextarea value={row.price} dataRow={idx} dataCol={3} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'price', e.target.value) : handleRowEdit(order!, row.id, 'price', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                <td className="border-2 border-slate-900 p-0 align-top">
-                  <AutoExpandingTextarea value={row.unitPrice} dataRow={idx} dataCol={4} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'unitPrice', e.target.value) : handleRowEdit(order!, row.id, 'unitPrice', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                <td className="border-2 border-slate-900 p-0 align-top">
-                  <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={5} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'remarks', e.target.value) : handleRowEdit(order!, row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                {!isPreviewing && (
-                  <td className="border-2 border-slate-900 p-2 text-center align-middle bg-slate-50/30 no-print">
-                    {!isCreate && (order?.status === OrderSubCategory.PENDING || order?.status === OrderSubCategory.REJECTED) && !row.isDeleted && (row.model || row.itemName) && (
-                      <button onClick={() => handleRowDelete(order!, row.id)} className="text-[10px] px-2 py-1 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded font-bold shadow-sm">삭제</button>
-                    )}
-                    {row.modLog && <div className="text-[8px] md:text-[9px] text-slate-500 mt-1 leading-tight font-sans"><span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {getInitials(row.modLog.userId)}<br/>{formatAmPm(row.modLog.timestamp)}</div>}
+            {rows.map((row: OrderRow, idx: number) => {
+              const isRowEditableInLockedDoc = row.id && typeof row.id === 'string' && row.id.startsWith('NEW-') && !isFinalApproved;
+              const finalDisabled = isPreviewing || row.isDeleted || (isLocked && !isRowEditableInLockedDoc);
+
+              return (
+                <tr key={row.id} className={`${row.isDeleted ? 'bg-red-50' : ''} relative`}>
+                  <td className="border-2 border-slate-900 p-0 align-top relative">
+                    <AutoExpandingTextarea value={row.dept} dataRow={idx} dataCol={0} disabled={finalDisabled} onChange={(e: any) => isCreate ? updateRowField(row.id, 'dept', e.target.value) : handleRowEdit(order!, row.id, 'dept', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td className="border-2 border-slate-900 p-0 align-top relative">
+                    <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={1} disabled={finalDisabled} onChange={(e: any) => isCreate ? updateRowField(row.id, 'model', e.target.value) : handleRowEdit(order!, row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  </td>
+                  <td className="border-2 border-slate-900 p-0 align-top relative">
+                    <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={finalDisabled} onChange={(e: any) => isCreate ? updateRowField(row.id, 'itemName', e.target.value) : handleRowEdit(order!, row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                    {isCreate && suggestionTarget?.rowId === row.id && suggestionTarget?.field === 'itemName' && suggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-2xl z-50 rounded-b-lg overflow-hidden max-h-48 overflow-y-auto">
+                        {suggestions.map((item: OrderRow, sIdx: number) => (
+                          <button key={sIdx} onClick={() => selectSuggestion(row.id, item)} className="w-full text-left px-3 py-2 text-[10px] md:text-xs hover:bg-blue-50 border-b border-slate-100 last:border-0 flex flex-col">
+                            <span className="font-bold text-blue-700">{item.itemName}</span>
+                            <span className="text-[8px] md:text-[10px] text-slate-500">{item.model} | {item.dept}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="border-2 border-slate-900 p-0 align-top">
+                    <AutoExpandingTextarea value={row.price} dataRow={idx} dataCol={3} disabled={finalDisabled} onChange={(e: any) => isCreate ? updateRowField(row.id, 'price', e.target.value) : handleRowEdit(order!, row.id, 'price', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  </td>
+                  <td className="border-2 border-slate-900 p-0 align-top">
+                    <AutoExpandingTextarea value={row.unitPrice} dataRow={idx} dataCol={4} disabled={finalDisabled} onChange={(e: any) => isCreate ? updateRowField(row.id, 'unitPrice', e.target.value) : handleRowEdit(order!, row.id, 'unitPrice', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  </td>
+                  <td className="border-2 border-slate-900 p-0 align-top">
+                    <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={5} disabled={finalDisabled} onChange={(e: any) => isCreate ? updateRowField(row.id, 'remarks', e.target.value) : handleRowEdit(order!, row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  </td>
+                  {!isPreviewing && (
+                    <td className="border-2 border-slate-900 p-2 text-center align-middle bg-slate-50/30 no-print">
+                      {!isCreate && (order?.status === OrderSubCategory.PENDING || order?.status === OrderSubCategory.REJECTED) && !row.isDeleted && (row.model || row.itemName || (row.id && row.id.startsWith('NEW-'))) && (
+                        <button onClick={() => handleRowDelete(order!, row.id, idx)} className="text-[10px] px-2 py-1 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded font-bold shadow-sm">삭제</button>
+                      )}
+                      {row.modLog && <div className="text-[8px] md:text-[9px] text-slate-500 mt-1 leading-tight font-sans"><span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {getInitials(row.modLog.userId)}<br/>{formatAmPm(row.modLog.timestamp)}</div>}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
 
@@ -232,9 +243,9 @@ const RenderDocumentTable = React.memo(({
         {isCompleted && (
           <div className="mt-8 md:mt-12 flex flex-col md:flex-row justify-end items-end md:items-center gap-4 text-xs font-bold no-print pb-8">
             <div className="bg-slate-100 px-4 md:px-5 py-2 md:py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-              <div><span className="text-slate-400 mr-2 uppercase tracking-tighter">INITIALS:</span><span className="text-blue-600">{getInitials(order.stamps.final?.userId)}</span></div>
+              <div><span className="text-slate-400 mr-2 tracking-tighter uppercase">완료:</span><span className="text-blue-600">{getInitials(order.stamps.final?.userId)}</span></div>
               <div className="w-[1px] h-3 bg-slate-300"></div>
-              <div><span className="text-slate-400 mr-2 uppercase tracking-tighter">TIMESTAMP:</span><span className="text-slate-800 tracking-tighter">{formatAmPm(order.stamps.final?.timestamp || '')}</span></div>
+              <div><span className="text-slate-400 mr-2 tracking-tighter uppercase">완료일:</span><span className="text-slate-800 tracking-tighter">{formatAmPm(order.stamps.final?.timestamp || '')}</span></div>
             </div>
             <div className="bg-green-100 text-green-700 px-4 py-2 md:py-3 rounded-xl border border-green-200 uppercase tracking-widest text-[10px] shadow-sm">ARCHIVED</div>
           </div>
@@ -283,7 +294,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const saveOrders = (items: OrderItem[]) => {
     setOrders(items);
     localStorage.setItem('ajin_orders', JSON.stringify(items));
-    pushStateToCloud(); // Sync to Supabase
+    pushStateToCloud();
   };
 
   const handleTranslateToVietnam = async () => {
@@ -299,22 +310,44 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setOriginalOrder({...activeOrder});
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const prompt = `Translate the following order document into Vietnamese. Return ONLY a JSON object matching the input structure. 
-      CRITICAL: Do not translate any text written in English (e.g., product codes, brands, English names like 'AJIN', 'MASTER', 'U-SUN', product IDs). Keep English text exactly as it is.
-      Translate location_name ('베트남' -> 'Việt Nam', '서울' -> 'Seoul', '대천' -> 'Daecheon').
-      Translate price field which contains units (e.g., '2통' -> '2 thùng', '10개' -> '10 cái').
-      Translate fields: title, location_name, rows (dept, model, itemName, price, remarks). 
+      const prompt = `Translate the following order document into Vietnamese.
+      CRITICAL: Keep English text (product codes, names like 'AJIN', 'MASTER', brand names) exactly as they are.
+      Translate fields: title, location_name (Seoul, Daecheon, Vietnam), and the table rows (dept, model, itemName, price, remarks).
       Input: ${JSON.stringify({ 
         title: activeOrder.title, 
         location_name: (activeOrder.location === 'SEOUL' ? '서울' : activeOrder.location === 'DAECHEON' ? '대천' : '베트남'),
         rows: activeOrder.rows 
       })}`;
+
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: prompt,
-        config: { responseMimeType: "application/json" }
+        config: { 
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              location_name: { type: Type.STRING },
+              rows: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    dept: { type: Type.STRING },
+                    model: { type: Type.STRING },
+                    itemName: { type: Type.STRING },
+                    price: { type: Type.STRING },
+                    remarks: { type: Type.STRING }
+                  }
+                }
+              }
+            }
+          }
+        }
       });
-      const translatedData = JSON.parse(response.text);
+
+      const translatedData = JSON.parse(response.text.trim());
       setTranslatedLocation(translatedData.location_name);
       const updatedOrder = {
         ...activeOrder,
@@ -333,7 +366,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       alert('베트남어 번역이 완료되었습니다.');
     } catch (e) {
       console.error(e);
-      alert('번역 중 오류가 발생했습니다.');
+      alert('번역 중 오류가 발생했습니다. API 키 설정을 확인해 주세요.');
     } finally {
       setIsTranslating(false);
     }
@@ -366,7 +399,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       title: formTitle, 
       location: formLocation, 
       status: OrderSubCategory.PENDING, 
-      authorId: currentUser.initials, // 로그번호 대신 이니셜 저장
+      authorId: currentUser.initials, 
       date: formDate, 
       rows: formRows.filter(r => r.dept.trim() || r.model.trim() || r.itemName.trim() || r.price.trim()), 
       stamps: { 
@@ -418,9 +451,12 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       } else {
         const nextRowIdx = rowIdx + 1;
         if (nextRowIdx >= targetRows.length) {
-          const newRow = { id: Math.random().toString(36).substr(2, 9), dept: '', model: '', itemName: '', price: '', unitPrice: '', remarks: '' };
-          if (sub === OrderSubCategory.CREATE) setFormRows(prev => [...prev, newRow]);
-          else if (activeOrder) handleRowDelete(activeOrder, 'NEW_ROW_REQUEST');
+          if (sub === OrderSubCategory.CREATE) {
+            const newRow = { id: Math.random().toString(36).substr(2, 9), dept: '', model: '', itemName: '', price: '', unitPrice: '', remarks: '' };
+            setFormRows(prev => [...prev, newRow]);
+          } else if (activeOrder) {
+            handleRowDelete(activeOrder, 'NEW_ROW_REQUEST');
+          }
           setTimeout(() => (document.querySelector(`[data-row="${nextRowIdx}"][data-col="0"]`) as HTMLTextAreaElement)?.focus(), 50);
         } else (document.querySelector(`[data-row="${nextRowIdx}"][data-col="0"]`) as HTMLTextAreaElement)?.focus();
       }
@@ -472,21 +508,50 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const handleRowEdit = (order: OrderItem, rowId: string, field: keyof OrderRow, value: string) => {
     const updatedOrders = orders.map(o => o.id === order.id ? { ...o, rows: o.rows.map(r => r.id === rowId ? { ...r, [field]: value, modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'EDIT' as const } } : r) } : o);
     saveOrders(updatedOrders);
-    if (activeOrder?.id === order.id) setActiveOrder(updatedOrders.find(uo => uo.id === order.id) || null);
+    if (activeOrder?.id === order.id) {
+      const updatedOrder = updatedOrders.find(uo => uo.id === order.id);
+      if (updatedOrder) setActiveOrder(updatedOrder);
+    }
   };
 
-  const handleRowDelete = (order: OrderItem, rowId: string) => {
+  const handleRowDelete = (order: OrderItem, rowId: string, index?: number) => {
     const updatedOrders = orders.map(o => {
       if (o.id === order.id) {
-        let newRows = [...o.rows];
-        if (rowId !== 'NEW_ROW_REQUEST') newRows = o.rows.map(r => r.id === rowId ? { ...r, isDeleted: true, modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'DELETE' as const } } : r);
-        newRows.push({ id: Math.random().toString(36).substr(2, 9), dept: '', model: '', itemName: '', price: '', unitPrice: '', remarks: '' });
-        return { ...o, rows: newRows };
+        let updatedRows = [...o.rows];
+        const isNewRequest = rowId === 'NEW_ROW_REQUEST';
+        
+        if (!isNewRequest) {
+          updatedRows = updatedRows.map(r => 
+            r.id === rowId ? { 
+              ...r, 
+              isDeleted: true, 
+              modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'DELETE' as const } 
+            } : r
+          );
+        }
+        
+        const newRow = { 
+          id: `NEW-${Math.random().toString(36).substr(2, 9)}`, 
+          dept: '', model: '', itemName: '', price: '', unitPrice: '', remarks: '' 
+        };
+
+        if (isNewRequest) {
+          updatedRows.push(newRow);
+        } else if (typeof index === 'number') {
+          updatedRows.splice(index + 1, 0, newRow);
+        } else {
+          updatedRows.push(newRow);
+        }
+        
+        return { ...o, rows: updatedRows };
       }
       return o;
     });
     saveOrders(updatedOrders);
-    if (activeOrder?.id === order.id) setActiveOrder(updatedOrders.find(uo => uo.id === order.id) || null);
+    if (activeOrder?.id === order.id) {
+      const updatedOrder = updatedOrders.find(uo => uo.id === order.id);
+      if (updatedOrder) setActiveOrder(updatedOrder);
+    }
   };
 
   const handlePrint = () => {

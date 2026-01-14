@@ -280,45 +280,54 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
     const isAlreadyConfirmed = activeInvoice?.rows.find(r => r.id === rowId)?.qtyConfirm;
     if (isAlreadyConfirmed) return;
 
-    setInvoices(prev => {
-      const updated = prev.map(inv => {
-        if (inv.id === activeInvoice?.id) {
-          const updatedRows = inv.rows.map(row => 
-            row.id === rowId ? { 
-              ...row, 
-              qtyConfirm: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } 
-            } : row
-          ) as InvoiceRow[];
-          return { ...inv, rows: updatedRows } as InvoiceItem;
-        }
-        return inv;
-      });
-      localStorage.setItem('ajin_invoices', JSON.stringify(updated));
-      const currentActive = updated.find(i => i.id === activeInvoice?.id);
-      if (currentActive) {
-        setActiveInvoice(currentActive);
-        const activeRows = currentActive.rows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
-        const allConfirmed = activeRows.length > 0 && activeRows.every(r => !!r.qtyConfirm);
-        if (allConfirmed) {
-          const finalUpdated = updated.map(inv => inv.id === activeInvoice.id ? {
-            ...inv,
-            stamps: { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
-          } : inv) as InvoiceItem[];
-          localStorage.setItem('ajin_invoices', JSON.stringify(finalUpdated));
-          setInvoices(finalUpdated);
-
-          setModal({
-            type: 'ALERT',
-            message: '모든 수량확인이 완료되어 해당 수신처 폴더로 저장(분류)되었습니다.',
-            onConfirm: () => {
-              setModal(null);
-              setActiveInvoice(null);
+    // 수량 확인 시 팝업 노출 추가
+    setModal({
+      type: 'ADD_ROW_CONFIRM',
+      message: '수량 확인을 실행하시겠습니까? 확인 후에는 해당 행의 수정이 불가능합니다.',
+      onConfirm: () => {
+        setInvoices(prev => {
+          const updated = prev.map(inv => {
+            if (inv.id === activeInvoice?.id) {
+              const updatedRows = inv.rows.map(row => 
+                row.id === rowId ? { 
+                  ...row, 
+                  qtyConfirm: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } 
+                } : row
+              ) as InvoiceRow[];
+              return { ...inv, rows: updatedRows } as InvoiceItem;
             }
+            return inv;
           });
-        }
+          localStorage.setItem('ajin_invoices', JSON.stringify(updated));
+          const currentActive = updated.find(i => i.id === activeInvoice?.id);
+          if (currentActive) {
+            setActiveInvoice(currentActive);
+            const activeRows = currentActive.rows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
+            const allConfirmed = activeRows.length > 0 && activeRows.every(r => !!r.qtyConfirm);
+            if (allConfirmed) {
+              const finalUpdated = updated.map(inv => inv.id === activeInvoice.id ? {
+                ...inv,
+                stamps: { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
+              } : inv) as InvoiceItem[];
+              localStorage.setItem('ajin_invoices', JSON.stringify(finalUpdated));
+              setInvoices(finalUpdated);
+
+              setModal({
+                type: 'ALERT',
+                message: '모든 수량확인이 완료되어 해당 수신처 폴더로 저장(분류)되었습니다.',
+                onConfirm: () => {
+                  setModal(null);
+                  setActiveInvoice(null);
+                }
+              });
+              return finalUpdated;
+            }
+          }
+          pushStateToCloud();
+          setModal(null); // 팝업 닫기
+          return updated;
+        });
       }
-      pushStateToCloud();
-      return updated;
     });
   };
 
@@ -340,7 +349,10 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
                   modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'DELETE' as const } 
                 } : row
               ) as InvoiceRow[];
-              const newRow = { id: Math.random().toString(36).substr(2, 9), model: '', drawingNo: '', itemName: '', qty: '', qtyExtra: '', completionExtra: '', completionStatus: '', remarks: '' };
+              const newRow = { 
+                id: `NEW-${Math.random().toString(36).substr(2, 9)}`, 
+                model: '', drawingNo: '', itemName: '', qty: '', qtyExtra: '', completionExtra: '', completionStatus: '', remarks: '' 
+              };
               updatedRows.splice(index + 1, 0, newRow);
               return { ...inv, rows: updatedRows } as InvoiceItem;
             }
@@ -394,7 +406,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
     setFormDate(new Date().toLocaleDateString('ko-KR'));
     setModal(null);
     alert('송장 작성이 완료되었습니다.');
-    setView({ type: 'DASHBOARD' }); // 작성 완료 후 대시보드로 이동
+    setView({ type: 'DASHBOARD' }); 
   };
 
   const handleFileDelete = (invoiceId: string) => {
@@ -505,79 +517,85 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
               </tr>
             </thead>
             <tbody>
-              {rows.map((row, idx) => (
-                <tr key={row.id} className={row.isDeleted ? 'bg-red-50' : ''}>
-                  <td className="border border-slate-900 p-0 relative">
-                    <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={0} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} onPaste={(e: any) => handlePaste(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                  </td>
-                  <td className="border border-slate-900 p-0 relative">
-                    <AutoExpandingTextarea value={row.drawingNo} dataRow={idx} dataCol={1} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'drawingNo', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} onPaste={(e: any) => handlePaste(e, idx, 1)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                  </td>
-                  <td className="border border-slate-900 p-0 relative">
-                    <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} onPaste={(e: any) => handlePaste(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                    {suggestionTarget?.rowId === row.id && suggestions.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-xl z-50 rounded-b overflow-hidden max-h-32 overflow-y-auto">
-                        {suggestions.map((name, sIdx) => (
-                          <button key={sIdx} onClick={() => { updateRowField(row.id, 'itemName', name); setSuggestions([]); setSuggestionTarget(null); }} className="w-full text-left px-3 py-1.5 text-[9px] md:text-[10px] hover:bg-blue-50 border-b last:border-0 border-slate-100 font-bold">{name}</button>
-                        ))}
+              {rows.map((row, idx) => {
+                const isRowEditableInLockedDoc = row.id && typeof row.id === 'string' && row.id.startsWith('NEW-');
+                // 수정 요청 사항: 확인(qtyConfirm)이 완료된 행은 비활성화
+                const finalDisabled = row.isDeleted || !!row.qtyConfirm || (isReadOnly && !isRowEditableInLockedDoc);
+
+                return (
+                  <tr key={row.id} className={row.isDeleted ? 'bg-red-50' : ''}>
+                    <td className="border border-slate-900 p-0 relative">
+                      <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={0} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} onPaste={(e: any) => handlePaste(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                    </td>
+                    <td className="border border-slate-900 p-0 relative">
+                      <AutoExpandingTextarea value={row.drawingNo} dataRow={idx} dataCol={1} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'drawingNo', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} onPaste={(e: any) => handlePaste(e, idx, 1)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                    </td>
+                    <td className="border border-slate-900 p-0 relative">
+                      <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} onPaste={(e: any) => handlePaste(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                      {suggestionTarget?.rowId === row.id && suggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-xl z-50 rounded-b overflow-hidden max-h-32 overflow-y-auto">
+                          {suggestions.map((name, sIdx) => (
+                            <button key={sIdx} onClick={() => { updateRowField(row.id, 'itemName', name); setSuggestions([]); setSuggestionTarget(null); }} className="w-full text-left px-3 py-1.5 text-[9px] md:text-[10px] hover:bg-blue-50 border-b last:border-0 border-slate-100 font-bold">{name}</button>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                    <td className="border border-slate-900 p-0 relative">
+                      <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
+                        <div className="col-span-5 h-full flex items-center">
+                          <AutoExpandingTextarea value={row.qty} dataRow={idx} dataCol={3} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'qty', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} onPaste={(e: any) => handlePaste(e, idx, 3)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                        </div>
+                        <div className="col-span-2 border-l border-slate-900 h-full flex items-center">
+                           <AutoExpandingTextarea value={row.qtyExtra} dataRow={idx} dataCol={4} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'qtyExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} onPaste={(e: any) => handlePaste(e, idx, 4)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                        </div>
                       </div>
-                    )}
-                  </td>
-                  <td className="border border-slate-900 p-0 relative">
-                    <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
-                      <div className="col-span-5 h-full flex items-center">
-                        <AutoExpandingTextarea value={row.qty} dataRow={idx} dataCol={3} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'qty', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} onPaste={(e: any) => handlePaste(e, idx, 3)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                    </td>
+                    <td className="border border-slate-900 p-0 relative">
+                      <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
+                        <div className="col-span-2 h-full flex items-center">
+                          <AutoExpandingTextarea value={row.completionExtra} dataRow={idx} dataCol={5} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'completionExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} onPaste={(e: any) => handlePaste(e, idx, 5)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                        </div>
+                        <div className="col-span-5 border-l border-slate-900 h-full flex items-center">
+                           <AutoExpandingTextarea value={row.completionStatus} dataRow={idx} dataCol={6} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'completionStatus', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 6)} onPaste={(e: any) => handlePaste(e, idx, 6)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                        </div>
                       </div>
-                      <div className="col-span-2 border-l border-slate-900 h-full flex items-center">
-                         <AutoExpandingTextarea value={row.qtyExtra} dataRow={idx} dataCol={4} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'qtyExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} onPaste={(e: any) => handlePaste(e, idx, 4)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="border border-slate-900 p-0 relative">
-                    <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
-                      <div className="col-span-2 h-full flex items-center">
-                        <AutoExpandingTextarea value={row.completionExtra} dataRow={idx} dataCol={5} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'completionExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} onPaste={(e: any) => handlePaste(e, idx, 5)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                      </div>
-                      <div className="col-span-5 border-l border-slate-900 h-full flex items-center">
-                         <AutoExpandingTextarea value={row.completionStatus} dataRow={idx} dataCol={6} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'completionStatus', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 6)} onPaste={(e: any) => handlePaste(e, idx, 6)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                      </div>
-                    </div>
-                  </td>
-                  <td className={`border border-slate-900 p-1 text-center transition-colors ${row.qtyConfirm ? 'bg-blue-50/30' : ''} ${isReadOnly && !row.isDeleted ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => isReadOnly && !row.isDeleted && handleQtyConfirm(row.id)}>
-                     {row.qtyConfirm ? (
-                       <div className="flex flex-col items-center scale-90">
-                         <span className="font-bold text-blue-600 leading-tight whitespace-nowrap">{row.qtyConfirm.userId}</span>
-                         <span className="text-[7px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">{formatAmPm(row.qtyConfirm.timestamp)}</span>
-                       </div>
-                     ) : <span className="text-slate-300 text-[9px]">{isReadOnly && !row.isDeleted ? '확인' : ''}</span>}
-                  </td>
-                  <td className="border border-slate-900 p-0 relative">
-                    <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={7} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 7)} onPaste={(e: any) => handlePaste(e, idx, 7)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                  </td>
-                  <td className="border border-slate-900 p-1 text-center no-print min-w-[40px]">
-                    {isReadOnly ? (
-                      (row.model || row.itemName) && (
-                        <button 
-                          onClick={() => handleDeleteSavedRow(row.id, idx)} 
-                          disabled={row.isDeleted}
-                          className={`px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold transition-all ${row.isDeleted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
-                        >
-                          삭제
-                        </button>
-                      )
-                    ) : (
-                      sub !== InvoiceSubCategory.CREATE && (
-                        <button onClick={() => handleDeleteRow(row.id, idx)} className={`text-[8px] md:text-[9px] font-bold text-red-500 hover:underline ${row.isDeleted ? 'opacity-30 pointer-events-none' : ''}`}>삭제</button>
-                      )
-                    )}
-                    {row.modLog && (
-                      <div className="text-[7px] text-slate-400 mt-1 leading-tight font-sans">
-                        <span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {row.modLog.userId}<br/>{formatAmPm(row.modLog.timestamp)}
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className={`border border-slate-900 p-1 text-center transition-colors ${row.qtyConfirm ? 'bg-blue-50/30' : ''} ${isReadOnly && !row.isDeleted ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => isReadOnly && !row.isDeleted && handleQtyConfirm(row.id)}>
+                       {row.qtyConfirm ? (
+                         <div className="flex flex-col items-center scale-90">
+                           <span className="font-bold text-blue-600 leading-tight whitespace-nowrap">{row.qtyConfirm.userId}</span>
+                           <span className="text-[7px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">{formatAmPm(row.qtyConfirm.timestamp)}</span>
+                         </div>
+                       ) : <span className="text-slate-300 text-[9px]">{isReadOnly && !row.isDeleted ? '확인' : ''}</span>}
+                    </td>
+                    <td className="border border-slate-900 p-0 relative">
+                      <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={7} disabled={finalDisabled} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 7)} onPaste={(e: any) => handlePaste(e, idx, 7)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                    </td>
+                    <td className="border border-slate-900 p-1 text-center no-print min-w-[40px]">
+                      {isReadOnly ? (
+                        (row.model || row.itemName) && (
+                          <button 
+                            onClick={() => handleDeleteSavedRow(row.id, idx)} 
+                            disabled={row.isDeleted}
+                            className={`px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold transition-all ${row.isDeleted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
+                          >
+                            삭제
+                          </button>
+                        )
+                      ) : (
+                        sub !== InvoiceSubCategory.CREATE && (
+                          <button onClick={() => handleDeleteRow(row.id, idx)} className={`text-[8px] md:text-[9px] font-bold text-red-500 hover:underline ${row.isDeleted ? 'opacity-30 pointer-events-none' : ''}`}>삭제</button>
+                        )
+                      )}
+                      {row.modLog && (
+                        <div className="text-[7px] text-slate-400 mt-1 leading-tight font-sans">
+                          <span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {row.modLog.userId}<br/>{formatAmPm(row.modLog.timestamp)}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 
