@@ -1,8 +1,25 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// Safe environment variable access to prevent "Cannot read properties of undefined"
+const getEnvVar = (name: string): string => {
+  try {
+    // Check for Vite environment (import.meta.env)
+    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
+      return (import.meta as any).env[name] || '';
+    }
+    // Check for standard process.env (Node/Webpack/Common environment)
+    if (typeof process !== 'undefined' && process.env) {
+      return process.env[name] || '';
+    }
+  } catch (e) {
+    // Silent fail if environment access is restricted
+  }
+  return '';
+};
+
+const supabaseUrl = getEnvVar('VITE_SUPABASE_URL');
+const supabaseAnonKey = getEnvVar('VITE_SUPABASE_ANON_KEY');
 
 export const supabase = (supabaseUrl && supabaseAnonKey) 
   ? createClient(supabaseUrl, supabaseAnonKey)
@@ -13,33 +30,33 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
  */
 export const pushStateToCloud = async () => {
   if (!supabase) {
-    console.error('Supabase client is not initialized. Check your Environment Variables.');
+    console.warn('Supabase client is not initialized. Skipping cloud sync.');
     return;
   }
   
-  const dataload = {
-    accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
-    orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
-    invoices: JSON.parse(localStorage.getItem('ajin_invoices') || '[]'),
-    notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
-    updatedAt: new Date().toISOString()
-  };
+  try {
+    const dataload = {
+      accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
+      orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
+      invoices: JSON.parse(localStorage.getItem('ajin_invoices') || '[]'),
+      notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
+      updatedAt: new Date().toISOString()
+    };
 
-  // 데이터가 제대로 구성되었는지 브라우저 콘솔에서 확인하기 위함입니다.
-  console.log('Sending data to Supabase:', dataload);
+    const { error } = await supabase
+      .from('ajin-comm-backup')
+      .upsert(
+        { id: 1, dataload: dataload },
+        { onConflict: 'id' }
+      );
 
-  const { error } = await supabase
-    .from('ajin-comm-backup')
-    .upsert(
-      { id: 1, dataload: dataload },
-      { onConflict: 'id' }
-    );
-
-  if (error) {
-    // 401, 403, 406 등의 에러 원인을 정확히 출력합니다.
-    console.error('Cloud sync failed details:', error.message);
-  } else {
-    console.log('Cloud backup successfully synced.');
+    if (error) {
+      console.error('Cloud sync failed:', error.message);
+    } else {
+      console.log('Cloud backup successfully synced.');
+    }
+  } catch (err) {
+    console.error('Push error:', err);
   }
 };
 
