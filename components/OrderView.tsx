@@ -794,13 +794,13 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
           {isPreviewing ? (
             <>
               <button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">닫기</button>
-              <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">저장하기</button>
+              <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">저장 / 인쇄</button>
             </>
           ) : (
             <>
               {(activeOrder.status === OrderSubCategory.APPROVED_VIETNAM || activeOrder.location === 'VIETNAM' || sub.includes('(완료)')) && <button onClick={handleTranslateToVietnam} disabled={isTranslating} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs ${isVietnameseLabels ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>{isTranslating ? '...' : (isVietnameseLabels ? '한글' : 'VIET')}</button>}
               {activeOrder.status === OrderSubCategory.PENDING && <button onClick={() => setRejectingOrder(activeOrder)} className="flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white border border-red-200 transition-all text-[10px] md:text-xs">반송</button>}
-              <button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs">PDF 저장</button>
+              <button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs">PDF 저장 / 인쇄</button>
             </>
           )}
         </div>
