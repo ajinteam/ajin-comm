@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount } from '../types';
+import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState } from '../types';
 import { pushStateToCloud } from '../supabase';
 
 interface InvoiceViewProps {
   sub: InvoiceSubCategory;
   currentUser: UserAccount;
+  setView: (v: ViewState) => void;
 }
 
 const formatAmPm = (timeStr: string) => {
@@ -44,7 +45,7 @@ const AutoExpandingTextarea = React.memo(({
   );
 });
 
-const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
+const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) => {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<InvoiceItem | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
@@ -106,7 +107,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
       if (row.id === rowId) {
         const existingLog = row.modLog;
         const newLog = existingLog ? existingLog : { 
-          userId: currentUser.initials, // 이니셜 저장
+          userId: currentUser.initials, 
           timestamp: getCurrentAmPmTime(), 
           type: 'EDIT' as const 
         };
@@ -378,7 +379,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
       rows: validRows,
       weight: formWeight,
       boxQty: formBoxQty,
-      authorId: currentUser.initials, // 이니셜 저장
+      authorId: currentUser.initials,
       createdAt: new Date().toISOString(),
       stamps: {
         writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() }
@@ -393,6 +394,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
     setFormDate(new Date().toLocaleDateString('ko-KR'));
     setModal(null);
     alert('송장 작성이 완료되었습니다.');
+    setView({ type: 'DASHBOARD' }); // 작성 완료 후 대시보드로 이동
   };
 
   const handleFileDelete = (invoiceId: string) => {
@@ -453,7 +455,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
               )}
             </div>
             <div className="flex border-b border-slate-900 pb-1 items-center gap-2">
-              <span className="w-16 font-bold">화물발송</span>
+              <span className="w-16 font-bold whitespace-nowrap">화물발송</span>
               {isReadOnly ? <span>{cargo}</span> : (
                 <div className="flex flex-1 items-center gap-2">
                   <select 

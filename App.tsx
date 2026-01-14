@@ -20,6 +20,7 @@ const App: React.FC = () => {
   const [userAccounts, setUserAccounts] = useState<UserAccount[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   // Load from Supabase (Pull) then Local Storage
   useEffect(() => {
@@ -47,6 +48,34 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
+  // Prevent browser exit during sync
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isSyncing) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [isSyncing]);
+
+  const handleSetView = async (v: ViewState) => {
+    if (isSyncing) return;
+    
+    // Sync to cloud automatically when moving between categories
+    setIsSyncing(true);
+    try {
+      await pushStateToCloud();
+    } catch (error) {
+      console.error('Auto-sync failed:', error);
+    } finally {
+      setIsSyncing(false);
+      setView(v);
+      closeSidebar();
+    }
+  };
+
   const handleLogin = (loginId: string) => {
     const normalizedId = loginId.trim().toUpperCase();
     const found = userAccounts.find(u => u.loginId === normalizedId);
@@ -60,12 +89,13 @@ const App: React.FC = () => {
   };
 
   const handleLogout = () => {
+    if (isSyncing) return;
     setCurrentUser(null);
     setView({ type: 'DASHBOARD' });
     setIsSidebarOpen(false);
   };
 
-  const updateAccounts = (newAccounts: UserAccount[]) => {
+  const updateAccounts = async (newAccounts: UserAccount[]) => {
     const masterId = 'AJ5200';
     const masterExists = newAccounts.some(u => u.loginId === masterId);
     let finalAccounts = [...newAccounts];
@@ -77,7 +107,10 @@ const App: React.FC = () => {
     
     setUserAccounts(finalAccounts);
     localStorage.setItem('ajin_accounts', JSON.stringify(finalAccounts));
-    pushStateToCloud(); // Sync to Supabase
+    
+    setIsSyncing(true);
+    await pushStateToCloud(); // Sync to Supabase
+    setIsSyncing(false);
   };
 
   const closeSidebar = () => setIsSidebarOpen(false);
@@ -95,9 +128,23 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      {/* Sync Overlay */}
+      {isSyncing && (
+        <div className="fixed inset-0 bg-white/40 backdrop-blur-[1px] z-[9999] flex flex-col items-center justify-center cursor-wait">
+          <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-pulse">
+            <svg className="animate-spin h-5 w-5 text-blue-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span className="font-bold text-sm tracking-tight">클라우드 동기화 중...</span>
+          </div>
+          <p className="mt-4 text-slate-500 text-xs font-medium">동기화 중에는 종료할 수 없습니다.</p>
+        </div>
+      )}
+
       <Sidebar 
         currentView={view} 
-        setView={(v) => { setView(v); closeSidebar(); }} 
+        setView={handleSetView} 
         user={currentUser} 
         isOpen={isSidebarOpen}
         onClose={closeSidebar}
@@ -109,35 +156,36 @@ const App: React.FC = () => {
           isMaster={isMaster}
           onLogout={handleLogout} 
           onSettings={() => {
-            if (isMaster) setView({ type: 'SETTINGS' });
+            if (isMaster) handleSetView({ type: 'SETTINGS' });
             else alert('설정 권한이 없습니다.');
-            closeSidebar();
           }}
-          onHome={() => { setView({ type: 'DASHBOARD' }); closeSidebar(); }}
+          onHome={() => { handleSetView({ type: 'DASHBOARD' }); }}
           onToggleSidebar={toggleSidebar}
+          isSyncing={isSyncing}
         />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={setView} />}
+          {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} />}
           {view.type === 'ORDER' && (
             <OrderView 
               sub={view.sub} 
               currentUser={currentUser}
               userAccounts={userAccounts}
-              setView={setView}
+              setView={handleSetView}
             />
           )}
           {view.type === 'INVOICE' && (
             <InvoiceView 
               sub={view.sub} 
               currentUser={currentUser} 
+              setView={handleSetView}
             />
           )}
           {view.type === 'SETTINGS' && isMaster && (
             <SettingsView 
               accounts={userAccounts} 
               onUpdate={updateAccounts}
-              setView={setView}
+              setView={handleSetView}
             />
           )}
         </main>

@@ -8,15 +8,17 @@ interface HeaderProps {
   onSettings: () => void;
   onHome: () => void;
   onToggleSidebar: () => void;
+  isSyncing?: boolean;
 }
 
-const Header: React.FC<HeaderProps> = ({ userName, isMaster, onLogout, onSettings, onHome, onToggleSidebar }) => {
+const Header: React.FC<HeaderProps> = ({ userName, isMaster, onLogout, onSettings, onHome, onToggleSidebar, isSyncing }) => {
   return (
     <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm shrink-0">
       <div className="flex items-center gap-2 md:gap-4">
         <button 
           onClick={onToggleSidebar}
-          className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+          disabled={isSyncing}
+          className="md:hidden p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors disabled:opacity-30"
           aria-label="Menu"
         >
           <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -25,7 +27,8 @@ const Header: React.FC<HeaderProps> = ({ userName, isMaster, onLogout, onSetting
         </button>
         <button 
           onClick={onHome}
-          className="font-bold text-slate-900 md:text-lg"
+          disabled={isSyncing}
+          className="font-bold text-slate-900 md:text-lg disabled:opacity-50"
         >
           ERP
         </button>
@@ -43,13 +46,15 @@ const Header: React.FC<HeaderProps> = ({ userName, isMaster, onLogout, onSetting
       <div className="flex items-center gap-2 md:gap-4">
         <button 
           onClick={onSettings}
-          className="text-xs md:text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors"
+          disabled={isSyncing}
+          className="text-xs md:text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors disabled:opacity-30 disabled:pointer-events-none"
         >
           설정
         </button>
         <button 
           onClick={onLogout}
-          className="text-xs md:text-sm font-medium px-3 md:px-4 py-1.5 md:py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-red-600 transition-all"
+          disabled={isSyncing}
+          className="text-xs md:text-sm font-medium px-3 md:px-4 py-1.5 md:py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200 hover:text-red-600 transition-all disabled:opacity-50 disabled:pointer-events-none"
         >
           나가기
         </button>

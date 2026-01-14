@@ -1,8 +1,9 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+const env = typeof process !== 'undefined' ? process.env : (window as any).process?.env || {};
+const supabaseUrl = env.SUPABASE_URL || '';
+const supabaseAnonKey = env.SUPABASE_ANON_KEY || '';
 
 export const supabase = (supabaseUrl && supabaseAnonKey) 
   ? createClient(supabaseUrl, supabaseAnonKey)
@@ -12,13 +13,11 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
  * 모든 LocalStorage 데이터를 Supabase의 단일 로우(id: 1)에 통합 저장합니다.
  */
 export const pushStateToCloud = async () => {
-  // 1. 클라이언트 초기화 확인
   if (!supabase) {
-    console.error('Supabase 연결에 실패했습니다. 환경 변수(VITE_...)를 확인하세요.');
+    console.error('Supabase client is not initialized. Check your Environment Variables.');
     return;
   }
   
-  // 2. 저장할 데이터 구성
   const dataload = {
     accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
     orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
@@ -27,21 +26,21 @@ export const pushStateToCloud = async () => {
     updatedAt: new Date().toISOString()
   };
 
-  console.log('데이터 전송 시도:', dataload);
+  // 데이터가 제대로 구성되었는지 브라우저 콘솔에서 확인하기 위함입니다.
+  console.log('Sending data to Supabase:', dataload);
 
-  // 3. Supabase에 데이터 업서트(저장/수정)
   const { error } = await supabase
     .from('ajin-comm-backup')
     .upsert(
-      { id: 1, dataload: dataload }, 
+      { id: 1, dataload: dataload },
       { onConflict: 'id' }
     );
 
-  // 4. 결과 확인 및 상세 에러 출력
   if (error) {
-    console.error('클라우드 저장 실패 원인:', error.message); // 여기에 401, 403 등의 진짜 이유가 찍힙니다.
+    // 401, 403, 406 등의 에러 원인을 정확히 출력합니다.
+    console.error('Cloud sync failed details:', error.message);
   } else {
-    console.log('클라우드 동기화 성공!');
+    console.log('Cloud backup successfully synced.');
   }
 };
 

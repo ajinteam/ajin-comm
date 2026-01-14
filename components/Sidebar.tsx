@@ -74,11 +74,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
           </button>
         </div>
 
-        <nav className="flex-1 px-4 space-y-8 mt-4 overflow-y-auto pb-8">
-          {/* Orders Category */}
+        <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto pb-8">
+          {/* Order Management Group */}
           <div>
             <h2 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              {MainCategory.ORDER}
+              주문 관리
             </h2>
             <div className="space-y-1">
               {renderSubMenu(OrderSubCategory.CREATE, 'ORDER')}
@@ -86,8 +86,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
               {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
               
-              {/* Hierarchical sub-folders for archiving */}
-              <div className="mt-1 space-y-1">
+              <div className="pt-2">
+                <p className="px-2 text-[10px] text-slate-600 font-bold mb-1">완료 보관함</p>
                 {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
                 {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
                 {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
@@ -95,15 +95,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             </div>
           </div>
 
-          {/* Invoice Category */}
+          {/* Invoice Management Group */}
           <div>
             <h2 className="px-2 text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
-              {MainCategory.INVOICE}
+              송장 관리
             </h2>
             <div className="space-y-1">
               {renderSubMenu(InvoiceSubCategory.CREATE, 'INVOICE')}
               {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
-              <div className="mt-1 space-y-1">
+              
+              <div className="pt-2">
+                <p className="px-2 text-[10px] text-slate-600 font-bold mb-1">지역별 송장</p>
                 {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
                 {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
                 {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
