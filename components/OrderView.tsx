@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -274,6 +273,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
+  
+  // 페이지네이션 상태 추가
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const isMaster = currentUser.loginId === 'AJ5200';
   const [formLocation, setFormLocation] = useState<'SEOUL' | 'DAECHEON' | 'VIETNAM'>('SEOUL');
@@ -289,6 +292,11 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const saved = localStorage.getItem('ajin_orders');
     if (saved) setOrders(JSON.parse(saved));
   }, []);
+  
+  // 카테고리나 검색어 변경 시 1페이지로 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sub, searchTerm]);
 
   const saveOrders = (items: OrderItem[]) => {
     setOrders(items);
@@ -579,25 +587,29 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const isSearchableFolder = sub.includes('(완료)');
     const filtered = orders.filter(o => o.status === sub);
     
-    // 2. 파일은 수정날짜(createdAt) 순으로 10개씩 순차적으로 보관되게 (정렬 및 슬라이스 추가)
-    const sortedAndLimited = [...filtered]
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-      .slice(0, 10);
+    // 수정날짜(createdAt) 내림차순 정렬 (최신순)
+    const sortedAll = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    const searchFiltered = sortedAndLimited.filter(o => {
+    // 검색 필터링
+    const searchFiltered = sortedAll.filter(o => {
       if (!searchTerm.trim()) return true;
       const lowerSearch = searchTerm.toLowerCase();
       const hasMatchInRows = o.rows.some(r => r.model.toLowerCase().includes(lowerSearch) || r.itemName.toLowerCase().includes(lowerSearch));
       return o.title.toLowerCase().includes(lowerSearch) || hasMatchInRows;
     });
+    
+    // 페이지네이션 적용
+    const totalItems = searchFiltered.length;
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    const paginatedItems = searchFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
-      <div className="space-y-4 md:space-y-6 text-left">
+      <div className="space-y-4 md:space-y-6 text-left pb-12">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-2xl md:text-3xl font-black text-slate-900">{sub}</h2>
             <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
-              <p className="text-slate-500 text-xs md:text-sm">총 {searchFiltered.length}건{searchTerm && ' (검색됨)'}</p>
+              <p className="text-slate-500 text-xs md:text-sm">총 {totalItems}건{searchTerm && ' (검색됨)'}</p>
               <div className="hidden md:block h-4 w-[1px] bg-slate-300"></div>
               <div className="flex bg-slate-200 p-1 rounded-lg">
                 <button 
@@ -625,10 +637,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
         {viewMode === 'ICON' ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
-            {searchFiltered.length === 0 ? (
+            {paginatedItems.length === 0 ? (
               <div className="col-span-full py-16 md:py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-sm md:text-lg">{searchTerm ? '검색 결과가 없습니다.' : '폴더가 비어 있습니다.'}</div>
             ) : (
-              searchFiltered.map(o => {
+              paginatedItems.map(o => {
                 const colors = getLocationColor(o.location);
                 return (
                   <div key={o.id} className="relative group">
@@ -674,12 +686,12 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {searchFiltered.length === 0 ? (
+                {paginatedItems.length === 0 ? (
                   <tr>
                     <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium italic">데이터가 없습니다.</td>
                   </tr>
                 ) : (
-                  searchFiltered.map(o => {
+                  paginatedItems.map(o => {
                     const colors = getLocationColor(o.location);
                     return (
                       <tr key={o.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setActiveOrder(o)}>
@@ -719,8 +731,39 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             </table>
           </div>
         )}
+        
+        {/* 페이지네이션 컨트롤 */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-4 mt-8 no-print pb-10">
+            <button 
+              onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              이전
+            </button>
+            <div className="flex gap-2">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-xl font-black transition-all ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
+            >
+              다음
+            </button>
+          </div>
+        )}
 
-        {deletingFileId && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl"><h3 className="text-xl font-black text-slate-900 mb-4 text-center">파일 영구 삭제</h3><p className="text-slate-600 mb-8 leading-relaxed text-center text-sm">삭제된 데이터는 복구할 수 없습니다.</p><div className="flex gap-4"><button onClick={() => setDeletingFileId(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleFileDelete(deletingFileId)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">삭제</button></div></div></div>}
+        {deletingFileId && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl"><h3 className="text-lg md:text-xl font-black text-slate-900 mb-4 text-center">파일 영구 삭제</h3><p className="text-slate-600 mb-8 leading-relaxed text-center text-sm">삭제된 데이터는 복구할 수 없습니다.</p><div className="flex gap-4"><button onClick={() => setDeletingFileId(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleFileDelete(deletingFileId)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">삭제</button></div></div></div>}
       </div>
     );
   }

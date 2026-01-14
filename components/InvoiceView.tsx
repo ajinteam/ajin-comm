@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState } from '../types';
 import { pushStateToCloud } from '../supabase';
@@ -55,6 +54,10 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
   const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
+  // 페이지네이션 상태 추가
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   const isMaster = currentUser.loginId === 'AJ5200';
 
   const [modal, setModal] = useState<{
@@ -85,6 +88,11 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
     const saved = localStorage.getItem('ajin_invoices');
     if (saved) setInvoices(JSON.parse(saved));
   }, []);
+  
+  // 카테고리나 검색어 변경 시 1페이지로 리셋
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sub, searchTerm]);
 
   const saveInvoices = (items: InvoiceItem[]) => {
     setInvoices(items);
@@ -698,17 +706,21 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
         return activeRows.every(r => !!r.qtyConfirm);
       });
 
-  // 2. 파일은 수정날짜(createdAt) 순으로 10개씩 순차적으로 보관되게 (정렬 및 슬라이스 추가)
-  const sortedAndLimited = [...filtered]
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 10);
+  // 수정날짜(createdAt) 기준 내림차순 정렬 (최신순)
+  const sortedAll = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  const searchFiltered = sortedAndLimited.filter(inv => {
+  // 검색 필터링 적용
+  const searchFiltered = sortedAll.filter(inv => {
     if (!searchTerm.trim()) return true;
     const lower = searchTerm.toLowerCase();
     const hasItem = inv.rows.some(r => r.itemName.toLowerCase().includes(lower) || r.model.toLowerCase().includes(lower));
     return (inv.title && inv.title.toLowerCase().includes(lower)) || hasItem;
   });
+  
+  // 페이지네이션 적용
+  const totalItems = searchFiltered.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const paginatedItems = searchFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
   if (activeInvoice) {
     return (
@@ -743,12 +755,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 text-left">
+    <div className="space-y-4 md:space-y-6 text-left pb-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h2 className="text-2xl md:text-3xl font-black text-slate-900">{sub} 송장 관리</h2>
           <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
-            <p className="text-slate-500 text-xs md:text-sm">총 {searchFiltered.length}건의 송장</p>
+            <p className="text-slate-500 text-xs md:text-sm">총 {totalItems}건의 송장</p>
             <div className="hidden md:block h-4 w-[1px] bg-slate-300"></div>
             <div className="flex bg-slate-200 p-1 rounded-lg">
               <button 
@@ -782,12 +794,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
 
       {viewMode === 'ICON' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
-          {searchFiltered.length === 0 ? (
+          {paginatedItems.length === 0 ? (
             <div className="col-span-full py-16 md:py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-sm md:text-lg">
               {searchTerm ? '검색 결과가 없습니다.' : '보관된 송장이 없습니다.'}
             </div>
           ) : (
-            searchFiltered.map(inv => {
+            paginatedItems.map(inv => {
               const colors = getLocationColor(inv.recipient);
               return (
                 <div key={inv.id} className="relative group">
@@ -840,12 +852,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {searchFiltered.length === 0 ? (
+              {paginatedItems.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium italic">송장이 없습니다.</td>
                 </tr>
               ) : (
-                searchFiltered.map(inv => {
+                paginatedItems.map(inv => {
                   const colors = getLocationColor(inv.recipient);
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setActiveInvoice(inv)}>
@@ -888,6 +900,37 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView }) 
               )}
             </tbody>
           </table>
+        </div>
+      )}
+      
+      {/* 페이지네이션 컨트롤 */}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-4 mt-8 no-print pb-10">
+          <button 
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))} 
+            disabled={currentPage === 1}
+            className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            이전
+          </button>
+          <div className="flex gap-2">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`w-10 h-10 rounded-xl font-black transition-all ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}
+              >
+                {pageNum}
+              </button>
+            ))}
+          </div>
+          <button 
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} 
+            disabled={currentPage === totalPages}
+            className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"
+          >
+            다음
+          </button>
         </div>
       )}
 
