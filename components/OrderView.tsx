@@ -309,7 +309,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setIsTranslating(true);
     setOriginalOrder({...activeOrder});
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const ai = new GoogleGenAI({ apiKey: import.meta.env.VITE_GEMINI_API_KEY });
       const prompt = `Translate the following order document into Vietnamese.
       CRITICAL: Keep English text (product codes, names like 'AJIN', 'MASTER', brand names) exactly as they are.
       Translate fields: title, location_name (Seoul, Daecheon, Vietnam), and the table rows (dept, model, itemName, price, remarks).
