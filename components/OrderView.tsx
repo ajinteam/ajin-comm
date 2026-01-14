@@ -52,7 +52,6 @@ const RenderDocumentTable = React.memo(({
   const stamps = isCreate ? {} : order?.stamps;
   const getInitials = (userId?: string) => {
     if (!userId) return '';
-    // 이미 이니셜이 저장되어 있는 경우 그대로 반환, 기존 데이터(Login ID)인 경우 계정 정보를 찾아 이니셜 반환
     return userAccounts.find((u: UserAccount) => u.loginId === userId)?.initials || userId;
   };
   const isCompleted = !isCreate && order?.stamps?.final;
@@ -100,144 +99,146 @@ const RenderDocumentTable = React.memo(({
   const displayLocation = isVietnameseLabels && translatedLocation ? translatedLocation : (location === 'SEOUL' ? '서울' : location === 'DAECHEON' ? '대천' : '베트남');
 
   return (
-    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-12 min-h-[297mm] w-full max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left">
-      <div className="flex justify-between items-start mb-10">
-        <div className="text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
-        <table className="border-collapse border-2 border-slate-900 text-center text-[10px] w-auto min-w-[300px]">
-          <tbody>
+    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
+      <div className="min-w-[700px]">
+        <div className="flex justify-between items-start mb-10">
+          <div className="text-3xl md:text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
+          <table className="border-collapse border-2 border-slate-900 text-center text-[10px] w-auto min-w-[300px]">
+            <tbody>
+              <tr>
+                <td rowSpan={2} className="border-2 border-slate-900 px-2 py-2 bg-slate-50 font-bold w-8 text-[11px] leading-tight whitespace-pre-wrap">{labels.approval}</td>
+                <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.writer}</td>
+                {showManager && <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.manager}</td>}
+                <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.head}</td>
+                {showDirector && <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.director}</td>}
+              </tr>
+              <tr className="h-16">
+                <td className="border-2 border-slate-900 p-1 align-middle">
+                  {stamps?.writer && <div className="flex flex-col items-center"><span className="font-bold text-blue-700 text-[11px]">{getInitials(stamps.writer.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.writer.timestamp)}</span></div>}
+                </td>
+                {showManager && (
+                  <td className={`border-2 border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.manager && stamps?.head && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.manager && stamps?.head && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'manager')}>
+                    {stamps?.manager ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.manager.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.manager.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.head) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                  </td>
+                )}
+                <td className={`border-2 border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.head && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.head && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'head')}>
+                  {stamps?.head ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.head.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.head.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                </td>
+                {showDirector && (
+                  <td className={`border-2 border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.director && stamps?.manager && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.director && stamps?.manager && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'director')}>
+                    {stamps?.director ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.director.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.director.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.manager) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                  </td>
+                )}
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div className="space-y-1 mb-4 text-base max-w-[100%] md:max-w-[50%]">
+          <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
+            <span className="w-24 font-bold">{labels.date}</span>
+            {isCreate ? <input type="text" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none font-medium border-b border-transparent hover:border-slate-200 focus:border-blue-500 transition-all py-0.5"/> : <span>{order?.date}</span>}
+          </div>
+          <div className="flex border-b-2 border-slate-900 pb-0.5 items-center gap-4 md:gap-8 h-8">
+            <span className="w-24 font-bold">{labels.location}</span>
+            {isCreate ? (
+              <div className="flex gap-2 md:gap-4 overflow-x-auto">
+                <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'SEOUL'} onChange={() => setFormLocation('SEOUL')} />서울</label>
+                <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'DAECHEON'} onChange={() => setFormLocation('DAECHEON')} />대천</label>
+                <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'VIETNAM'} onChange={() => setFormLocation('VIETNAM')} />베트남</label>
+              </div>
+            ) : <span className="font-bold text-blue-800">{displayLocation}</span>}
+          </div>
+          <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
+            <span className="w-24 font-bold">{labels.title}</span>
+            {isCreate ? <AutoExpandingTextarea className="flex-1 px-2 py-0.5 rounded bg-slate-50 font-bold" value={formTitle} onChange={(e: any) => setFormTitle(e.target.value)} placeholder="문서 제목 입력"/> : <span className="font-bold underline flex-1 whitespace-pre-wrap">{order?.title}</span>}
+          </div>
+        </div>
+
+        <table className="w-full border-collapse border-2 border-slate-900 text-xs md:text-sm">
+          <thead className="bg-slate-100">
             <tr>
-              <td rowSpan={2} className="border-2 border-slate-900 px-2 py-2 bg-slate-50 font-bold w-8 text-[11px] leading-tight whitespace-pre-wrap">{labels.approval}</td>
-              <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.writer}</td>
-              {showManager && <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.manager}</td>}
-              <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.head}</td>
-              {showDirector && <td className="border-2 border-slate-900 px-4 py-1 bg-slate-50 w-24 font-bold">{labels.director}</td>}
+              <th className="border-2 border-slate-900 p-1 md:p-2 w-[10%]">{labels.dept}</th>
+              <th className="border-2 border-slate-900 p-1 md:p-2 w-[15%]">{labels.model}</th>
+              <th className="border-2 border-slate-900 p-1 md:p-2 flex-1">{labels.itemName}</th>
+              <th className="border-2 border-slate-900 p-1 md:p-2 w-16">{labels.qty}</th>
+              <th className="border-2 border-slate-900 p-1 md:p-2 w-20">{labels.unitPrice}</th>
+              <th className="border-2 border-slate-900 p-1 md:p-2 w-[18%]">{labels.remarks}</th>
+              {!isPreviewing && <th className="border-2 border-slate-900 p-1 md:p-2 w-20 md:w-24 no-print">{labels.manage}</th>}
             </tr>
-            <tr className="h-16">
-              <td className="border-2 border-slate-900 p-1 align-middle">
-                {stamps?.writer && <div className="flex flex-col items-center"><span className="font-bold text-blue-700 text-[11px]">{getInitials(stamps.writer.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.writer.timestamp)}</span></div>}
-              </td>
-              {showManager && (
-                <td className={`border-2 border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.manager && stamps?.head && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.manager && stamps?.head && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'manager')}>
-                  {stamps?.manager ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.manager.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.manager.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.head) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+          </thead>
+          <tbody>
+            {rows.map((row: OrderRow, idx: number) => (
+              <tr key={row.id} className={`${row.isDeleted ? 'bg-red-50' : ''} relative`}>
+                <td className="border-2 border-slate-900 p-0 align-top relative">
+                  <AutoExpandingTextarea value={row.dept} dataRow={idx} dataCol={0} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'dept', e.target.value) : handleRowEdit(order!, row.id, 'dept', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
                 </td>
-              )}
-              <td className={`border-2 border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.head && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.head && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'head')}>
-                {stamps?.head ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.head.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.head.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING) ? <span className="text-[9px] text-slate-400">승인</span> : null}
-              </td>
-              {showDirector && (
-                <td className={`border-2 border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.director && stamps?.manager && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.director && stamps?.manager && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'director')}>
-                  {stamps?.director ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.director.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.director.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.manager) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                <td className="border-2 border-slate-900 p-0 align-top relative">
+                  <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={1} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'model', e.target.value) : handleRowEdit(order!, row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
                 </td>
-              )}
-            </tr>
+                <td className="border-2 border-slate-900 p-0 align-top relative">
+                  <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'itemName', e.target.value) : handleRowEdit(order!, row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  {isCreate && suggestionTarget?.rowId === row.id && suggestionTarget?.field === 'itemName' && suggestions.length > 0 && (
+                    <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-2xl z-50 rounded-b-lg overflow-hidden max-h-48 overflow-y-auto">
+                      {suggestions.map((item: OrderRow, sIdx: number) => (
+                        <button key={sIdx} onClick={() => selectSuggestion(row.id, item)} className="w-full text-left px-3 py-2 text-[10px] md:text-xs hover:bg-blue-50 border-b border-slate-100 last:border-0 flex flex-col">
+                          <span className="font-bold text-blue-700">{item.itemName}</span>
+                          <span className="text-[8px] md:text-[10px] text-slate-500">{item.model} | {item.dept}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td className="border-2 border-slate-900 p-0 align-top">
+                  <AutoExpandingTextarea value={row.price} dataRow={idx} dataCol={3} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'price', e.target.value) : handleRowEdit(order!, row.id, 'price', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                </td>
+                <td className="border-2 border-slate-900 p-0 align-top">
+                  <AutoExpandingTextarea value={row.unitPrice} dataRow={idx} dataCol={4} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'unitPrice', e.target.value) : handleRowEdit(order!, row.id, 'unitPrice', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                </td>
+                <td className="border-2 border-slate-900 p-0 align-top">
+                  <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={5} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'remarks', e.target.value) : handleRowEdit(order!, row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                </td>
+                {!isPreviewing && (
+                  <td className="border-2 border-slate-900 p-2 text-center align-middle bg-slate-50/30 no-print">
+                    {!isCreate && (order?.status === OrderSubCategory.PENDING || order?.status === OrderSubCategory.REJECTED) && !row.isDeleted && (row.model || row.itemName) && (
+                      <button onClick={() => handleRowDelete(order!, row.id)} className="text-[10px] px-2 py-1 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded font-bold shadow-sm">삭제</button>
+                    )}
+                    {row.modLog && <div className="text-[8px] md:text-[9px] text-slate-500 mt-1 leading-tight font-sans"><span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {getInitials(row.modLog.userId)}<br/>{formatAmPm(row.modLog.timestamp)}</div>}
+                  </td>
+                )}
+              </tr>
+            ))}
           </tbody>
         </table>
-      </div>
 
-      <div className="space-y-1 mb-4 text-base max-w-[50%]">
-        <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
-          <span className="w-24 font-bold">{labels.date}</span>
-          {isCreate ? <input type="text" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none font-medium border-b border-transparent hover:border-slate-200 focus:border-blue-500 transition-all py-0.5"/> : <span>{order?.date}</span>}
+        <div className="mt-4 flex justify-end px-2 text-[10px] md:text-[11px] font-bold text-black tracking-widest uppercase">
+          <span>AJIN PRE / AJIN VINA</span>
         </div>
-        <div className="flex border-b-2 border-slate-900 pb-0.5 items-center gap-8 h-8">
-          <span className="w-24 font-bold">{labels.location}</span>
-          {isCreate ? (
-            <div className="flex gap-4">
-              <label className="flex items-center gap-1.5 cursor-pointer text-sm"><input type="radio" className="w-4 h-4" checked={formLocation === 'SEOUL'} onChange={() => setFormLocation('SEOUL')} />서울</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-sm"><input type="radio" className="w-4 h-4" checked={formLocation === 'DAECHEON'} onChange={() => setFormLocation('DAECHEON')} />대천</label>
-              <label className="flex items-center gap-1.5 cursor-pointer text-sm"><input type="radio" className="w-4 h-4" checked={formLocation === 'VIETNAM'} onChange={() => setFormLocation('VIETNAM')} />베트남</label>
-            </div>
-          ) : <span className="font-bold text-blue-800">{displayLocation}</span>}
-        </div>
-        <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
-          <span className="w-24 font-bold">{labels.title}</span>
-          {isCreate ? <AutoExpandingTextarea className="flex-1 px-2 py-0.5 rounded bg-slate-50 font-bold" value={formTitle} onChange={(e: any) => setFormTitle(e.target.value)} placeholder="문서 제목 입력"/> : <span className="font-bold underline flex-1 whitespace-pre-wrap">{order?.title}</span>}
-        </div>
-      </div>
 
-      <table className="w-full border-collapse border-2 border-slate-900 text-sm">
-        <thead className="bg-slate-100">
-          <tr>
-            <th className="border-2 border-slate-900 p-2 w-[10%]">{labels.dept}</th>
-            <th className="border-2 border-slate-900 p-2 w-[15%]">{labels.model}</th>
-            <th className="border-2 border-slate-900 p-2 flex-1">{labels.itemName}</th>
-            <th className="border-2 border-slate-900 p-2 w-16">{labels.qty}</th>
-            <th className="border-2 border-slate-900 p-2 w-20">{labels.unitPrice}</th>
-            <th className="border-2 border-slate-900 p-2 w-[18%]">{labels.remarks}</th>
-            {!isPreviewing && <th className="border-2 border-slate-900 p-2 w-24 no-print">{labels.manage}</th>}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row: OrderRow, idx: number) => (
-            <tr key={row.id} className={`${row.isDeleted ? 'bg-red-50' : ''} relative`}>
-              <td className="border-2 border-slate-900 p-0 align-top relative">
-                <AutoExpandingTextarea value={row.dept} dataRow={idx} dataCol={0} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'dept', e.target.value) : handleRowEdit(order!, row.id, 'dept', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-              </td>
-              <td className="border-2 border-slate-900 p-0 align-top relative">
-                <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={1} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'model', e.target.value) : handleRowEdit(order!, row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-              </td>
-              <td className="border-2 border-slate-900 p-0 align-top relative">
-                <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'itemName', e.target.value) : handleRowEdit(order!, row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                {isCreate && suggestionTarget?.rowId === row.id && suggestionTarget?.field === 'itemName' && suggestions.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-2xl z-50 rounded-b-lg overflow-hidden">
-                    {suggestions.map((item: OrderRow, sIdx: number) => (
-                      <button key={sIdx} onClick={() => selectSuggestion(row.id, item)} className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-slate-100 last:border-0 flex flex-col">
-                        <span className="font-bold text-blue-700">{item.itemName}</span>
-                        <span className="text-[10px] text-slate-500">{item.model} | {item.dept}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </td>
-              <td className="border-2 border-slate-900 p-0 align-top">
-                <AutoExpandingTextarea value={row.price} dataRow={idx} dataCol={3} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'price', e.target.value) : handleRowEdit(order!, row.id, 'price', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-              </td>
-              <td className="border-2 border-slate-900 p-0 align-top">
-                <AutoExpandingTextarea value={row.unitPrice} dataRow={idx} dataCol={4} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'unitPrice', e.target.value) : handleRowEdit(order!, row.id, 'unitPrice', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-              </td>
-              <td className="border-2 border-slate-900 p-0 align-top">
-                <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={5} disabled={isPreviewing || row.isDeleted || isLocked} onChange={(e: any) => isCreate ? updateRowField(row.id, 'remarks', e.target.value) : handleRowEdit(order!, row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-              </td>
-              {!isPreviewing && (
-                <td className="border-2 border-slate-900 p-2 text-center align-middle bg-slate-50/30 no-print">
-                  {!isCreate && (order?.status === OrderSubCategory.PENDING || order?.status === OrderSubCategory.REJECTED) && !row.isDeleted && (row.model || row.itemName) && (
-                    <button onClick={() => handleRowDelete(order!, row.id)} className="text-[10px] px-2 py-1 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded font-bold shadow-sm">삭제</button>
-                  )}
-                  {row.modLog && <div className="text-[9px] text-slate-500 mt-1 leading-tight font-sans"><span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {getInitials(row.modLog.userId)}<br/>{formatAmPm(row.modLog.timestamp)}</div>}
-                </td>
-              )}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      <div className="mt-4 flex justify-end px-2 text-[11px] font-bold text-black tracking-widest uppercase">
-        <span>AJIN PRE / AJIN VINA</span>
-      </div>
-
-      {isCreate && (
-        <div className="mt-12 flex justify-center no-print">
-          <button onClick={handleCreateSubmit} className="px-12 py-4 bg-slate-900 text-white rounded-lg font-black text-2xl hover:bg-blue-600 shadow-2xl transition-all active:scale-95">작 성 완 료</button>
-        </div>
-      )}
-
-      {!isCreate && order?.status === OrderSubCategory.APPROVED && !order.stamps?.final && (
-        <div className="mt-12 flex flex-col items-center justify-center no-print pt-10 border-t border-slate-100">
-          <button onClick={() => handleFinalComplete(order)} className="px-16 py-5 bg-blue-600 text-white rounded-2xl font-black text-2xl hover:bg-blue-700 shadow-2xl transition-all active:scale-95">완 료</button>
-          <p className="mt-4 text-blue-500 text-sm font-bold tracking-tight">지정된 구매처({location === 'SEOUL' ? '서울' : location === 'DAECHEON' ? '대천' : '베트남'}) 폴더로 보관됩니다.</p>
-        </div>
-      )}
-
-      {isCompleted && (
-        <div className="mt-12 flex justify-end items-center gap-4 text-xs font-bold no-print">
-          <div className="bg-slate-100 px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-            <div><span className="text-slate-400 mr-2 uppercase tracking-tighter">INITIALS:</span><span className="text-blue-600">{getInitials(order.stamps.final?.userId)}</span></div>
-            <div className="w-[1px] h-3 bg-slate-300"></div>
-            <div><span className="text-slate-400 mr-2 uppercase tracking-tighter">TIMESTAMP:</span><span className="text-slate-800 tracking-tighter">{formatAmPm(order.stamps.final?.timestamp || '')}</span></div>
+        {isCreate && (
+          <div className="mt-8 md:mt-12 flex justify-center no-print pb-8">
+            <button onClick={handleCreateSubmit} className="px-8 md:px-12 py-3 md:py-4 bg-slate-900 text-white rounded-lg font-black text-xl md:text-2xl hover:bg-blue-600 shadow-2xl transition-all active:scale-95">작 성 완 료</button>
           </div>
-          <div className="bg-green-100 text-green-700 px-4 py-3 rounded-xl border border-green-200 uppercase tracking-widest text-[10px] shadow-sm">ARCHIVED</div>
-        </div>
-      )}
+        )}
+
+        {!isCreate && order?.status === OrderSubCategory.APPROVED && !order.stamps?.final && (
+          <div className="mt-8 md:mt-12 flex flex-col items-center justify-center no-print pt-10 border-t border-slate-100 pb-8">
+            <button onClick={() => handleFinalComplete(order)} className="px-10 md:px-16 py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-black text-xl md:text-2xl hover:bg-blue-700 shadow-2xl transition-all active:scale-95">완 료</button>
+            <p className="mt-4 text-blue-500 text-xs md:text-sm font-bold tracking-tight text-center px-4">지정된 구매처({location === 'SEOUL' ? '서울' : location === 'DAECHEON' ? '대천' : '베트남'}) 폴더로 보관됩니다.</p>
+          </div>
+        )}
+
+        {isCompleted && (
+          <div className="mt-8 md:mt-12 flex flex-col md:flex-row justify-end items-end md:items-center gap-4 text-xs font-bold no-print pb-8">
+            <div className="bg-slate-100 px-4 md:px-5 py-2 md:py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
+              <div><span className="text-slate-400 mr-2 uppercase tracking-tighter">INITIALS:</span><span className="text-blue-600">{getInitials(order.stamps.final?.userId)}</span></div>
+              <div className="w-[1px] h-3 bg-slate-300"></div>
+              <div><span className="text-slate-400 mr-2 uppercase tracking-tighter">TIMESTAMP:</span><span className="text-slate-800 tracking-tighter">{formatAmPm(order.stamps.final?.timestamp || '')}</span></div>
+            </div>
+            <div className="bg-green-100 text-green-700 px-4 py-2 md:py-3 rounded-xl border border-green-200 uppercase tracking-widest text-[10px] shadow-sm">ARCHIVED</div>
+          </div>
+        )}
+      </div>
     </div>
   );
 });
@@ -261,7 +262,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const [suggestions, setSuggestions] = useState<OrderRow[]>([]);
   const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
+  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>(window.innerWidth < 768 ? 'ICON' : 'DETAIL');
 
   const isMaster = currentUser.loginId === 'AJ5200';
   const [formLocation, setFormLocation] = useState<'SEOUL' | 'DAECHEON' | 'VIETNAM'>('SEOUL');
@@ -506,7 +507,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     }
   };
 
-  if (sub === OrderSubCategory.CREATE) return <div className="py-8 bg-slate-200 min-h-screen overflow-x-auto"><RenderDocumentTable rows={formRows} isCreate={true} formLocation={formLocation} formTitle={formTitle} formDate={formDate} setFormDate={setFormDate} setFormTitle={setFormTitle} setFormLocation={setFormLocation} updateRowField={updateRowField} handleRowKeyDown={handleRowKeyDown} handleCreateSubmit={handleCreateSubmit} suggestionTarget={suggestionTarget} suggestions={suggestions} selectSuggestion={selectSuggestion} userAccounts={userAccounts} isVietnameseLabels={false}/></div>;
+  if (sub === OrderSubCategory.CREATE) return <div className="py-4 md:py-8 bg-slate-200 min-h-screen overflow-x-auto"><RenderDocumentTable rows={formRows} isCreate={true} formLocation={formLocation} formTitle={formTitle} formDate={formDate} setFormDate={setFormDate} setFormTitle={setFormTitle} setFormLocation={setFormLocation} updateRowField={updateRowField} handleRowKeyDown={handleRowKeyDown} handleCreateSubmit={handleCreateSubmit} suggestionTarget={suggestionTarget} suggestions={suggestions} selectSuggestion={selectSuggestion} userAccounts={userAccounts} isVietnameseLabels={false}/></div>;
+  
   if (!activeOrder) {
     const isSearchableFolder = sub.includes('(완료)');
     const filtered = orders.filter(o => o.status === sub);
@@ -518,73 +520,68 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     });
 
     return (
-      <div className="space-y-6 text-left">
-        <div className="flex justify-between items-center">
+      <div className="space-y-4 md:space-y-6 text-left">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <h2 className="text-3xl font-black text-slate-900">{sub}</h2>
-            <div className="flex items-center gap-4 mt-2">
-              <p className="text-slate-500 text-sm">총 {searchFiltered.length}건{searchTerm && ' (검색됨)'}</p>
-              <div className="h-4 w-[1px] bg-slate-300"></div>
+            <h2 className="text-2xl md:text-3xl font-black text-slate-900">{sub}</h2>
+            <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
+              <p className="text-slate-500 text-xs md:text-sm">총 {searchFiltered.length}건{searchTerm && ' (검색됨)'}</p>
+              <div className="hidden md:block h-4 w-[1px] bg-slate-300"></div>
               <div className="flex bg-slate-200 p-1 rounded-lg">
                 <button 
                   onClick={() => setViewMode('ICON')}
                   className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  아이콘 보기
+                  아이콘
                 </button>
                 <button 
                   onClick={() => setViewMode('DETAIL')}
                   className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'DETAIL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
                 >
-                  자세히 보기
+                  리스트
                 </button>
               </div>
             </div>
           </div>
           {isSearchableFolder && (
-            <div className="relative max-w-sm w-full">
-              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="기종 또는 품목으로 검색..." className="w-full px-5 py-3 rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"/>
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            <div className="relative w-full md:max-w-sm">
+              <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="기종/품목 검색..." className="w-full px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"/>
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
             </div>
           )}
         </div>
 
         {viewMode === 'ICON' ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
             {searchFiltered.length === 0 ? (
-              <div className="col-span-full py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-lg">{searchTerm ? '검색 결과가 없습니다.' : '폴더가 비어 있습니다.'}</div>
+              <div className="col-span-full py-16 md:py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-sm md:text-lg">{searchTerm ? '검색 결과가 없습니다.' : '폴더가 비어 있습니다.'}</div>
             ) : (
               searchFiltered.map(o => {
                 const colors = getLocationColor(o.location);
                 return (
                   <div key={o.id} className="relative group">
-                    <button onClick={() => { setActiveOrder(o); setOriginalOrder(null); setIsVietnameseLabels(false); setTranslatedLocation(''); }} className="w-full bg-white p-8 rounded-3xl shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-2xl transition-all flex flex-col items-center relative overflow-hidden">
-                      <div className={`w-16 h-20 ${colors.bg} ${colors.groupHover} rounded-lg shadow-inner mb-6 flex items-center justify-center border border-slate-100 transition-colors relative`}>
-                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${colors.text} opacity-60`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    <button onClick={() => { setActiveOrder(o); setOriginalOrder(null); setIsVietnameseLabels(false); setTranslatedLocation(''); }} className="w-full bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col items-center relative overflow-hidden">
+                      <div className={`w-12 h-16 md:w-16 md:h-20 ${colors.bg} ${colors.groupHover} rounded-lg shadow-inner mb-4 md:mb-6 flex items-center justify-center border border-slate-100 transition-colors relative`}>
+                        <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 md:h-8 md:w-8 ${colors.text} opacity-60`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                       </div>
-                      <h3 className="font-black text-slate-800 text-base truncate w-full text-center mb-1">{o.title}</h3>
-                      <p className="text-[11px] text-slate-400 uppercase font-bold tracking-widest">{o.date}</p>
+                      <h3 className="font-black text-slate-800 text-sm md:text-base truncate w-full text-center mb-1">{o.title}</h3>
+                      <p className="text-[10px] md:text-[11px] text-slate-400 uppercase font-bold tracking-widest">{o.date}</p>
 
-                      {/* 결재대기 진행 상황 표시용 큰 색상 동그라미 */}
                       {o.status === OrderSubCategory.PENDING && (
-                        <div className="flex gap-2.5 mt-5">
-                          {/* 작성 (기본 파랑) */}
-                          <div className="w-5 h-5 rounded-full bg-blue-500 shadow-md border-2 border-white" title="작성완료"></div>
-                          {/* 법인장 */}
-                          <div className={`w-5 h-5 rounded-full shadow-md border-2 border-white transition-colors ${o.stamps.head ? 'bg-green-500' : 'bg-slate-200'}`} title="법인장 결재"></div>
+                        <div className="flex gap-1.5 md:gap-2.5 mt-4 md:mt-5">
+                          <div className="w-4 h-4 md:w-5 md:h-5 rounded-full bg-blue-500 shadow-md border-2 border-white" title="작성완료"></div>
+                          <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full shadow-md border-2 border-white transition-colors ${o.stamps.head ? 'bg-green-500' : 'bg-slate-200'}`} title="법인장 결재"></div>
                           {o.location === 'SEOUL' && (
                             <>
-                              {/* 과장 */}
-                              <div className={`w-5 h-5 rounded-full shadow-md border-2 border-white transition-colors ${o.stamps.manager ? 'bg-green-500' : 'bg-slate-200'}`} title="과장 결재"></div>
-                              {/* 이사 */}
-                              <div className={`w-5 h-5 rounded-full shadow-md border-2 border-white transition-colors ${o.stamps.director ? 'bg-green-500' : 'bg-slate-200'}`} title="이사 결재"></div>
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full shadow-md border-2 border-white transition-colors ${o.stamps.manager ? 'bg-green-500' : 'bg-slate-200'}`} title="과장 결재"></div>
+                              <div className={`w-4 h-4 md:w-5 md:h-5 rounded-full shadow-md border-2 border-white transition-colors ${o.stamps.director ? 'bg-green-500' : 'bg-slate-200'}`} title="이사 결재"></div>
                             </>
                           )}
                         </div>
                       )}
                     </button>
                     {isMaster && (
-                      <button onClick={(e) => { e.stopPropagation(); setDeletingFileId(o.id); }} className="absolute -top-3 -right-3 bg-red-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                      <button onClick={(e) => { e.stopPropagation(); setDeletingFileId(o.id); }} className="absolute -top-2 -right-2 bg-red-600 text-white w-7 h-7 md:w-8 md:h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>
                     )}
                   </div>
                 );
@@ -592,46 +589,46 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             )}
           </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-            <table className="w-full text-left">
+          <div className="bg-white rounded-xl md:rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
+            <table className="w-full text-left min-w-[600px]">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">제목</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">구매처</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">작성자</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">상태</th>
-                  <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">관리</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">제목</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">구매처</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">작성자</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">상태</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">관리</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {searchFiltered.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-medium italic">데이터가 없습니다.</td>
+                    <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium italic">데이터가 없습니다.</td>
                   </tr>
                 ) : (
                   searchFiltered.map(o => {
                     const colors = getLocationColor(o.location);
                     return (
                       <tr key={o.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setActiveOrder(o)}>
-                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{o.date}</td>
-                        <td className="px-6 py-4 text-sm font-black text-slate-800">{o.title}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold border ${colors.bg} ${colors.text} border-transparent`}>
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{o.date}</td>
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-800">{o.title}</td>
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-center">
+                          <span className={`inline-block px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold border ${colors.bg} ${colors.text} border-transparent whitespace-nowrap`}>
                             {o.location === 'SEOUL' ? '서울' : o.location === 'DAECHEON' ? '대천' : '베트남'}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-center text-xs font-bold text-slate-600 uppercase tracking-tighter">
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-center text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-tighter">
                           {o.authorId}
                         </td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-black tracking-tighter uppercase ${o.status.includes('(완료)') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black tracking-tighter uppercase whitespace-nowrap ${o.status.includes('(완료)') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>
                             {o.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4 text-right">
+                        <td className="px-4 md:px-6 py-3 md:py-4 text-right">
                           <div className="flex justify-end items-center gap-3">
-                            <span className="text-[10px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">보기 →</span>
+                            <span className="text-[10px] font-bold text-blue-600 hidden md:inline opacity-0 group-hover:opacity-100 transition-opacity">보기 →</span>
                             {isMaster && (
                               <button 
                                 onClick={(e) => { e.stopPropagation(); setDeletingFileId(o.id); }} 
@@ -651,11 +648,43 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
           </div>
         )}
 
-        {deletingFileId && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"><h3 className="text-xl font-black text-slate-900 mb-4">파일 영구 삭제</h3><p className="text-slate-600 mb-8 leading-relaxed">삭제된 데이터는 복구할 수 없습니다.</p><div className="flex gap-4"><button onClick={() => setDeletingFileId(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleFileDelete(deletingFileId)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">삭제 실행</button></div></div></div>}
+        {deletingFileId && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl"><h3 className="text-xl font-black text-slate-900 mb-4 text-center">파일 영구 삭제</h3><p className="text-slate-600 mb-8 leading-relaxed text-center text-sm">삭제된 데이터는 복구할 수 없습니다.</p><div className="flex gap-4"><button onClick={() => setDeletingFileId(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleFileDelete(deletingFileId)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">삭제</button></div></div></div>}
       </div>
     );
   }
-  return <div className={`py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}><div className="max-w-[1000px] mx-auto mb-6 flex justify-between items-center px-4 no-print">{isPreviewing ? <div><h2 className="text-2xl font-black text-white">PDF 저장 미리보기</h2><p className="text-slate-400 text-sm italic">인쇄창의 대상에서 [PDF로 저장]을 선택해 보관하세요.</p></div> : <button onClick={() => setActiveOrder(null)} className="bg-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2">← 목록으로</button>}<div className="flex gap-3">{isPreviewing ? <><button onClick={() => setIsPreviewing(false)} className="bg-slate-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-600 transition-all">닫기</button><button onClick={handlePrint} className="bg-blue-500 text-white px-8 py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center gap-2 transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>내 PC에 저장하기</button></> : <>{(activeOrder.status === OrderSubCategory.APPROVED_VIETNAM || activeOrder.location === 'VIETNAM' || sub.includes('(완료)')) && <button onClick={handleTranslateToVietnam} disabled={isTranslating} className={`px-6 py-3 rounded-xl font-black shadow-lg flex items-center gap-2 transition-all ${isVietnameseLabels ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>{isTranslating ? '번역 중...' : (isVietnameseLabels ? '한글로 복구' : '베트남어 번역')}</button>}{activeOrder.status === OrderSubCategory.PENDING && <button onClick={() => setRejectingOrder(activeOrder)} className="px-6 py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white border border-red-200 transition-all">반송(Reject)</button>}<button onClick={() => setIsPreviewing(true)} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center gap-2 transition-all">PDF 저장 (미리보기)</button></>}</div></div><div className="print-area"><RenderDocumentTable rows={activeOrder.rows} isCreate={false} order={activeOrder} isPreviewing={isPreviewing} handleRowEdit={handleRowEdit} handleRowDelete={handleRowDelete} handleRowKeyDown={handleRowKeyDown} handleStampAction={handleStampAction} handleFinalComplete={handleFinalComplete} userAccounts={userAccounts} isVietnameseLabels={isVietnameseLabels} translatedLocation={translatedLocation} /></div>{rejectingOrder && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl"><h3 className="text-xl font-black text-slate-900 mb-4">결재 반송 확인</h3><div className="flex gap-4"><button onClick={() => setRejectingOrder(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleRejectAction(rejectingOrder)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">반송 처리</button></div></div></div>}</div>;
+
+  return (
+    <div className={`py-4 md:py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
+      <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
+        {isPreviewing ? (
+          <div>
+            <h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2>
+            <p className="text-slate-400 text-[10px] md:text-sm italic">인쇄창의 대상에서 [PDF로 저장]을 선택해 보관하세요.</p>
+          </div>
+        ) : (
+          <button onClick={() => setActiveOrder(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm md:text-base">← 목록으로</button>
+        )}
+        <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
+          {isPreviewing ? (
+            <>
+              <button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">닫기</button>
+              <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">저장하기</button>
+            </>
+          ) : (
+            <>
+              {(activeOrder.status === OrderSubCategory.APPROVED_VIETNAM || activeOrder.location === 'VIETNAM' || sub.includes('(완료)')) && <button onClick={handleTranslateToVietnam} disabled={isTranslating} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs ${isVietnameseLabels ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>{isTranslating ? '...' : (isVietnameseLabels ? '한글' : 'VIET')}</button>}
+              {activeOrder.status === OrderSubCategory.PENDING && <button onClick={() => setRejectingOrder(activeOrder)} className="flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white border border-red-200 transition-all text-[10px] md:text-xs">반송</button>}
+              <button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs">PDF 저장</button>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="print-area overflow-x-auto">
+        <RenderDocumentTable rows={activeOrder.rows} isCreate={false} order={activeOrder} isPreviewing={isPreviewing} handleRowEdit={handleRowEdit} handleRowDelete={handleRowDelete} handleRowKeyDown={handleRowKeyDown} handleStampAction={handleStampAction} handleFinalComplete={handleFinalComplete} userAccounts={userAccounts} isVietnameseLabels={isVietnameseLabels} translatedLocation={translatedLocation} />
+      </div>
+      {rejectingOrder && <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4"><div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl"><h3 className="text-lg md:text-xl font-black text-slate-900 mb-4 text-center">결재 반송 확인</h3><div className="flex gap-4"><button onClick={() => setRejectingOrder(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold">취소</button><button onClick={() => handleRejectAction(rejectingOrder)} className="flex-1 py-3 bg-red-600 text-white rounded-xl font-bold">반송</button></div></div></div>}
+    </div>
+  );
 };
 
 export default OrderView;

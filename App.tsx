@@ -17,6 +17,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [userAccounts, setUserAccounts] = useState<UserAccount[]>([]);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Load accounts from local storage on mount
   useEffect(() => {
@@ -54,6 +55,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     setCurrentUser(null);
     setView({ type: 'DASHBOARD' });
+    setIsSidebarOpen(false);
   };
 
   const updateAccounts = (newAccounts: UserAccount[]) => {
@@ -73,6 +75,9 @@ const App: React.FC = () => {
     });
   };
 
+  const closeSidebar = () => setIsSidebarOpen(false);
+  const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
   if (!currentUser) {
     return <AuthView onLogin={handleLogin} />;
   }
@@ -80,8 +85,14 @@ const App: React.FC = () => {
   const isMaster = currentUser.loginId === 'AJ5200';
 
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden">
-      <Sidebar currentView={view} setView={setView} user={currentUser} />
+    <div className="flex h-screen bg-slate-50 overflow-hidden relative">
+      <Sidebar 
+        currentView={view} 
+        setView={(v) => { setView(v); closeSidebar(); }} 
+        user={currentUser} 
+        isOpen={isSidebarOpen}
+        onClose={closeSidebar}
+      />
       
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header 
@@ -91,8 +102,10 @@ const App: React.FC = () => {
           onSettings={() => {
             if (isMaster) setView({ type: 'SETTINGS' });
             else alert('설정 권한이 없습니다.');
+            closeSidebar();
           }}
-          onHome={() => setView({ type: 'DASHBOARD' })}
+          onHome={() => { setView({ type: 'DASHBOARD' }); closeSidebar(); }}
+          onToggleSidebar={toggleSidebar}
         />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8">

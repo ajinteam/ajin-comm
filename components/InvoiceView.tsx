@@ -50,7 +50,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
-  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
+  const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>(window.innerWidth < 768 ? 'ICON' : 'DETAIL');
   const [deletingInvoiceId, setDeletingInvoiceId] = useState<string | null>(null);
 
   const isMaster = currentUser.loginId === 'AJ5200';
@@ -427,206 +427,207 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
     const stamps = data?.stamps;
 
     return (
-      <div className={`bg-white border border-slate-300 shadow-2xl mx-auto p-12 min-h-[297mm] w-full max-w-[210mm] text-slate-800 font-gulim relative document-print-content text-left ${isPreviewing ? 'scale-[1.0] origin-top' : ''}`}>
-        <div className="flex justify-between items-start mb-8">
-          <div className="text-5xl font-bold uppercase tracking-widest">송 장</div>
-          <div className="text-right">
-            <div className="font-bold text-xl mb-1">AJIN PRECISION MFG., INC.</div>
-            <div className="text-[10px] text-slate-500">#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea</div>
-            <div className="text-[10px] text-slate-500">TEL : 070-4121-2611</div>
+      <div className={`bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[210mm] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto ${isPreviewing ? 'scale-[1.0] origin-top' : ''}`}>
+        <div className="min-w-[650px]">
+          <div className="flex justify-between items-start mb-8">
+            <div className="text-3xl md:text-5xl font-bold uppercase tracking-widest">송 장</div>
+            <div className="text-right">
+              <div className="font-bold text-lg md:text-xl mb-1">AJIN PRECISION MFG., INC.</div>
+              <div className="text-[9px] md:text-[10px] text-slate-500">#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea</div>
+              <div className="text-[9px] md:text-[10px] text-slate-500">TEL : 070-4121-2611</div>
+            </div>
           </div>
-        </div>
 
-        <div className="grid grid-cols-2 gap-x-12 gap-y-2 mb-6 text-sm">
-          <div className="flex border-b border-slate-900 pb-1 items-center">
-            <span className="w-16 font-bold">날짜</span>
-            {isReadOnly ? <span>{date}</span> : (
-              <input type="text" value={date} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none"/>
-            )}
+          <div className="grid grid-cols-2 gap-x-8 md:gap-x-12 gap-y-2 mb-6 text-xs md:text-sm">
+            <div className="flex border-b border-slate-900 pb-1 items-center">
+              <span className="w-16 font-bold">날짜</span>
+              {isReadOnly ? <span>{date}</span> : (
+                <input type="text" value={date} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none"/>
+              )}
+            </div>
+            <div className="flex border-b border-slate-900 pb-1 items-center gap-2">
+              <span className="w-16 font-bold">화물발송</span>
+              {isReadOnly ? <span>{cargo}</span> : (
+                <div className="flex flex-1 items-center gap-2">
+                  <select 
+                    className="bg-slate-50 border rounded px-1 py-0.5 text-[10px] md:text-xs outline-none w-16 md:w-auto"
+                    onChange={(e) => setFormCargo(e.target.value)}
+                    value={cargoOptions.includes(formCargo) ? formCargo : ''}
+                  >
+                    <option value="">직접</option>
+                    {cargoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                  </select>
+                  <input 
+                    type="text" 
+                    value={formCargo} 
+                    onChange={(e) => setFormCargo(e.target.value)} 
+                    placeholder="정보 입력"
+                    className="flex-1 bg-transparent outline-none border-l border-slate-200 pl-2 min-w-0"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="flex border-b border-slate-900 pb-1 items-center">
+              <span className="w-16 font-bold">수신처</span>
+              {isReadOnly ? <span className="font-bold text-blue-700">{recipient === 'SEOUL' ? '서울' : recipient === 'DAECHEON' ? '대천' : '베트남'}</span> : (
+                <div className="flex gap-2 md:gap-4 overflow-x-auto">
+                  {['SEOUL', 'DAECHEON', 'VIETNAM'].map(loc => (
+                    <label key={loc} className="flex items-center gap-1 cursor-pointer text-[10px] md:text-xs whitespace-nowrap">
+                      <input type="radio" checked={formRecipient === loc} onChange={() => setFormRecipient(loc as any)}/>
+                      {loc === 'SEOUL' ? '서울' : loc === 'DAECHEON' ? '대천' : '베트남'}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
-          <div className="flex border-b border-slate-900 pb-1 items-center gap-2">
-            <span className="w-16 font-bold">화물발송</span>
-            {isReadOnly ? <span>{cargo}</span> : (
-              <div className="flex flex-1 items-center gap-2">
-                <select 
-                  className="bg-slate-50 border rounded px-1 py-0.5 text-xs outline-none"
-                  onChange={(e) => setFormCargo(e.target.value)}
-                  value={cargoOptions.includes(formCargo) ? formCargo : ''}
-                >
-                  <option value="">직접입력</option>
-                  {cargoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}
-                </select>
-                <input 
-                  type="text" 
-                  value={formCargo} 
-                  onChange={(e) => setFormCargo(e.target.value)} 
-                  placeholder="화물 정보 입력"
-                  className="flex-1 bg-transparent outline-none border-l border-slate-200 pl-2"
-                />
-              </div>
-            )}
-          </div>
-          <div className="flex border-b border-slate-900 pb-1 items-center">
-            <span className="w-16 font-bold">수신처</span>
-            {isReadOnly ? <span className="font-bold text-blue-700">{recipient === 'SEOUL' ? '서울' : recipient === 'DAECHEON' ? '대천' : '베트남'}</span> : (
-              <div className="flex gap-4">
-                {['SEOUL', 'DAECHEON', 'VIETNAM'].map(loc => (
-                  <label key={loc} className="flex items-center gap-1 cursor-pointer text-xs">
-                    <input type="radio" checked={formRecipient === loc} onChange={() => setFormRecipient(loc as any)}/>
-                    {loc === 'SEOUL' ? '서울' : loc === 'DAECHEON' ? '대천' : '베트남'}
-                  </label>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
 
-        <table className="w-full border-collapse border-2 border-slate-900 text-[11px]">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="border border-slate-900 p-2 w-[11%] text-center">기종</th>
-              <th className="border border-slate-900 p-2 w-[10%] text-center">도 번</th>
-              <th className="border border-slate-900 p-2 flex-1 min-w-[150px] text-center">품 목</th>
-              <th className="border border-slate-900 p-2 w-[12%] text-center">수 량</th>
-              <th className="border border-slate-900 p-2 w-[9%] text-center leading-tight">완료 여부</th>
-              <th className="border border-slate-900 p-2 w-[13%] text-center">수량확인</th>
-              <th className="border border-slate-900 p-2 w-[15%] text-center">비고(완료예정일)</th>
-              <th className="border border-slate-900 p-2 w-[8%] text-center no-print">관리</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row, idx) => (
-              <tr key={row.id} className={row.isDeleted ? 'bg-red-50' : ''}>
-                <td className="border border-slate-900 p-0 relative">
-                  <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={0} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} onPaste={(e: any) => handlePaste(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                <td className="border border-slate-900 p-0 relative">
-                  <AutoExpandingTextarea value={row.drawingNo} dataRow={idx} dataCol={1} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'drawingNo', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} onPaste={(e: any) => handlePaste(e, idx, 1)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                </td>
-                <td className="border border-slate-900 p-0 relative">
-                  <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} onPaste={(e: any) => handlePaste(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                  {suggestionTarget?.rowId === row.id && suggestions.length > 0 && (
-                    <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-xl z-50 rounded-b overflow-hidden">
-                      {suggestions.map((name, sIdx) => (
-                        <button key={sIdx} onClick={() => { updateRowField(row.id, 'itemName', name); setSuggestions([]); setSuggestionTarget(null); }} className="w-full text-left px-3 py-1.5 text-[10px] hover:bg-blue-50 border-b last:border-0 border-slate-100 font-bold">{name}</button>
-                      ))}
-                    </div>
-                  )}
-                </td>
-                <td className="border border-slate-900 p-0 relative">
-                  <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
-                    <div className="col-span-5 h-full flex items-center">
-                      <AutoExpandingTextarea value={row.qty} dataRow={idx} dataCol={3} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'qty', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} onPaste={(e: any) => handlePaste(e, idx, 3)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                    </div>
-                    <div className="col-span-2 border-l border-slate-900 h-full flex items-center">
-                       <AutoExpandingTextarea value={row.qtyExtra} dataRow={idx} dataCol={4} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'qtyExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} onPaste={(e: any) => handlePaste(e, idx, 4)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                    </div>
-                  </div>
-                </td>
-                <td className="border border-slate-900 p-0 relative">
-                  <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
-                    <div className="col-span-2 h-full flex items-center">
-                      <AutoExpandingTextarea value={row.completionExtra} dataRow={idx} dataCol={5} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'completionExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} onPaste={(e: any) => handlePaste(e, idx, 5)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                    </div>
-                    <div className="col-span-5 border-l border-slate-900 h-full flex items-center">
-                       <AutoExpandingTextarea value={row.completionStatus} dataRow={idx} dataCol={6} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'completionStatus', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 6)} onPaste={(e: any) => handlePaste(e, idx, 6)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
-                    </div>
-                  </div>
-                </td>
-                <td className={`border border-slate-900 p-1 text-center transition-colors ${row.qtyConfirm ? 'bg-blue-50/30' : ''} ${isReadOnly && !row.isDeleted ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => isReadOnly && !row.isDeleted && handleQtyConfirm(row.id)}>
-                   {row.qtyConfirm ? (
-                     <div className="flex flex-col items-center scale-90">
-                       <span className="font-bold text-blue-600 leading-tight whitespace-nowrap">{row.qtyConfirm.userId}</span>
-                       <span className="text-[7px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">{formatAmPm(row.qtyConfirm.timestamp)}</span>
-                     </div>
-                   ) : <span className="text-slate-300 text-[9px]">{isReadOnly && !row.isDeleted ? '확인' : ''}</span>}
-                </td>
-                <td className="border border-slate-900 p-0 relative">
-                  <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={7} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 7)} onPaste={(e: any) => handlePaste(e, idx, 7)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                </td>
-                <td className="border border-slate-900 p-1 text-center no-print min-w-[50px]">
-                  {isReadOnly ? (
-                    (row.model || row.itemName) && (
-                      <button 
-                        onClick={() => handleDeleteSavedRow(row.id, idx)} 
-                        disabled={row.isDeleted}
-                        className={`px-2 py-1 rounded text-[9px] font-bold transition-all ${row.isDeleted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
-                      >
-                        삭제
-                      </button>
-                    )
-                  ) : (
-                    // 송장 작성(CREATE) 시에는 삭제 버튼 표시 안 함
-                    sub !== InvoiceSubCategory.CREATE && (
-                      <button onClick={() => handleDeleteRow(row.id, idx)} className={`text-[9px] font-bold text-red-500 hover:underline ${row.isDeleted ? 'opacity-30 pointer-events-none' : ''}`}>삭제</button>
-                    )
-                  )}
-                  {row.modLog && (
-                    <div className="text-[7px] text-slate-400 mt-1 leading-tight font-sans">
-                      <span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {row.modLog.userId}<br/>{formatAmPm(row.modLog.timestamp)}
-                    </div>
-                  )}
-                </td>
+          <table className="w-full border-collapse border-2 border-slate-900 text-[10px] md:text-[11px]">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="border border-slate-900 p-1 md:p-2 w-[11%] text-center">기종</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[10%] text-center">도 번</th>
+                <th className="border border-slate-900 p-1 md:p-2 flex-1 min-w-[120px] text-center">품 목</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[12%] text-center">수 량</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[9%] text-center leading-tight">완료</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[13%] text-center">확인</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[15%] text-center">비고</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[8%] text-center no-print">관리</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div className="flex justify-end mt-4">
-          <table className="border-collapse border border-slate-900 text-[11px] w-48">
+            </thead>
             <tbody>
-              <tr>
-                <td className="border border-slate-900 p-1 bg-slate-50 font-bold w-20">무게(KG)</td>
-                <td className="border border-slate-900 p-0">
-                  {isReadOnly ? <span className="px-2">{weight}</span> : <input type="text" value={weight} onChange={(e) => setFormWeight(e.target.value)} className="w-full bg-transparent outline-none p-1 text-center"/>}
-                </td>
-              </tr>
-              <tr>
-                <td className="border border-slate-900 p-1 bg-slate-50 font-bold w-20">수량(BOX)</td>
-                <td className="border border-slate-900 p-0">
-                  {isReadOnly ? <span className="px-2">{boxQty}</span> : <input type="text" value={boxQty} onChange={(e) => setFormBoxQty(e.target.value)} className="w-full bg-transparent outline-none p-1 text-center"/>}
-                </td>
-              </tr>
+              {rows.map((row, idx) => (
+                <tr key={row.id} className={row.isDeleted ? 'bg-red-50' : ''}>
+                  <td className="border border-slate-900 p-0 relative">
+                    <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={0} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} onPaste={(e: any) => handlePaste(e, idx, 0)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  </td>
+                  <td className="border border-slate-900 p-0 relative">
+                    <AutoExpandingTextarea value={row.drawingNo} dataRow={idx} dataCol={1} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'drawingNo', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} onPaste={(e: any) => handlePaste(e, idx, 1)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                  </td>
+                  <td className="border border-slate-900 p-0 relative">
+                    <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} onPaste={(e: any) => handlePaste(e, idx, 2)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                    {suggestionTarget?.rowId === row.id && suggestions.length > 0 && (
+                      <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-xl z-50 rounded-b overflow-hidden max-h-32 overflow-y-auto">
+                        {suggestions.map((name, sIdx) => (
+                          <button key={sIdx} onClick={() => { updateRowField(row.id, 'itemName', name); setSuggestions([]); setSuggestionTarget(null); }} className="w-full text-left px-3 py-1.5 text-[9px] md:text-[10px] hover:bg-blue-50 border-b last:border-0 border-slate-100 font-bold">{name}</button>
+                        ))}
+                      </div>
+                    )}
+                  </td>
+                  <td className="border border-slate-900 p-0 relative">
+                    <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
+                      <div className="col-span-5 h-full flex items-center">
+                        <AutoExpandingTextarea value={row.qty} dataRow={idx} dataCol={3} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'qty', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} onPaste={(e: any) => handlePaste(e, idx, 3)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                      </div>
+                      <div className="col-span-2 border-l border-slate-900 h-full flex items-center">
+                         <AutoExpandingTextarea value={row.qtyExtra} dataRow={idx} dataCol={4} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'qtyExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 4)} onPaste={(e: any) => handlePaste(e, idx, 4)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="border border-slate-900 p-0 relative">
+                    <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
+                      <div className="col-span-2 h-full flex items-center">
+                        <AutoExpandingTextarea value={row.completionExtra} dataRow={idx} dataCol={5} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'completionExtra', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 5)} onPaste={(e: any) => handlePaste(e, idx, 5)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                      </div>
+                      <div className="col-span-5 border-l border-slate-900 h-full flex items-center">
+                         <AutoExpandingTextarea value={row.completionStatus} dataRow={idx} dataCol={6} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'completionStatus', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 6)} onPaste={(e: any) => handlePaste(e, idx, 6)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>
+                      </div>
+                    </div>
+                  </td>
+                  <td className={`border border-slate-900 p-1 text-center transition-colors ${row.qtyConfirm ? 'bg-blue-50/30' : ''} ${isReadOnly && !row.isDeleted ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => isReadOnly && !row.isDeleted && handleQtyConfirm(row.id)}>
+                     {row.qtyConfirm ? (
+                       <div className="flex flex-col items-center scale-90">
+                         <span className="font-bold text-blue-600 leading-tight whitespace-nowrap">{row.qtyConfirm.userId}</span>
+                         <span className="text-[7px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">{formatAmPm(row.qtyConfirm.timestamp)}</span>
+                       </div>
+                     ) : <span className="text-slate-300 text-[9px]">{isReadOnly && !row.isDeleted ? '확인' : ''}</span>}
+                  </td>
+                  <td className="border border-slate-900 p-0 relative">
+                    <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={7} disabled={row.isDeleted} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 7)} onPaste={(e: any) => handlePaste(e, idx, 7)} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
+                  </td>
+                  <td className="border border-slate-900 p-1 text-center no-print min-w-[40px]">
+                    {isReadOnly ? (
+                      (row.model || row.itemName) && (
+                        <button 
+                          onClick={() => handleDeleteSavedRow(row.id, idx)} 
+                          disabled={row.isDeleted}
+                          className={`px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold transition-all ${row.isDeleted ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-red-50 text-red-500 hover:bg-red-500 hover:text-white'}`}
+                        >
+                          삭제
+                        </button>
+                      )
+                    ) : (
+                      sub !== InvoiceSubCategory.CREATE && (
+                        <button onClick={() => handleDeleteRow(row.id, idx)} className={`text-[8px] md:text-[9px] font-bold text-red-500 hover:underline ${row.isDeleted ? 'opacity-30 pointer-events-none' : ''}`}>삭제</button>
+                      )
+                    )}
+                    {row.modLog && (
+                      <div className="text-[7px] text-slate-400 mt-1 leading-tight font-sans">
+                        <span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {row.modLog.userId}<br/>{formatAmPm(row.modLog.timestamp)}
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
-        </div>
 
-        {stamps && (
-          <div className="mt-8 flex justify-end items-center gap-6 text-[10px] no-print">
-            {stamps.writer && (
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 font-bold uppercase">작성:</span>
-                <span className="text-blue-600 font-black">{stamps.writer.userId}</span>
-                <span className="text-slate-400">{formatAmPm(stamps.writer.timestamp)}</span>
-              </div>
-            )}
-            {stamps.final && (
-              <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
-                <span className="text-slate-400 font-bold uppercase">완료:</span>
-                <span className="text-emerald-600 font-black">{stamps.final.userId}</span>
-                <span className="text-slate-400">{formatAmPm(stamps.final.timestamp)}</span>
-              </div>
-            )}
+          <div className="flex justify-end mt-4">
+            <table className="border-collapse border border-slate-900 text-[10px] md:text-[11px] w-40 md:w-48">
+              <tbody>
+                <tr>
+                  <td className="border border-slate-900 p-1 bg-slate-50 font-bold w-16 md:w-20 text-center whitespace-nowrap">무게(KG)</td>
+                  <td className="border border-slate-900 p-0">
+                    {isReadOnly ? <span className="px-2">{weight}</span> : <input type="text" value={weight} onChange={(e) => setFormWeight(e.target.value)} className="w-full bg-transparent outline-none p-1 text-center"/>}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="border border-slate-900 p-1 bg-slate-50 font-bold w-16 md:w-20 text-center whitespace-nowrap">수량(BOX)</td>
+                  <td className="border border-slate-900 p-0">
+                    {isReadOnly ? <span className="px-2">{boxQty}</span> : <input type="text" value={boxQty} onChange={(e) => setFormBoxQty(e.target.value)} className="w-full bg-transparent outline-none p-1 text-center"/>}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
           </div>
-        )}
 
-        <div className="mt-8 flex justify-end px-2 text-[10px] font-bold text-slate-400 tracking-widest uppercase italic">
-          AJIN PRE / AJIN VINA
-        </div>
+          {stamps && (
+            <div className="mt-8 flex flex-wrap justify-end items-center gap-4 md:gap-6 text-[9px] md:text-[10px] no-print">
+              {stamps.writer && (
+                <div className="flex items-center gap-2">
+                  <span className="text-slate-400 font-bold uppercase">작성:</span>
+                  <span className="text-blue-600 font-black">{stamps.writer.userId}</span>
+                  <span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.writer.timestamp)}</span>
+                </div>
+              )}
+              {stamps.final && (
+                <div className="flex items-center gap-2 border-l border-slate-200 pl-4">
+                  <span className="text-slate-400 font-bold uppercase">완료:</span>
+                  <span className="text-emerald-600 font-black">{stamps.final.userId}</span>
+                  <span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.final.timestamp)}</span>
+                </div>
+              )}
+            </div>
+          )}
 
-        {!isReadOnly && (
-          <div className="mt-12 flex justify-center no-print">
-            <button onClick={handleCreateSubmit} className="px-16 py-4 bg-slate-900 text-white rounded-xl font-black text-xl hover:bg-blue-600 shadow-2xl transition-all active:scale-95">작 성 완 료</button>
+          <div className="mt-8 flex justify-end px-2 text-[9px] md:text-[10px] font-bold text-slate-400 tracking-widest uppercase italic pb-8">
+            AJIN PRE / AJIN VINA
           </div>
-        )}
+
+          {!isReadOnly && (
+            <div className="mt-8 md:mt-12 flex justify-center no-print pb-8">
+              <button onClick={handleCreateSubmit} className="px-10 md:px-16 py-3 md:py-4 bg-slate-900 text-white rounded-xl font-black text-lg md:text-xl hover:bg-blue-600 shadow-2xl transition-all active:scale-95">작 성 완 료</button>
+            </div>
+          )}
+        </div>
 
         {modal && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
-              <h3 className={`text-xl font-black mb-4 ${modal.type === 'DELETE' || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'text-red-600' : 'text-slate-900'}`}>
+            <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+              <h3 className={`text-lg md:text-xl font-black mb-4 ${modal.type === 'DELETE' || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'text-red-600' : 'text-slate-900'} text-center`}>
                 {modal.type === 'ALERT' ? '알림' : '확인'}
               </h3>
-              <p className="text-slate-600 mb-8 font-medium leading-relaxed">{modal.message}</p>
+              <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
                 {modal.type === 'ALERT' ? (
                   <button 
@@ -661,7 +662,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
 
   if (sub === InvoiceSubCategory.CREATE) {
     return (
-      <div className="py-8 bg-slate-200 min-h-screen overflow-x-auto">
+      <div className="py-4 md:py-8 bg-slate-200 min-h-screen overflow-x-auto">
         {renderInvoiceForm(false)}
       </div>
     );
@@ -691,29 +692,26 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
 
   if (activeInvoice) {
     return (
-      <div className={`py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-        <div className="max-w-[1000px] mx-auto mb-6 flex justify-between items-center px-4 no-print">
+      <div className={`py-4 md:py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
+        <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
           {isPreviewing ? (
             <div>
-              <h2 className="text-2xl font-black text-white">PDF 저장 미리보기</h2>
-              <p className="text-slate-400 text-sm italic">인쇄창의 대상에서 [PDF로 저장]을 선택해 보관하세요.</p>
+              <h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2>
+              <p className="text-slate-400 text-[10px] md:text-sm italic">인쇄창의 대상에서 [PDF로 저장]을 선택해 보관하세요.</p>
             </div>
           ) : (
-            <button onClick={() => setActiveInvoice(null)} className="bg-white px-6 py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2">← 목록으로</button>
+            <button onClick={() => setActiveInvoice(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 목록으로</button>
           )}
-          <div className="flex gap-3">
+          <div className="flex gap-2 md:gap-3 w-full md:w-auto">
             {isPreviewing ? (
               <>
-                <button onClick={() => setIsPreviewing(false)} className="bg-slate-700 text-white px-6 py-3 rounded-xl font-bold hover:bg-slate-600 transition-all">닫기</button>
-                <button onClick={handlePrint} className="bg-blue-500 text-white px-8 py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center gap-2 transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-                  </svg>
-                  내 PC에 저장하기
+                <button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">닫기</button>
+                <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">
+                  저장하기
                 </button>
               </>
             ) : (
-              <button onClick={() => setIsPreviewing(true)} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center gap-2 transition-all">PDF 저장 / 인쇄</button>
+              <button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-sm">PDF 저장 / 인쇄</button>
             )}
           </div>
         </div>
@@ -725,47 +723,47 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
   }
 
   return (
-    <div className="space-y-6 text-left">
-      <div className="flex justify-between items-center">
+    <div className="space-y-4 md:space-y-6 text-left">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h2 className="text-3xl font-black text-slate-900">{sub} 송장 관리</h2>
-          <div className="flex items-center gap-4 mt-2">
-            <p className="text-slate-500 text-sm">총 {searchFiltered.length}건의 송장이 보관되어 있습니다.</p>
-            <div className="h-4 w-[1px] bg-slate-300"></div>
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900">{sub} 송장 관리</h2>
+          <div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2">
+            <p className="text-slate-500 text-xs md:text-sm">총 {searchFiltered.length}건의 송장</p>
+            <div className="hidden md:block h-4 w-[1px] bg-slate-300"></div>
             <div className="flex bg-slate-200 p-1 rounded-lg">
               <button 
                 onClick={() => setViewMode('ICON')}
                 className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                아이콘 보기
+                아이콘
               </button>
               <button 
                 onClick={() => setViewMode('DETAIL')}
                 className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'DETAIL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
               >
-                자세히 보기
+                리스트
               </button>
             </div>
           </div>
         </div>
-        <div className="relative max-w-sm w-full">
+        <div className="relative w-full md:max-w-sm">
           <input 
             type="text" 
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="기종 또는 품목으로 송장 찾기..."
-            className="w-full px-5 py-3 rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium"
+            placeholder="기종 또는 품목으로 찾기..."
+            className="w-full px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"
           />
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
       </div>
 
       {viewMode === 'ICON' ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
           {searchFiltered.length === 0 ? (
-            <div className="col-span-full py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-lg">
+            <div className="col-span-full py-16 md:py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-sm md:text-lg">
               {searchTerm ? '검색 결과가 없습니다.' : '보관된 송장이 없습니다.'}
             </div>
           ) : (
@@ -775,16 +773,16 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
                 <div key={inv.id} className="relative group">
                   <button 
                     onClick={() => setActiveInvoice(inv)} 
-                    className="w-full bg-white p-8 rounded-3xl shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-2xl transition-all flex flex-col items-center relative overflow-hidden text-center"
+                    className="w-full bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col items-center relative overflow-hidden text-center"
                   >
-                    <div className={`w-16 h-20 ${colors.bg} ${colors.groupHover} rounded-lg shadow-inner mb-6 flex items-center justify-center border border-slate-100 transition-colors relative`}>
-                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${colors.text} opacity-60`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <div className={`w-12 h-16 md:w-16 md:h-20 ${colors.bg} ${colors.groupHover} rounded-lg shadow-inner mb-4 md:mb-6 flex items-center justify-center border border-slate-100 transition-colors relative`}>
+                      <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 md:h-8 md:w-8 ${colors.text} opacity-60`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                       </svg>
                     </div>
-                    <h3 className="font-black text-slate-800 text-sm truncate w-full mb-1 leading-tight px-2">{inv.title || '무제 송장'}</h3>
-                    <p className="text-[10px] text-slate-400 font-bold mb-1">{inv.date}</p>
-                    <p className="text-[10px] text-blue-600 uppercase font-bold tracking-widest opacity-70">{inv.cargoInfo || '-'}</p>
+                    <h3 className="font-black text-slate-800 text-xs md:text-sm truncate w-full mb-1 leading-tight px-2">{inv.title || '무제 송장'}</h3>
+                    <p className="text-[9px] md:text-[10px] text-slate-400 font-bold mb-1">{inv.date}</p>
+                    <p className="text-[9px] md:text-[10px] text-blue-600 uppercase font-bold tracking-widest opacity-70 truncate w-full">{inv.cargoInfo || '-'}</p>
                   </button>
                   {isMaster && (
                     <button 
@@ -796,7 +794,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
                           onConfirm: () => handleFileDelete(inv.id)
                         });
                       }} 
-                      className="absolute -top-3 -right-3 bg-red-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"
+                      className="absolute -top-2 -right-2 bg-red-600 text-white w-7 h-7 md:w-8 md:h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"
                     >
                       <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -809,44 +807,44 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-          <table className="w-full text-left">
+        <div className="bg-white rounded-xl md:rounded-2xl border border-slate-200 overflow-x-auto shadow-sm">
+          <table className="w-full text-left min-w-[700px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200">
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">송장 제목</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">작성자</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">화물정보</th>
-                <th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">관리</th>
+                <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th>
+                <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">송장 제목</th>
+                <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th>
+                <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">작성자</th>
+                <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">화물정보</th>
+                <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {searchFiltered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-20 text-center text-slate-400 font-medium italic">송장이 없습니다.</td>
+                  <td colSpan={6} className="px-6 py-12 text-center text-slate-400 font-medium italic">송장이 없습니다.</td>
                 </tr>
               ) : (
                 searchFiltered.map(inv => {
                   const colors = getLocationColor(inv.recipient);
                   return (
                     <tr key={inv.id} className="hover:bg-slate-50 transition-colors cursor-pointer group" onClick={() => setActiveInvoice(inv)}>
-                      <td className="px-6 py-4 text-xs font-mono text-slate-500">{inv.date}</td>
-                      <td className="px-6 py-4 text-sm font-black text-slate-800">{inv.title || '무제 송장'}</td>
-                      <td className="px-6 py-4 text-center">
-                        <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-bold border ${colors.bg} ${colors.text} border-transparent`}>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{inv.date}</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-800">{inv.title || '무제 송장'}</td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-center">
+                        <span className={`inline-block px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold border ${colors.bg} ${colors.text} border-transparent whitespace-nowrap`}>
                           {inv.recipient === 'SEOUL' ? '서울' : inv.recipient === 'DAECHEON' ? '대천' : '베트남'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-center text-xs font-bold text-slate-600 uppercase tracking-tighter">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-center text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-tighter">
                         {inv.authorId}
                       </td>
-                      <td className="px-6 py-4 text-center text-xs font-bold text-slate-600 uppercase tracking-tighter">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-center text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-tighter">
                         {inv.cargoInfo || '-'}
                       </td>
-                      <td className="px-6 py-4 text-right">
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-right">
                         <div className="flex justify-end items-center gap-3">
-                          <span className="text-[10px] font-bold text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity">보기 →</span>
+                          <span className="text-[10px] font-bold text-blue-600 hidden md:inline opacity-0 group-hover:opacity-100 transition-opacity">보기 →</span>
                           {isMaster && (
                             <button 
                               onClick={(e) => { 
@@ -875,9 +873,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
 
       {modal && modal.type === 'DELETE_FILE' && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200 text-center">
             <h3 className="text-xl font-black mb-4 text-red-600">확인</h3>
-            <p className="text-slate-600 mb-8 font-medium leading-relaxed">{modal.message}</p>
+            <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base">{modal.message}</p>
             <div className="flex gap-3">
               <button 
                 onClick={() => setModal(null)}
