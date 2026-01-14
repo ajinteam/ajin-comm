@@ -12,17 +12,23 @@ import InvoiceView from './components/InvoiceView';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
 import Dashboard from './components/Dashboard';
-import { pullStateFromCloud, pushStateToCloud } from './supabase';
+import { pullStateFromCloud, pushStateToCloud, supabase } from './supabase';
 
 const App: React.FC = () => {
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
+  // 1. 새로고침 시 로그인 유지 로직
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    const saved = localStorage.getItem('ajin_active_user');
+    return saved ? JSON.parse(saved) : null;
+  });
+  
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [userAccounts, setUserAccounts] = useState<UserAccount[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [dataVersion, setDataVersion] = useState(0); // 실시간 갱신 트리거
 
-  // Load from Supabase (Pull) then Local Storage
+  // 초기 앱 로드 및 마스터 계정 보장
   useEffect(() => {
     const initApp = async () => {
       await pullStateFromCloud();
@@ -48,7 +54,30 @@ const App: React.FC = () => {
     initApp();
   }, []);
 
-  // Prevent browser exit during sync
+  // 2. 실시간 동기화 (Supabase Realtime)
+  useEffect(() => {
+    if (!supabase) return;
+
+    // ajin-comm-backup 테이블의 id=1 로우가 변경될 때마다 데이터를 다시 가져옴
+    const channel = supabase
+      .channel('realtime-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ajin-comm-backup' },
+        async () => {
+          console.log('Detected cloud change, pulling...');
+          await pullStateFromCloud();
+          setDataVersion(v => v + 1); // 하위 뷰들에게 리로드 알림
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // 새로고침 방지 (동기화 중)
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isSyncing) {
@@ -63,7 +92,6 @@ const App: React.FC = () => {
   const handleSetView = async (v: ViewState) => {
     if (isSyncing) return;
     
-    // Sync to cloud automatically when moving between categories
     setIsSyncing(true);
     try {
       await pushStateToCloud();
@@ -82,6 +110,7 @@ const App: React.FC = () => {
     
     if (found) {
       setCurrentUser(found);
+      localStorage.setItem('ajin_active_user', JSON.stringify(found));
       setView({ type: 'DASHBOARD' });
     } else {
       alert('등록되지 않은 번호입니다.');
@@ -91,6 +120,7 @@ const App: React.FC = () => {
   const handleLogout = () => {
     if (isSyncing) return;
     setCurrentUser(null);
+    localStorage.removeItem('ajin_active_user');
     setView({ type: 'DASHBOARD' });
     setIsSidebarOpen(false);
   };
@@ -109,7 +139,7 @@ const App: React.FC = () => {
     localStorage.setItem('ajin_accounts', JSON.stringify(finalAccounts));
     
     setIsSyncing(true);
-    await pushStateToCloud(); // Sync to Supabase
+    await pushStateToCloud();
     setIsSyncing(false);
   };
 
@@ -128,7 +158,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden relative">
-      {/* Sync Overlay */}
       {isSyncing && (
         <div className="fixed inset-0 bg-white/40 backdrop-blur-[1px] z-[9999] flex flex-col items-center justify-center cursor-wait">
           <div className="bg-slate-900 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3 animate-pulse">
@@ -165,9 +194,11 @@ const App: React.FC = () => {
         />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-8">
-          {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} />}
+          {/* dataVersion을 key로 활용하여 동기화 시 강제 리렌더링 (구조 유지하면서 갱신) */}
+          {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} key={`dash-${dataVersion}`} />}
           {view.type === 'ORDER' && (
             <OrderView 
+              key={`order-${view.sub}-${dataVersion}`}
               sub={view.sub} 
               currentUser={currentUser}
               userAccounts={userAccounts}
@@ -176,6 +207,7 @@ const App: React.FC = () => {
           )}
           {view.type === 'INVOICE' && (
             <InvoiceView 
+              key={`invoice-${view.sub}-${dataVersion}`}
               sub={view.sub} 
               currentUser={currentUser} 
               setView={handleSetView}
