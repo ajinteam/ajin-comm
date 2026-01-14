@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI } from "@google/genai";
+import { pushStateToCloud } from '../supabase';
 
 interface OrderViewProps {
   sub: OrderSubCategory;
@@ -282,6 +283,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const saveOrders = (items: OrderItem[]) => {
     setOrders(items);
     localStorage.setItem('ajin_orders', JSON.stringify(items));
+    pushStateToCloud(); // Sync to Supabase
   };
 
   const handleTranslateToVietnam = async () => {

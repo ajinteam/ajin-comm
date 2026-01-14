@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { UserAccount, OrderSubCategory, InvoiceSubCategory, ViewState, Announcement } from '../types';
+import { pushStateToCloud } from '../supabase';
 
 interface DashboardProps {
   user: UserAccount;
@@ -42,15 +43,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
     const savedInvoices = localStorage.getItem('ajin_invoices');
     if (savedInvoices) {
       const invoices = JSON.parse(savedInvoices);
-      
-      // '송장완료' 폴더에 표시되는 로직과 동일하게 필터링: 
-      // 활성 행(삭제되지 않고 기종/품명이 있는 행) 중 하나라도 수량확인(qtyConfirm)이 없는 경우만 카운트
       const pendingInvoices = invoices.filter((inv: any) => {
         const activeRows = inv.rows.filter((r: any) => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
-        if (activeRows.length === 0) return true; // 내용이 없는 송장은 일단 대기 목록으로 간주
+        if (activeRows.length === 0) return true;
         return !activeRows.every((r: any) => !!r.qtyConfirm);
       });
-      
       setCompletedInvoicesCount(pendingInvoices.length);
     }
   }, []);
@@ -58,6 +55,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView }) => {
   const saveNotices = (notices: Announcement[]) => {
     setAnnouncements(notices);
     localStorage.setItem('ajin_notices', JSON.stringify(notices));
+    pushStateToCloud(); // Sync to Supabase
   };
 
   const handleAddNotice = () => {

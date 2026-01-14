@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount } from '../types';
+import { pushStateToCloud } from '../supabase';
 
 interface InvoiceViewProps {
   sub: InvoiceSubCategory;
@@ -87,6 +88,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
   const saveInvoices = (items: InvoiceItem[]) => {
     setInvoices(items);
     localStorage.setItem('ajin_invoices', JSON.stringify(items));
+    pushStateToCloud(); // Sync to Supabase
   };
 
   const itemLibrary = useMemo(() => {
@@ -136,6 +138,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
         if (current) setActiveInvoice(current);
         return updated;
       });
+      pushStateToCloud(); // Sync for active edits
     }
     
     if (field === 'itemName') {
@@ -188,6 +191,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
         if (current) setActiveInvoice(current);
         return updated;
       });
+      pushStateToCloud();
     } else {
       setFormRows(prev => {
         let newRows = [...prev];
@@ -235,6 +239,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
               if (current) setActiveInvoice(current);
               return updated;
             });
+            pushStateToCloud();
           }
           setTimeout(() => (document.querySelector(`[data-row="${nextRowIdx}"][data-col="0"]`) as HTMLTextAreaElement)?.focus(), 50);
         } else {
@@ -311,6 +316,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
           });
         }
       }
+      pushStateToCloud();
       return updated;
     });
   };
@@ -345,6 +351,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser }) => {
           if (currentActive) {
             setActiveInvoice(currentActive);
           }
+          pushStateToCloud();
           setModal(null);
           return updated;
         });

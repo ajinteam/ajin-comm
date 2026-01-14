@@ -12,32 +12,39 @@ import InvoiceView from './components/InvoiceView';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
 import Dashboard from './components/Dashboard';
+import { pullStateFromCloud, pushStateToCloud } from './supabase';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
   const [view, setView] = useState<ViewState>({ type: 'DASHBOARD' });
   const [userAccounts, setUserAccounts] = useState<UserAccount[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load accounts from local storage on mount
+  // Load from Supabase (Pull) then Local Storage
   useEffect(() => {
-    const saved = localStorage.getItem('ajin_accounts');
-    let accounts: UserAccount[] = saved ? JSON.parse(saved) : [];
-    
-    // Ensure AJ5200 (Master Account) always exists
-    const masterId = 'AJ5200';
-    if (!accounts.find(u => u.loginId === masterId)) {
-      accounts.unshift({ 
-        id: 'master-001', 
-        loginId: masterId, 
-        initials: 'MASTER',
-        createdAt: new Date().toISOString(),
-        allowedMenus: [] // Master has all anyway
-      });
-    }
+    const initApp = async () => {
+      await pullStateFromCloud();
+      
+      const saved = localStorage.getItem('ajin_accounts');
+      let accounts: UserAccount[] = saved ? JSON.parse(saved) : [];
+      
+      const masterId = 'AJ5200';
+      if (!accounts.find(u => u.loginId === masterId)) {
+        accounts.unshift({ 
+          id: 'master-001', 
+          loginId: masterId, 
+          initials: 'MASTER',
+          createdAt: new Date().toISOString(),
+          allowedMenus: []
+        });
+      }
 
-    setUserAccounts(accounts);
-    localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
+      setUserAccounts(accounts);
+      localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
+      setIsLoading(false);
+    };
+    initApp();
   }, []);
 
   const handleLogin = (loginId: string) => {
@@ -59,24 +66,26 @@ const App: React.FC = () => {
   };
 
   const updateAccounts = (newAccounts: UserAccount[]) => {
-    setUserAccounts(prev => {
-      const masterId = 'AJ5200';
-      // Ensure master is never lost during updates
-      const masterExists = newAccounts.some(u => u.loginId === masterId);
-      let finalAccounts = [...newAccounts];
-      
-      if (!masterExists) {
-        const masterAcc = prev.find(u => u.loginId === masterId);
-        if (masterAcc) finalAccounts.unshift(masterAcc);
-      }
-      
-      localStorage.setItem('ajin_accounts', JSON.stringify(finalAccounts));
-      return finalAccounts;
-    });
+    const masterId = 'AJ5200';
+    const masterExists = newAccounts.some(u => u.loginId === masterId);
+    let finalAccounts = [...newAccounts];
+    
+    if (!masterExists) {
+      const masterAcc = userAccounts.find(u => u.loginId === masterId);
+      if (masterAcc) finalAccounts.unshift(masterAcc);
+    }
+    
+    setUserAccounts(finalAccounts);
+    localStorage.setItem('ajin_accounts', JSON.stringify(finalAccounts));
+    pushStateToCloud(); // Sync to Supabase
   };
 
   const closeSidebar = () => setIsSidebarOpen(false);
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+  if (isLoading) {
+    return <div className="min-h-screen bg-slate-900 flex items-center justify-center text-white font-bold">ERP 데이터 동기화 중...</div>;
+  }
 
   if (!currentUser) {
     return <AuthView onLogin={handleLogin} />;
