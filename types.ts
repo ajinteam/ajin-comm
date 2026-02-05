@@ -188,6 +188,18 @@ export interface PurchaseOrderItem {
   weights?: Record<string, 'normal' | 'bold'>;
   isResubmitted?: boolean;
   hideInjectionColumn?: boolean;
+  rejectionSnapshot?: {
+    title: string;
+    recipient?: string;
+    telFax?: string;
+    reference?: string;
+    senderName?: string;
+    senderPerson?: string;
+    date: string;
+    rows: OrderRow[];
+    notes?: PurchaseOrderNote[];
+    headerRows?: string[];
+  };
   stamps: {
     writer?: StampInfo;   
     design?: StampInfo;   
