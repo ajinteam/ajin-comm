@@ -1,7 +1,10 @@
 
 export enum MainCategory {
   ORDER = '주문서',
-  INVOICE = '송장'
+  INVOICE = '송장',
+  PURCHASE = '발주서',
+  VIETNAM = 'VN베트남',
+  STORAGE = '파일관리'
 }
 
 export enum OrderSubCategory {
@@ -16,10 +19,38 @@ export enum OrderSubCategory {
 
 export enum InvoiceSubCategory {
   CREATE = '송장작성',
+  TEMPORARY = '송장임시',
   COMPLETED = '송장완료',
   SEOUL = '서울',
   DAECHEON = '대천',
   VIETNAM = '베트남'
+}
+
+export enum PurchaseOrderSubCategory {
+  CREATE = 'PO 발주서작성',
+  PO1 = '사출발주서',
+  PO1_TEMP = '사출발주서 임시저장',
+  PO2 = '인쇄발주서',
+  PO2_TEMP = '인쇄발주서 임시저장',
+  PO3 = '메탈발주서',
+  PO3_TEMP = '메탈발주서 임시저장',
+  PENDING = 'PO 결재대기',
+  REJECTED = 'PO 결재반송',
+  APPROVED = 'PO 결재완료',
+  ARCHIVE = '수신처별 보관함',
+  UPLOAD = '파일 업로드'
+}
+
+export enum VietnamSubCategory {
+  CREATE_ROOT = 'VN작성',
+  ORDER = 'VN주문서',
+  PAYMENT = 'VN지불요청서',
+  TEMPORARY = 'VN임시저장',
+  PENDING = 'VN결재대기',
+  REJECTED = 'VN결재반송',
+  COMPLETED_ROOT = 'VN결재완료',
+  ORDER_COMPLETED = 'VN주문서완료',
+  PAYMENT_COMPLETED = 'VN지불요청서완료'
 }
 
 export interface StampInfo {
@@ -41,12 +72,65 @@ export interface OrderRow {
   itemName: string;
   price: string;
   unitPrice: string;
+  amount?: string;
   remarks: string;
   isDeleted?: boolean;
+  changedFields?: string[];
   modLog?: {
     userId: string;
     timestamp: string;
     type: 'EDIT' | 'DELETE';
+  };
+  s?: string;
+  cty?: string;
+  material?: string;
+  vendor?: string;
+  injectionVendor?: string;
+  orderQty?: string;
+}
+
+export interface VietnamOrderRow {
+  id: string;
+  itemName: string;
+  image?: string; // base64
+  unit: string;
+  qty: string;
+  unitPrice: string;
+  amount: string;
+  remarks: string;
+  changedFields?: string[];
+}
+
+export interface VietnamOrderItem {
+  id: string;
+  title: string;
+  type: 'ORDER' | 'PAYMENT';
+  date: string;
+  clientName: string;
+  clientAddress: string;
+  taxId: string;
+  deliveryAddress: string;
+  beneficiary?: string;
+  accountNo?: string;
+  bank?: string;
+  bankAddr?: string;
+  vatRate?: number;
+  remark?: string;
+  rows: VietnamOrderRow[];
+  status: VietnamSubCategory;
+  authorId: string;
+  createdAt: string;
+  rejectReason?: string;
+  rejectLog?: StampInfo;
+  merges?: Record<string, { rS: number, cS: number }>;
+  aligns?: Record<string, 'left' | 'center' | 'right'>;
+  borders?: Record<string, { t?: string, b?: string, l?: string, r?: string }>;
+  weights?: Record<string, 'normal' | 'bold'>;
+  stamps: {
+    writer?: StampInfo;
+    head?: StampInfo;
+    ceo?: StampInfo;
+    final?: StampInfo;
   };
 }
 
@@ -58,6 +142,8 @@ export interface OrderItem {
   authorId: string;
   date: string;
   rows: OrderRow[];
+  rejectReason?: string;
+  rejectLog?: StampInfo;
   stamps: {
     writer?: StampInfo;
     manager?: StampInfo;
@@ -66,6 +152,49 @@ export interface OrderItem {
     final?: StampInfo;
   };
   createdAt: string;
+  merges?: Record<string, { rS: number, cS: number }>;
+  aligns?: Record<string, 'left' | 'center' | 'right'>;
+  borders?: Record<string, { t?: string, b?: string, l?: string, r?: string }>;
+}
+
+export interface PurchaseOrderNote {
+  label: string;
+  content: string;
+}
+
+export interface PurchaseOrderItem {
+  id: string;
+  code: string; 
+  title: string;
+  type: string; 
+  recipient?: string; 
+  telFax?: string; 
+  reference?: string; 
+  senderName?: string; 
+  senderPerson?: string; 
+  status: PurchaseOrderSubCategory;
+  authorId: string;
+  date: string;
+  createdAt: string;
+  rows: OrderRow[];
+  notes?: PurchaseOrderNote[];
+  rejectReason?: string; 
+  rejectLog?: StampInfo; 
+  fileUrl?: string; 
+  headerRows?: string[];
+  merges?: Record<string, { rS: number, cS: number }>;
+  aligns?: Record<string, 'left' | 'center' | 'right'>;
+  borders?: Record<string, { t?: string, b?: string, l?: string, r?: string }>;
+  weights?: Record<string, 'normal' | 'bold'>;
+  isResubmitted?: boolean;
+  hideInjectionColumn?: boolean;
+  stamps: {
+    writer?: StampInfo;   
+    design?: StampInfo;   
+    director?: StampInfo; 
+    ceo?: StampInfo;      
+    final?: StampInfo;    
+  };
 }
 
 export interface InvoiceRow {
@@ -74,9 +203,9 @@ export interface InvoiceRow {
   drawingNo: string;
   itemName: string;
   qty: string;
-  qtyExtra: string; // 수량 우측 좁은 칸
-  completionExtra: string; // 완료여부 좌측 좁은 칸
-  completionStatus: string; // 완료여부 우측 넓은 칸
+  qtyExtra: string; 
+  completionExtra: string; 
+  completionStatus: string; 
   qtyConfirm?: StampInfo;
   remarks: string;
   isDeleted?: boolean;
@@ -89,7 +218,7 @@ export interface InvoiceRow {
 
 export interface InvoiceItem {
   id: string;
-  title: string; // 저장 시 첫 행 기종+품명으로 생성
+  title: string; 
   date: string;
   recipient: 'SEOUL' | 'DAECHEON' | 'VIETNAM';
   cargoInfo: string;
@@ -98,6 +227,10 @@ export interface InvoiceItem {
   boxQty: string;
   authorId: string;
   createdAt: string;
+  isTemporary?: boolean;
+  merges?: Record<string, { rS: number, cS: number }>;
+  aligns?: Record<string, 'left' | 'center' | 'right'>; 
+  borders?: Record<string, { t?: string, b?: string, l?: string, r?: string }>;
   stamps?: {
     writer?: StampInfo;
     final?: StampInfo;
@@ -116,4 +249,7 @@ export type ViewState =
   | { type: 'DASHBOARD' }
   | { type: 'ORDER', sub: OrderSubCategory }
   | { type: 'INVOICE', sub: InvoiceSubCategory }
+  | { type: 'PURCHASE', sub: PurchaseOrderSubCategory }
+  | { type: 'VIETNAM', sub: VietnamSubCategory }
+  | { type: 'STORAGE' }
   | { type: 'SETTINGS' };

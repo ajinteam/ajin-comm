@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { UserAccount, OrderSubCategory, InvoiceSubCategory, ViewState } from '../types';
+import { UserAccount, OrderSubCategory, InvoiceSubCategory, PurchaseOrderSubCategory, VietnamSubCategory, ViewState, MainCategory } from '../types';
 
 interface SettingsViewProps {
   accounts: UserAccount[];
@@ -23,8 +23,15 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
   });
 
   const allMenus = [
+    MainCategory.ORDER,
+    MainCategory.INVOICE,
+    MainCategory.PURCHASE,
+    MainCategory.VIETNAM,
+    MainCategory.STORAGE,
     ...Object.values(OrderSubCategory),
-    ...Object.values(InvoiceSubCategory)
+    ...Object.values(InvoiceSubCategory),
+    ...Object.values(PurchaseOrderSubCategory),
+    ...Object.values(VietnamSubCategory)
   ];
 
   const handleToggleMenu = (menu: string, isEdit: boolean = false) => {
@@ -173,7 +180,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
             </div>
 
             <div>
-              <p className="text-sm font-semibold text-blue-900 mb-3">접근 가능 메뉴 설정</p>
+              <p className="text-sm font-semibold text-blue-900 mb-3">접근 가능 메뉴 설정 (메인 카테고리를 해제하면 전체 메뉴가 숨겨집니다)</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                 {allMenus.map(menu => (
                   <label 
