@@ -75,7 +75,7 @@ export interface OrderRow {
   amount?: string;
   remarks: string;
   isDeleted?: boolean;
-  changedFields?: string[];
+  changedFields?: string[]; // Tracking fields changed since rejection
   modLog?: {
     userId: string;
     timestamp: string;
