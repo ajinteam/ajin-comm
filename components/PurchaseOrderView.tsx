@@ -256,7 +256,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       } else if (supabase) {
         // 실제 Supabase 다운로드
         const { data, error } = await supabase.storage
-          .from('purchase-orders')
+          .from('ajin-pdfdata')
           .download(file.name);
         if (error) throw error;
         const url = URL.createObjectURL(data);
@@ -286,7 +286,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
             localStorage.setItem('ajin_mock_storage', JSON.stringify(updatedMock));
           } else if (supabase) {
             const { error } = await supabase.storage
-              .from('purchase-orders')
+              .from('ajin-pdfdata')
               .remove([file.name]);
             if (error) throw error;
           }
