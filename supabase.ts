@@ -20,6 +20,53 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+// JANDI Webhook URLs
+const JANDI_WEBHOOK_KR = getEnvVar('VITE_JANDI_WEBHOOK_KR');
+const JANDI_WEBHOOK_VN = getEnvVar('VITE_JANDI_WEBHOOK_VN');
+
+/**
+ * 잔디 알림 전송 함수
+ * @param target 'KR' (한국) 또는 'VN' (베트남)
+ * @param type 'REQUEST' (결재요청) | 'COMPLETE' (결재완료) | 'REJECT' (반송)
+ * @param title 문서 제목
+ * @param recipient 이니셜 (다음 결재자 또는 작성자)
+ */
+export const sendJandiNotification = async (
+  target: 'KR' | 'VN',
+  type: 'REQUEST' | 'COMPLETE' | 'REJECT',
+  title: string,
+  recipient: string
+) => {
+  const webhookUrl = target === 'KR' ? JANDI_WEBHOOK_KR : JANDI_WEBHOOK_VN;
+  if (!webhookUrl) {
+    console.warn(`[JANDI] Webhook URL for ${target} is missing.`);
+    return;
+  }
+
+  let message = '';
+  if (type === 'REQUEST') {
+    message = `[${title}] / 다음 결재자: ${recipient} / 결재 요청드립니다.`;
+  } else if (type === 'COMPLETE') {
+    message = `[${title}] 결재 완료 / 작성자(${recipient}) 확인 부탁드립니다.`;
+  } else if (type === 'REJECT') {
+    message = `[${title}] 반송 처리됨 / 작성자(${recipient}) 사유 확인 후 수정 바랍니다.`;
+  }
+
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/vnd.tosslab.jandi-v2+json'
+      },
+      body: JSON.stringify({ body: message })
+    });
+    console.log(`[JANDI] Notification sent to ${target}: ${message}`);
+  } catch (err) {
+    console.error('[JANDI] Send error:', err);
+  }
+};
+
 let pushTimer: any = null;
 
 export const pushStateToCloud = async () => {

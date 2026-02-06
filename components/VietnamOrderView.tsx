@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState } from '../types';
-import { pushStateToCloud } from '../supabase';
+import { pushStateToCloud, sendJandiNotification } from '../supabase';
 
 interface VietnamOrderViewProps {
   sub: VietnamSubCategory;
@@ -370,7 +370,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const handleSubmit = (isTemp: boolean = false) => {
     if (!vClientName.trim()) { alert('수신처(Khách hàng)를 입력해 주세요.'); return; }
     
-    // 임시 저장 또는 수정 시 기존 타입 유지, 신규 작성 시 현재 sub에 따라 결정
     let docType: 'ORDER' | 'PAYMENT' = 'ORDER';
     if (editingId) {
         const original = items.find(it => it.id === editingId);
@@ -392,6 +391,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             stamps: isTemp ? it.stamps : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
         } : it);
         saveVietnamItems(updated);
+        if (!isTemp) sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
         alert(isTemp ? '임시저장되었습니다.' : '수정 완료되어 결재 대기로 재전송되었습니다.');
         setEditingId(null);
     } else {
@@ -404,6 +404,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         };
         const updated = [newItem, ...items];
         saveVietnamItems(updated);
+        if (!isTemp) sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
         alert(isTemp ? '임시저장되었습니다.' : '작성 결재가 완료되어 결재 대기로 전송되었습니다.');
     }
     setView({ type: 'VIETNAM', sub: targetStatus });
@@ -431,6 +432,16 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         ...it, stamps: updatedStamps, status: isFullApproved ? VietnamSubCategory.COMPLETED_ROOT : it.status 
     } : it);
     saveVietnamItems(updated);
+
+    // JANDI Notification Logic
+    if (isFullApproved) {
+        sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId);
+    } else {
+        if (type === 'head' && isPay) {
+            sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN');
+        }
+    }
+
     alert(`${type === 'head' ? '법인장' : '대표'} 결재가 완료되었습니다.`);
     
     const currentActive = updated.find(it => it.id === item.id);
@@ -445,60 +456,16 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() }
     } : it);
     saveVietnamItems(updated);
+    
+    // Notify Rejection
+    sendJandiNotification('VN', 'REJECT', rejectingItem.title, rejectingItem.authorId);
+
     alert('문서가 반송 처리되었습니다.');
     setRejectingItem(null);
     setRejectReasonText('');
     setActiveItem(null);
   };
-// --- [승인 함수] ---
-const handleApprove = async (id: string) => {
-  try {
-    const { error } = await supabase.from('vietnam_orders').update({ status: 'approved' }).eq('id', id);
-    if (error) throw error;
 
-    // ✅ 승인 알림 전송
-    await fetch('/api/jandi', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mainCategory: "VIETNAM",
-        subCategory: "APPROVE",
-        status: "request", // 다음 결재자에게 알림
-        // ... 생략
-      })
-    });
-
-    await fetchOrders();
-    toast.success('승인되었습니다.');
-  } catch (error: any) {
-    console.error('승인 에러:', error);
-    toast.error('승인 실패: ' + error.message);}
-};
-
-// --- [반려 함수] ---
-const handleReject = async (id: string) => {
-  try {
-    const { error } = await supabase.from('vietnam_orders').update({ status: 'rejected' }).eq('id', id);
-    if (error) throw error;
-
-    // ✅ 반려 알림 전송
-    await fetch('/api/jandi', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mainCategory: "VIETNAM",
-        subCategory: "REJECT",
-        status: "complete", // 반려로 종결됨을 알림
-        // ... 생략
-      })
-    });
-
-    await fetchOrders();
-    toast.error('반송되었습니다.');
- } catch (error: any) {
-    console.error('반송 에러:', error);
-    toast.error('반송 실패: ' + error.message);}
-};
   const handleDeleteDocument = (id: string) => {
     const updated = items.filter(it => it.id !== id);
     saveVietnamItems(updated);
@@ -759,7 +726,6 @@ const handleReject = async (id: string) => {
                                 const merge = dMerges[`${rIdx}-${cell.c}`];
                                 const isSkipped = Object.entries(dMerges).some(([key, m]: [string, any]) => {
                                     const [mr, mc] = key.split('-').map(Number);
-                                    // Fix: Change undefined 'idx' to 'rIdx' to correctly handle row index comparison in merged cell logic
                                     return rIdx >= mr && rIdx < mr + m.rS && cell.c >= mc && cell.c < mc + m.cS && !(rIdx === mr && cell.c === mc);
                                 });
                                 if (isSkipped) return null;
@@ -1187,7 +1153,7 @@ const handleReject = async (id: string) => {
 
         {deletingId && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] flex items-center justify-center p-4">
-                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-300">
+                <div className="bg-white rounded-3xl p-6 md:p-8 max-sm w-full shadow-2xl animate-in zoom-in duration-300">
                     <h3 className="text-lg md:text-xl font-black text-slate-900 mb-4 text-center">문서 영구 삭제</h3>
                     <p className="text-slate-600 mb-8 leading-relaxed text-center text-sm font-medium">삭제된 데이터는 복구할 수 없습니다.<br/>정말 삭제하시겠습니까?</p>
                     <div className="flex gap-4">
