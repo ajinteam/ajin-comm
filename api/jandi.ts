@@ -1,4 +1,4 @@
-import type { VercelRequest, VercelResponse } from "@vercel/node";
+
 
 /**
  * 잔디 Webhook 선택 함수
@@ -22,7 +22,7 @@ function getJandiWebhook(
       subCategory === "APPROVED_DAECHEN" ||
       subCategory === "APPROVED_VIETNAM"
     )
-      return process.env.JANDI_WEVHOOK_VN;
+      return process.env.JANDI_WEBHOOK_VN;
   }
 
   // 2️⃣ 발주서 (사출 / 인쇄 / 메탈 전부 한국)
