@@ -336,8 +336,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   // defaultNotes와 po2Notes 선언을 takeSnapshot 호출부보다 위로 이동하여 참조 오류를 수정했습니다.
   const defaultNotes = [
-    { label: '납품장소', content: '㈜ 아진정공 대천공장 (충남 보령시 대해로 425-23 (요암동 63번지))' },
-    { label: '납기일자', content: '2025년 08월 12일' },
+    { label: '납품장소', content: '㈜ 아진정공 대천공장 (충남 보령시 대해로 425-23 (요암동 63번지) TEL 041-931-4496)' },
+    { label: '납기일자', content: '2026년   월   일' },
     { label: '지불조건', content: '양산납품 후 세금계산서 기준일자 30일이내에 현금결재 (무통장입금)' },
     { label: '별 첨', content: '도면 첨부' },
     { label: '기타사항(유의)', content: '이물질 없도록 주의 바랍니다.' },
