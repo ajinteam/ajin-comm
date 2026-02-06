@@ -3,11 +3,9 @@ import { createClient } from '@supabase/supabase-js';
 
 const getEnvVar = (name: string): string => {
   try {
-    // Vite 환경 (import.meta.env)
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
       if ((import.meta as any).env[name]) return (import.meta as any).env[name];
     }
-    // Node/Process 환경 (process.env)
     if (typeof process !== 'undefined' && process.env) {
       if (process.env[name]) return process.env[name] || '';
     }
@@ -22,12 +20,9 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// JANDI Webhook URLs
-const JANDI_WEBHOOK_KR = getEnvVar('VITE_JANDI_WEBHOOK_KR') || getEnvVar('JANDI_WEBHOOK_KR');
-const JANDI_WEBHOOK_VN = getEnvVar('VITE_JANDI_WEBHOOK_VN') || getEnvVar('JANDI_WEBHOOK_VN');
-
 /**
- * 잔디 알림 전송 함수
+ * 잔디 알림 전송 함수 (프론트엔드 전용)
+ * 직접 웹훅을 쏘지 않고, 서버 핸들러(/api/jandi)를 통해 전송하여 CORS를 우회합니다.
  * @param target 'KR' (한국) 또는 'VN' (베트남)
  * @param type 'REQUEST' (결재요청) | 'COMPLETE' (결재완료) | 'REJECT' (반송)
  * @param title 문서 제목
@@ -39,38 +34,24 @@ export const sendJandiNotification = async (
   title: string,
   recipient: string
 ) => {
-  const webhookUrl = target === 'KR' ? JANDI_WEBHOOK_KR : JANDI_WEBHOOK_VN;
-  
-  if (!webhookUrl) {
-    console.error(`[JANDI ERROR] Webhook URL for ${target} is not configured in environment variables.`);
-    return;
-  }
-
-  let message = '';
-  if (type === 'REQUEST') {
-    message = `[${title}] / 다음 결재자: ${recipient} / 결재 요청드립니다.`;
-  } else if (type === 'COMPLETE') {
-    message = `[${title}] 결재 완료 / 작성자(${recipient}) 확인 부탁드립니다.`;
-  } else if (type === 'REJECT') {
-    message = `[${title}] 반송 처리됨 / 다음 확인자(작성자): ${recipient} / 사유 확인 후 수정 바랍니다.`;
-  }
-
   try {
-    const response = await fetch(webhookUrl, {
+    // 본인의 서버 API 엔드포인트 호출
+    const response = await fetch('/api/jandi', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/vnd.tosslab.jandi-v2+json'
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ body: message })
+      body: JSON.stringify({ target, type, title, recipient })
     });
     
+    const result = await response.json();
     if (!response.ok) {
-      throw new Error(`Jandi API responded with status ${response.status}`);
+      throw new Error(result.error || 'Unknown API error');
     }
-    console.log(`[JANDI SUCCESS] Sent to ${target}: ${message}`);
+    console.log(`[JANDI SUCCESS] API call finished: ${target}, ${type}`);
   } catch (err) {
-    console.error('[JANDI FETCH ERROR]', err);
+    console.error('[JANDI API CALL ERROR]', err);
+    // 개발 환경 편의를 위해 알림이 안 가더라도 시스템이 멈추지는 않게 처리
   }
 };
 

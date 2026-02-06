@@ -1,92 +1,54 @@
 
-
 /**
- * 잔디 Webhook 선택 함수
+ * 잔디 Webhook 메시지 전송 서버 핸들러
+ * CORS 문제를 방지하기 위해 서버 측에서 Jandi API를 호출합니다.
  */
-function getJandiWebhook(
-  mainCategory: string,
-  subCategory: string,
-  receiver?: string
-): string | null {
-  // 1️⃣ 주문서
-  if (mainCategory === "ORDER") {
-    // 주문서 작성 단계
-    if (subCategory === "CREATE") {
-      if (receiver === "서울") return process.env.JANDI_WEBHOOK_KR;
-      return process.env.JANDI_WEBHOOK_VN; // 대천, 베트남
-    }
-
-    // 주문서 결재 완료 단계
-    if (subCategory === "APPROVED_SEOUL") return process.env.JANDI_WEBHOOK_KR;
-    if (
-      subCategory === "APPROVED_DAECHEN" ||
-      subCategory === "APPROVED_VIETNAM"
-    )
-      return process.env.JANDI_WEBHOOK_VN;
+export default async function handler(req: any, res: any) {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method Not Allowed' });
   }
 
-  // 2️⃣ 발주서 (사출 / 인쇄 / 메탈 전부 한국)
-  if (mainCategory === "PURCHASE") {
-    return process.env.JANDI_WEBHOOK_KR;
-  }
-
-  // 3️⃣ VN 문서 (VN 주문서, VN 지불요청서)
-  if (mainCategory === "VIETNAM") {
-    return process.env.JANDI_WEBHOOK_VN;
-  }
-
-  return null;
-}
-
-export default async function handler(
-  req: any,
-  res: any
-) {
   try {
-    const {
-      mainCategory,   // ORDER | PURCHASE | VIETNAM
-      subCategory,    // enum 값
-      receiver,       // 서울 | 대천 | 베트남 (주문서 CREATE일 때만)
-      title,          // 문서 제목
-      nextInitial,    // 다음 결재자 이니셜
-      writerInitial,  // 작성자 이니셜
-      status          // request | complete
-    } = req.body;
+    const { target, type, title, recipient } = req.body;
 
-    // 잔디 Webhook 결정
-    const webhookUrl = getJandiWebhook(
-      mainCategory,
-      subCategory,
-      receiver
-    );
+    // 환경 변수에서 웹훅 URL 가져오기
+    const webhookUrl = target === 'KR' 
+      ? process.env.JANDI_WEBHOOK_KR 
+      : process.env.JANDI_WEBHOOK_VN;
 
     if (!webhookUrl) {
-      return res.status(400).json({ error: "잔디 Webhook 결정 실패" });
+      console.error(`[JANDI API] Webhook URL for ${target} is missing in server environment.`);
+      return res.status(400).json({ error: "Webhook configuration missing" });
     }
 
-    // 메시지 생성
+    // 메시지 구성 (사용자 요청 포맷)
     let message = "";
-
-    if (status === "request") {
-      message = `[${title}]
-다음 결재자: ${nextInitial}
-결재 요청드립니다.`;
+    if (type === 'REQUEST') {
+      message = `[${title}] / 다음 결재자: ${recipient} / 결재 요청드립니다.`;
+    } else if (type === 'COMPLETE') {
+      message = `[${title}] 결재 완료 / 작성자(${recipient}) 확인 부탁드립니다.`;
+    } else if (type === 'REJECT') {
+      message = `[${title}] 반송 처리됨 / 작성자(${recipient}) 사유 확인 후 수정 바랍니다.`;
     }
 
-    if (status === "complete") {
-      message = `[${title}] 결재 완료
-작성자(${writerInitial}) 확인 부탁드립니다.`;
-    }
-
-    // 잔디로 전송
-    await fetch(webhookUrl, {
+    // 실제 잔디 API 호출
+    const response = await fetch(webhookUrl, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { 
+        "Content-Type": "application/json",
+        "Accept": "application/vnd.tosslab.jandi-v2+json"
+      },
       body: JSON.stringify({ body: message })
     });
 
-    res.status(200).json({ success: true });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Jandi API responded with status ${response.status}: ${errorText}`);
+    }
+
+    return res.status(200).json({ success: true, message: "Notification sent successfully" });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    console.error("[JANDI SERVER ERROR]", error);
+    return res.status(500).json({ error: error.message });
   }
 }
