@@ -470,7 +470,7 @@ const handleApprove = async (id: string) => {
 
     await fetchOrders();
     toast.success('승인되었습니다.');
-  } catch (error) { ... }
+  } catch (error) { 승인실패 }
 };
 
 // --- [반려 함수] ---
@@ -492,8 +492,8 @@ const handleReject = async (id: string) => {
     });
 
     await fetchOrders();
-    toast.error('반려되었습니다.');
-  } catch (error) { ... }
+    toast.error('반송되었습니다.');
+  } catch (error) { 반송실패 }
 };
   const handleDeleteDocument = (id: string) => {
     const updated = items.filter(it => it.id !== id);
