@@ -9,7 +9,7 @@ export default async function handler(req: any, res: any) {
   }
 
   try {
-    const { target, type, title, recipient } = req.body;
+    const { target, type, title, recipient, date } = req.body;
 
     // 환경 변수에서 웹훅 URL 가져오기
     const webhookUrl = target === 'KR' 
@@ -21,14 +21,20 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: "Webhook configuration missing" });
     }
 
-    // 메시지 구성 (사용자 요청 포맷)
+    // 상태별 아이콘 및 메시지 구성
+    let prefixIcon = "";
     let message = "";
+    
+    // 이모지 선택: 요청(🟡), 완료(🟢), 반송(🔴)
     if (type === 'REQUEST') {
-      message = `[${title}] / 다음 결재자: ${recipient} / 결재 요청드립니다.`;
+      prefixIcon = "🟡";
+      message = `${prefixIcon} [${date}] [${title}] / 다음 결재자: ${recipient} / 결재 부탁 드립니다.`;
     } else if (type === 'COMPLETE') {
-      message = `[${title}] 결재 완료 / 작성자(${recipient}) 확인 부탁드립니다.`;
+      prefixIcon = "🟢";
+      message = `${prefixIcon} [${date}] [${title}] 결재 완료 / 작성자(${recipient}) 결재 완료 확인 바랍니다.`;
     } else if (type === 'REJECT') {
-      message = `[${title}] 반송 처리됨 / 작성자(${recipient}) 사유 확인 후 수정 바랍니다.`;
+      prefixIcon = "🔴";
+      message = `${prefixIcon} [${date}] [${title}] 반송 처리됨 / 작성자(${recipient}) 사유 확인 후 수정 바랍니다.`;
     }
 
     // 실제 잔디 API 호출

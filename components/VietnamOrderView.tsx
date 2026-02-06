@@ -394,7 +394,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         
         // JANDI 알림: 재제출 시 법인장(U-SUN)에게 결재 요청
         if (!isTemp) {
-          sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
+          sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN', vDate);
         }
         
         alert(isTemp ? '임시저장되었습니다.' : '수정 완료되어 결재 대기로 재전송되었습니다.');
@@ -412,7 +412,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         
         // JANDI 알림: 신규 작성 완료 시 법인장(U-SUN)에게 결재 요청
         if (!isTemp) {
-          sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
+          sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN', vDate);
         }
         
         alert(isTemp ? '임시저장되었습니다.' : '작성 결재가 완료되어 결재 대기로 전송되었습니다.');
@@ -446,11 +446,11 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     // JANDI 알림 로직
     if (isFullApproved) {
         // 최종 승인 완료 시 작성자에게 알림
-        sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId);
+        sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId, item.date);
     } else {
         // 법인장 승인 후, 지불요청서라면 대표(K-YEUN)에게 결재 요청
         if (type === 'head' && isPay) {
-            sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN');
+            sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN', item.date);
         }
     }
 
@@ -470,7 +470,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     saveVietnamItems(updated);
     
     // JANDI 알림: 반송 시 작성자에게 알림
-    sendJandiNotification('VN', 'REJECT', rejectingItem.title, rejectingItem.authorId);
+    sendJandiNotification('VN', 'REJECT', rejectingItem.title, rejectingItem.authorId, rejectingItem.date);
 
     alert('문서가 반송 처리되었습니다.');
     setRejectingItem(null);

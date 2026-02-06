@@ -27,12 +27,14 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
  * @param type 'REQUEST' (결재요청) | 'COMPLETE' (결재완료) | 'REJECT' (반송)
  * @param title 문서 제목
  * @param recipient 이니셜 (다음 결재자 또는 작성자)
+ * @param date 문서 작성일자
  */
 export const sendJandiNotification = async (
   target: 'KR' | 'VN',
   type: 'REQUEST' | 'COMPLETE' | 'REJECT',
   title: string,
-  recipient: string
+  recipient: string,
+  date: string
 ) => {
   try {
     // 본인의 서버 API 엔드포인트 호출
@@ -41,7 +43,7 @@ export const sendJandiNotification = async (
       headers: {
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ target, type, title, recipient })
+      body: JSON.stringify({ target, type, title, recipient, date })
     });
     
     const result = await response.json();
