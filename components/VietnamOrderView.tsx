@@ -1165,7 +1165,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
         {deletingId && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] flex items-center justify-center p-4">
-                <div className="bg-white rounded-3xl p-6 md:p-8 max-sm w-full shadow-2xl animate-in zoom-in duration-300">
+                <div className="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full shadow-2xl animate-in zoom-in duration-300">
                     <h3 className="text-lg md:text-xl font-black text-slate-900 mb-4 text-center">문서 영구 삭제</h3>
                     <p className="text-slate-600 mb-8 leading-relaxed text-center text-sm font-medium">삭제된 데이터는 복구할 수 없습니다.<br/>정말 삭제하시겠습니까?</p>
                     <div className="flex gap-4">

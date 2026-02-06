@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
-import { pushStateToCloud, supabase } from '../supabase';
+import { pushStateToCloud, supabase, sendJandiNotification } from '../supabase';
 
 interface PurchaseOrderViewProps {
   sub: PurchaseOrderSubCategory;
@@ -318,7 +319,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const isPO1_TEMP = sub === PurchaseOrderSubCategory.PO1_TEMP;
   const isPO2_TEMP = sub === PurchaseOrderSubCategory.PO2_TEMP;
   const isPO3_TEMP = sub === PurchaseOrderSubCategory.PO3_TEMP;
-  const isWritingAnyPO = isPO1 || isPO2 || isPO3;
+  const isWritingAnyPO = isPO1 || isPO2 || isPO3 || isPO1_TEMP || isPO2_TEMP || isPO3_TEMP;
   
   const [po2Title, setPo2Title] = useState('');
   const [po2Recipient, setPo2Recipient] = useState('');
@@ -691,6 +692,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     alert(`${foundRows.length}개의 행을 불러왔으며, 병합 정보가 적용되었습니다.`);
   };
 
+  /**
+   * 1. 발주서 작성 완료 및 결재 요청 처리 (제출 시 한국 잔디 알림)
+   */
   const handlePo2Submit = (isTemp: boolean = false) => {
     if (!po2Title.trim()) {
       const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
@@ -716,7 +720,6 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           return {
             ...item, title: po2Title, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, date: po2Date,
             rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()).map(r => {
-              // 임시 저장 문서에서 온 경우 변경 필드 이력을 비움 (신규 작성과 동일 처리)
               if (isFromTemp) return { ...r, changedFields: [] };
               return r;
             }),
@@ -727,7 +730,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         }
         return item;
       });
-      saveItems(updated); alert(isTemp ? "임시 저장되었습니다." : "수정이 완료되어 결재대기로 이동되었습니다."); 
+      saveItems(updated);
+      
+      // JANDI 알림: 수정 제출 시 한국 결재자인 'H-CHUN'(설계)에게 요청
+      if (!isTemp) {
+        sendJandiNotification('KR', 'REQUEST', po2Title, 'H-CHUN', po2Date);
+      }
+      
+      alert(isTemp ? "임시 저장되었습니다." : "수정이 완료되어 설계 결재요청 되었습니다."); 
       setEditingItemId(null); setOriginalRejectedItem(null);
     } else {
       const newItem: PurchaseOrderItem = {
@@ -735,7 +745,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()),
         notes: po2Notes, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, hideInjectionColumn: hideInjectionColumn
       };
-      saveItems([newItem, ...items]); alert(isTemp ? "임시 저장되었습니다." : "작성이 완료되어 결재대기로 이동되었습니다.");
+      saveItems([newItem, ...items]);
+      
+      // JANDI 알림: 신규 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
+      if (!isTemp) {
+        sendJandiNotification('KR', 'REQUEST', po2Title, 'H-CHUN', po2Date);
+      }
+      
+      alert(isTemp ? "임시 저장되었습니다." : "작성이 완료되어 설계 결재요청 되었습니다.");
     }
     setView({ type: 'PURCHASE', sub: targetStatus });
     setPo2Title(''); setPo2Recipient(''); setPo2TelFax(''); setPo2Reference(''); setPo2Rows([]); setPo1HeaderRows([]); setPo1Merges({}); setPo1Aligns({}); setPo1Weights({}); setPo1Borders({}); setUndoStack([]); setHideInjectionColumn(false);
@@ -909,10 +926,15 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   const openRejectModal = (id: string) => { setItemToReject(id); setRejectReasonText(''); setIsRejectModalOpen(true); };
+  
+  /**
+   * 2. 반송 확정 처리 (한국 잔디 알림)
+   */
   const confirmReject = () => {
     if (!itemToReject) return;
     if (!rejectReasonText.trim()) { alert('반송 사유를 입력해 주세요.'); return; }
     
+    const targetItem = items.find(it => it.id === itemToReject);
     const updated = items.map(item => {
       if (item.id === itemToReject) {
         let currentTitle = item.title;
@@ -936,12 +958,21 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       return item;
     });
     saveItems(updated);
+
+    // JANDI 알림: 한국 반송 알림 전송 (작성자에게 알림)
+    if (targetItem) {
+      sendJandiNotification('KR', 'REJECT', targetItem.title, targetItem.authorId, targetItem.date);
+    }
+
     setIsRejectModalOpen(false); 
     setItemToReject(null); 
     setActiveItem(null); 
     setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED });
   };
 
+  /**
+   * 3. 단계별 승인 처리 (한국 잔디 알림)
+   */
   const handleApprove = (id: string, stampType: keyof PurchaseOrderItem['stamps']) => {
     const userInit = currentUser.initials.toLowerCase().trim();
     const isMaster = currentUser.loginId === 'AJ5200';
@@ -956,8 +987,26 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         // Completion logic based on dynamic path
         const slots = getApprovalSlots(item.type, item.recipient || '');
         const isComplete = slots.every(slot => !!newStamps[slot as keyof PurchaseOrderItem['stamps']]);
-        
-        return { ...item, stamps: newStamps, status: isComplete ? PurchaseOrderSubCategory.APPROVED : item.status };
+        const nextStatus = isComplete ? PurchaseOrderSubCategory.APPROVED : item.status;
+
+        // JANDI 알림 시나리오
+        if (isComplete) {
+            // 최종 승인 완료 (대표 승인 또는 대표가 없는 건의 이사 승인)
+            sendJandiNotification('KR', 'COMPLETE', item.title, item.authorId, item.date);
+        } else {
+            // 단계별 다음 결재자 호출
+            if (stampType === 'design') {
+                // 설계 승인 후 이사(M-YEUN)에게 요청
+                sendJandiNotification('KR', 'REQUEST', item.title, 'M-YEUN', item.date);
+            } else if (stampType === 'director') {
+                // 이사 승인 후 슬롯에 대표가 있다면 대표(K-YEUN)에게 요청
+                if (slots.includes('ceo')) {
+                    sendJandiNotification('KR', 'REQUEST', item.title, 'K-YEUN', item.date);
+                }
+            }
+        }
+
+        return { ...item, stamps: newStamps, status: nextStatus };
       }
       return item;
     });
@@ -1309,7 +1358,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
             <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>되돌리기 ({undoStack.length})</button>
             {editingItemId && <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black animate-pulse border border-red-200">반송 건 수정 중</span>}
           </div>
-          <button onClick={() => setIsVendorManagerOpen(!isVendorManagerOpen)} className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-slate-700 transition-all active:scale-95"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>수신처 관리</button>
+          <button onClick={() => setIsVendorManagerOpen(!isVendorManagerOpen)} className="flex items-center gap-2 px-6 py-2.5 bg-slate-900 text-white rounded-2xl font-black text-sm shadow-xl hover:bg-slate-700 transition-all active:scale-95"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>수신처 관리</button>
         </div>
         {isVendorManagerOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 no-print">
@@ -1722,7 +1771,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
             <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
             <div className="flex gap-3">
@@ -1734,7 +1783,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
       {isRejectModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-3xl p-8 max-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
             <h3 className="text-2xl font-black text-black mb-4">반송 사유 입력</h3>
             <p className="text-slate-500 text-sm mb-6 font-medium">결재권자에게 전달할 반송 사유를 상세히 입력해 주세요.</p>
             <textarea 
