@@ -31,7 +31,7 @@ interface StorageFile {
 }
 
 const AutoExpandingTextarea = React.memo(({ 
-  value, onChange, disabled, className, placeholder, onKeyDown, onPaste, onFocus, dataRow, dataCol, style
+  value, onChange, disabled, className, placeholder, onKeyDown, onPaste, onFocus, onClick, dataRow, dataCol, style
 }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -48,6 +48,7 @@ const AutoExpandingTextarea = React.memo(({
       onKeyDown={onKeyDown}
       onPaste={onPaste}
       onFocus={onFocus}
+      onClick={onClick}
       disabled={disabled}
       placeholder={placeholder}
       data-row={dataRow}
@@ -116,6 +117,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [originalRejectedItem, setOriginalRejectedItem] = useState<PurchaseOrderItem | null>(null);
   
+  // New: File selection state for Alt + Click linking
+  const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
+  const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
+
   const [modal, setModal] = useState<{
     type: 'DELETE_FILE' | 'DELETE_STORAGE_FILE' | 'ALERT';
     message: string;
@@ -176,6 +181,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       setIsFilesLoading(false);
     }
   }, []);
+
+  // Always fetch files on mount or when writing to ensure the selector has data
+  useEffect(() => {
+    fetchStorageFiles();
+  }, [fetchStorageFiles]);
 
   useEffect(() => {
     if (sub === PurchaseOrderSubCategory.UPLOAD) {
@@ -1071,6 +1081,29 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const archivedVendors = useMemo(() => { const vendorsSet = new Set<string>(); archivedItems.forEach(item => { if (item.recipient) vendorsSet.add(item.recipient); }); return Array.from(vendorsSet).sort(); }, [archivedItems]);
   const getPOTheme = (type: string) => { switch(type) { case PurchaseOrderSubCategory.PO1: case PurchaseOrderSubCategory.PO1_TEMP: return 'amber'; case PurchaseOrderSubCategory.PO2: case PurchaseOrderSubCategory.PO2_TEMP: return 'blue'; case PurchaseOrderSubCategory.PO3: case PurchaseOrderSubCategory.PO3_TEMP: return 'emerald'; default: return 'slate'; } };
 
+  // New: Handle file link selection
+  const handleLinkFileToRow = (file: StorageFile) => {
+    if (!targetRowIdForFile) return;
+    
+    // Determine the URL
+    let fileUrl = "";
+    if (file.isMock && file.base64) {
+      fileUrl = file.base64;
+    } else if (supabase) {
+      // Create a persistent link (using Supabase public URL if bucket is public, or we'll generate one)
+      const { data } = supabase.storage.from('ajin-pdfdata').getPublicUrl(file.name);
+      fileUrl = data.publicUrl;
+    }
+    
+    setPo2Rows(prev => prev.map(row => 
+      row.id === targetRowIdForFile ? { ...row, fileUrl } : row
+    ));
+    
+    setIsFileSelectorOpen(false);
+    setTargetRowIdForFile(null);
+    alert('파일이 품명에 링크되었습니다.');
+  };
+
   if (sub === PurchaseOrderSubCategory.UPLOAD) {
     const filteredFiles = files
       .filter(f => {
@@ -1112,7 +1145,6 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="파일명 검색..." className="w-full px-5 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium bg-white shadow-sm"/>
             </div>
             <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf" className="hidden"/>
-            {/* Fix: Conditional rendering inside the button content instead of inside className template literal */}
             <button 
               onClick={() => fileInputRef.current?.click()} 
               disabled={isUploading} 
@@ -1295,7 +1327,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100">Cell Tools (F4: Merge, Del: Clear)</span>
             <button onClick={handleMerge} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">셀 병합</button>
-            <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 transition-all whitespace-nowrap">병합 해제</button>
+            <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 shadow-sm transition-all whitespace-nowrap">병합 해제</button>
             <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
             <div className="flex bg-slate-100 p-1 rounded-lg">
               <button onClick={() => handleAlign('left')} className="p-1.5 hover:bg-white rounded transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" /></svg></button>
@@ -1393,7 +1425,36 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   <div className={`w-full h-full flex items-center justify-end px-1 font-mono bg-slate-50/50 ${isChanged ? 'text-red-600' : ''}`} style={{ textAlign: textAlign as any, fontWeight: textWeight }}>{calculateAmount(row).toLocaleString()}</div>
                                 )
                               ) : (
-                                <AutoExpandingTextarea value={row[cell.f]} dataRow={rIdx} dataCol={cell.cIdx} onFocus={() => setPo1Selection({ sR: rIdx, sC: cell.cIdx, eR: rIdx, eC: cell.cIdx })} onChange={(e: any) => { takeSnapshot(); updatePo2RowField(row.id, cell.f as keyof OrderRow, e.target.value); }} onKeyDown={(e: any) => handleRowKeyDown(e, rIdx, cell.cIdx)} onPaste={(e: any) => handlePaste(e, rIdx, cell.cIdx)} style={{ textAlign, fontWeight: textWeight }} className={`${isChanged ? 'text-red-600' : ''}`} />
+                                <div className="relative group/fileicon">
+                                  <AutoExpandingTextarea 
+                                    value={row[cell.f]} 
+                                    dataRow={rIdx} 
+                                    dataCol={cell.cIdx} 
+                                    onFocus={() => setPo1Selection({ sR: rIdx, sC: cell.cIdx, eR: rIdx, eC: cell.cIdx })} 
+                                    onChange={(e: any) => { takeSnapshot(); updatePo2RowField(row.id, cell.f as keyof OrderRow, e.target.value); }} 
+                                    onKeyDown={(e: any) => handleRowKeyDown(e, rIdx, cell.cIdx)} 
+                                    onPaste={(e: any) => handlePaste(e, rIdx, cell.cIdx)}
+                                    onClick={(e: React.MouseEvent) => {
+                                      // Request: Alt + Click to open file storage link
+                                      if (e.altKey && cell.f === 'itemName') {
+                                        e.preventDefault();
+                                        setTargetRowIdForFile(row.id);
+                                        setIsFileSelectorOpen(true);
+                                      }
+                                    }}
+                                    style={{ textAlign, fontWeight: textWeight }} 
+                                    className={`${isChanged ? 'text-red-600' : ''} ${cell.f === 'itemName' ? 'pr-6' : ''}`} 
+                                  />
+                                  {cell.f === 'itemName' && row.fileUrl && (
+                                    <button 
+                                      onClick={() => window.open(row.fileUrl, '_blank')}
+                                      className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print"
+                                      title="도면 파일 보기"
+                                    >
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                    </button>
+                                  )}
+                                </div>
                               )}
                             </td>
                           );
@@ -1430,12 +1491,63 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               <div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>{po2Notes.map((note, idx) => (<div key={idx} className="flex gap-2 items-center group/note"><span className="shrink-0 w-6">{idx + 1}.</span><input type="text" value={note.label} onChange={(e) => handleNoteChange(idx, 'label', e.target.value)} placeholder="항목 제목" className={`w-32 outline-none border-b border-slate-200 hover:border-amber-300 focus:border-amber-500 transition-all bg-transparent font-black ${isNoteChanged(idx, 'label', note.label) ? 'text-red-600' : 'text-black'}`}/><span className="shrink-0">:</span><input type="text" value={note.content} onChange={(e) => handleNoteChange(idx, 'content', e.target.value)} placeholder="내용 입력" className={`flex-1 outline-none border-b border-slate-100 hover:border-slate-300 focus:border-amber-500 transition-all bg-transparent px-2 ${isNoteChanged(idx, 'content', note.content) ? 'text-red-600' : ''}`}/><div className="flex gap-1 no-print opacity-0 group-hover/note:opacity-100 transition-opacity"><button onClick={() => handleDeleteNoteRow(idx)} className="p-1 text-red-400 hover:text-red-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12H9m12 0a9 9 0 11-18 0 a9 9 0 0118 0z" /></svg></button></div></div>))}<div className="pt-2 no-print"><button onClick={handleAddNoteRow} className="flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-black uppercase tracking-widest"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v3m0 0v3m0-3h3m-3 0H9m12 0a9 9 0 11-18 0 a9 9 0 0118 0z" /></svg>비고/유의 항목 추가</button></div></div>
               <div className="mt-12 flex justify-center gap-4 no-print">
                   <button onClick={() => handlePo2Submit(true)} disabled={!po2Title.trim()} className="px-10 py-5 rounded-2xl font-black text-2xl bg-slate-400 text-white hover:bg-slate-500 transition-all shadow-xl active:scale-95 disabled:opacity-30">임 시 저 장</button>
-                  <button onClick={() => handlePo2Submit(false)} disabled={!po2Title.trim()} className="px-16 py-5 rounded-2xl font-black text-2xl bg-slate-900 text-white hover:bg-amber-600 transition-all shadow-2xl active:scale-95 disabled:opacity-30">{editingItemId && !originalRejectedItem?.status.includes('임시저장') ? '수 정 완 료 (재제출)' : '작 성 완 료'}</button>
+                  <button onClick={() => handlePo2Submit(false)} disabled={!po2Title.trim()} className="px-16 py-5 rounded-2xl font-black text-2xl bg-slate-900 text-white hover:bg-amber-600 transition-all shadow-2xl active:scale-95 disabled:opacity-30">{editingItemId && !originalRejectedItem?.status.includes('임시저장') ? '수 정 완 로 (재제출)' : '작 성 완 료'}</button>
               </div>
             </div>
           </div>
         </div>
         
+        {/* New: File Selector Modal for linking PDF files */}
+        {isFileSelectorOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 no-print">
+            <div className="bg-white rounded-[2rem] p-8 w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[80vh]">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-black text-black">파일 링크 선택</h3>
+                  <p className="text-sm text-slate-500 font-bold mt-1">품명(Item)에 연결할 PDF 도면 파일을 선택하세요.</p>
+                </div>
+                <button onClick={() => { setIsFileSelectorOpen(false); setTargetRowIdForFile(null); }} className="p-2 text-slate-400 hover:text-black">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <input 
+                  type="text" 
+                  placeholder="파일명 검색..." 
+                  className="w-full px-5 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="grid grid-cols-1 gap-2">
+                  {files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map(file => {
+                    const displayFileName = file.name.split('_').slice(1).join('_') || file.name;
+                    return (
+                      <button 
+                        key={file.id} 
+                        onClick={() => handleLinkFileToRow(file)}
+                        className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-[10px]">PDF</div>
+                          <div>
+                            <p className="font-black text-black text-sm">{displayFileName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(file.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <span className="px-4 py-1 bg-white border rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-widest">선택</span>
+                      </button>
+                    );
+                  })}
+                  {files.length === 0 && <div className="py-20 text-center text-slate-400 font-bold italic">업로드된 파일이 없습니다.</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {isRejectModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
             <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
@@ -1504,7 +1616,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     PDF 저장 / 인쇄
   </button>
 </div>        </div>
-        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px]">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => (<tr key={row.id}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : (<div className="whitespace-pre-wrap">{row[cell.f]}</div>)}</td>); })}</tr>))}
+        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px]">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => (<tr key={row.id}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 relative ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : (<div className="whitespace-pre-wrap relative group/activefile">{row[cell.f]}{cell.f === 'itemName' && row.fileUrl && (<button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></button>)}</div>)}</td>); })}</tr>))}
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
                   <td colSpan={upColIdxActive} className="border border-black p-1 text-center tracking-widest text-black">합 계</td>
                   <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{subtotal.toLocaleString()}</td>

@@ -74,6 +74,7 @@ export interface OrderRow {
   unitPrice: string;
   amount?: string;
   remarks: string;
+  fileUrl?: string; // New: Link to a PDF file in storage
   isDeleted?: boolean;
   changedFields?: string[]; // Tracking fields changed since rejection
   modLog?: {
