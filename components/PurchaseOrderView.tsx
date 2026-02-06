@@ -734,7 +734,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       // JANDI 알림: 수정 제출 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       if (!isTemp) {
-        sendJandiNotification('KR', 'REQUEST', po2Title, 'H-CHUN', po2Date);
+        sendJandiNotification('KR', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
       }
       
       alert(isTemp ? "임시 저장되었습니다." : "수정이 완료되어 설계 결재요청 되었습니다."); 
@@ -749,7 +749,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       // JANDI 알림: 신규 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       if (!isTemp) {
-        sendJandiNotification('KR', 'REQUEST', po2Title, 'H-CHUN', po2Date);
+        sendJandiNotification('KR', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
       }
       
       alert(isTemp ? "임시 저장되었습니다." : "작성이 완료되어 설계 결재요청 되었습니다.");
@@ -928,7 +928,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const openRejectModal = (id: string) => { setItemToReject(id); setRejectReasonText(''); setIsRejectModalOpen(true); };
   
   /**
-   * 2. 반송 확정 처리 (한국 잔디 알림)
+   * 2. 반송 확정 처리 (한국 잔디 알림 - 수신처 포함)
    */
   const confirmReject = () => {
     if (!itemToReject) return;
@@ -959,9 +959,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     });
     saveItems(updated);
 
-    // JANDI 알림: 한국 반송 알림 전송 (작성자에게 알림)
+    // JANDI 알림: 한국 반송 알림 전송 (작성자에게 알림) - [수신처] 제목 형식
     if (targetItem) {
-      sendJandiNotification('KR', 'REJECT', targetItem.title, targetItem.authorId, targetItem.date);
+      sendJandiNotification('KR', 'REJECT', `[${targetItem.recipient || '-'}] ${targetItem.title}`, targetItem.authorId, targetItem.date);
     }
 
     setIsRejectModalOpen(false); 
@@ -971,7 +971,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   /**
-   * 3. 단계별 승인 처리 (한국 잔디 알림)
+   * 3. 단계별 승인 처리 (한국 잔디 알림 - 수신처 포함)
    */
   const handleApprove = (id: string, stampType: keyof PurchaseOrderItem['stamps']) => {
     const userInit = currentUser.initials.toLowerCase().trim();
@@ -989,19 +989,20 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         const isComplete = slots.every(slot => !!newStamps[slot as keyof PurchaseOrderItem['stamps']]);
         const nextStatus = isComplete ? PurchaseOrderSubCategory.APPROVED : item.status;
 
-        // JANDI 알림 시나리오
+        // JANDI 알림 시나리오 - [수신처] 제목 형식
+        const notifyTitle = `[${item.recipient || '-'}] ${item.title}`;
         if (isComplete) {
             // 최종 승인 완료 (대표 승인 또는 대표가 없는 건의 이사 승인)
-            sendJandiNotification('KR', 'COMPLETE', item.title, item.authorId, item.date);
+            sendJandiNotification('KR', 'COMPLETE', notifyTitle, item.authorId, item.date);
         } else {
             // 단계별 다음 결재자 호출
             if (stampType === 'design') {
                 // 설계 승인 후 이사(M-YEUN)에게 요청
-                sendJandiNotification('KR', 'REQUEST', item.title, 'M-YEUN', item.date);
+                sendJandiNotification('KR', 'REQUEST', notifyTitle, 'M-YEUN', item.date);
             } else if (stampType === 'director') {
                 // 이사 승인 후 슬롯에 대표가 있다면 대표(K-YEUN)에게 요청
                 if (slots.includes('ceo')) {
-                    sendJandiNotification('KR', 'REQUEST', item.title, 'K-YEUN', item.date);
+                    sendJandiNotification('KR', 'REQUEST', notifyTitle, 'K-YEUN', item.date);
                 }
             }
         }
@@ -1765,13 +1766,13 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           }))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : item.status.includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>)}</div></td></tr>)))}</tbody></table></div>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : item.status.includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>)}</div></td></tr>)))}</tbody></table></div>
       )}
       {totalPages > 1 && (<div className="flex justify-center items-center gap-3 mt-12 no-print pb-10"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button><div className="flex gap-2">{Array.from({length: totalPages}, (_, i) => i + 1).map(num => (<button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${currentPage === num ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{num}</button>))}</div><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7"/></svg></button></div>)}
       
       {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
             <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
             <div className="flex gap-3">
