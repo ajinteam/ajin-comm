@@ -12,27 +12,27 @@ function getJandiWebhook(
   if (mainCategory === "ORDER") {
     // 주문서 작성 단계
     if (subCategory === "CREATE") {
-      if (receiver === "서울") return process.env.JANDI_WEBHOOK_KR!;
-      return process.env.JANDI_WEBHOOK_VN!; // 대천, 베트남
+      if (receiver === "서울") return process.env.JANDI_WEBHOOK_KR;
+      return process.env.JANDI_WEBHOOK_VN; // 대천, 베트남
     }
 
     // 주문서 결재 완료 단계
-    if (subCategory === "APPROVED_SEOUL") return process.env.JANDI_WEBHOOK_KR!;
+    if (subCategory === "APPROVED_SEOUL") return process.env.JANDI_WEBHOOK_KR;
     if (
       subCategory === "APPROVED_DAECHEN" ||
       subCategory === "APPROVED_VIETNAM"
     )
-      return process.env.JANDI_WEVHOOK_VN!;
+      return process.env.JANDI_WEVHOOK_VN;
   }
 
   // 2️⃣ 발주서 (사출 / 인쇄 / 메탈 전부 한국)
   if (mainCategory === "PURCHASE") {
-    return process.env.JANDI_WEBHOOK_KR!;
+    return process.env.JANDI_WEBHOOK_KR;
   }
 
   // 3️⃣ VN 문서 (VN 주문서, VN 지불요청서)
   if (mainCategory === "VIETNAM") {
-    return process.env.JANDI_WEBHOOK_VN!;
+    return process.env.JANDI_WEBHOOK_VN;
   }
 
   return null;
