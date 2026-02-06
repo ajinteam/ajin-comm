@@ -472,7 +472,7 @@ const handleApprove = async (id: string) => {
     toast.success('승인되었습니다.');
   } catch (error: any) {
     console.error('승인 에러:', error);
-    toast.error('승인 실패: ' + error.message);
+    toast.error('승인 실패: ' + error.message);}
 };
 
 // --- [반려 함수] ---
@@ -496,8 +496,8 @@ const handleReject = async (id: string) => {
     await fetchOrders();
     toast.error('반송되었습니다.');
  } catch (error: any) {
-    console.error('반려 에러:', error);
-    toast.error('반려 실패: ' + error.message);
+    console.error('반송 에러:', error);
+    toast.error('반송 실패: ' + error.message);}
 };
   const handleDeleteDocument = (id: string) => {
     const updated = items.filter(it => it.id !== id);
