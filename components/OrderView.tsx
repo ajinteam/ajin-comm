@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
-import { pushStateToCloud } from '../supabase';
+import { pushStateToCloud, sendJandiNotification } from '../supabase';
 
 interface OrderViewProps {
   sub: OrderSubCategory;
@@ -530,10 +530,18 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     return library;
   }, [orders]);
 
+  /**
+   * 1. 주문서 작성 완료 및 결재 요청 처리 (잔디 알림 연동)
+   */
   const handleCreateSubmit = () => {
     if (!formTitle.trim()) { alert('제목을 입력해주세요.'); return; }
     const validRows = formRows.filter(r => r.dept.trim() || r.model.trim() || r.itemName.trim() || r.price.trim());
     
+    // 구매처에 따른 채널 및 지역 텍스트 설정
+    const channel: 'KR' | 'VN' = formLocation === 'SEOUL' ? 'KR' : 'VN';
+    const locText = formLocation === 'SEOUL' ? '서울' : formLocation === 'DAECHEON' ? '대천' : '베트남';
+    const notifyTitle = `[${locText}] ${formTitle}`;
+
     if (editingOrderId) {
       // 기존 반송 주문서 수정(재제출)
       const updatedOrders = orders.map(item => {
@@ -544,7 +552,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             location: formLocation,
             date: formDate,
             rows: validRows,
-            status: OrderSubCategory.PENDING, // 다시 결재대기로
+            status: OrderSubCategory.PENDING,
             rejectReason: undefined, 
             rejectLog: undefined,   
             merges: merges,
@@ -558,6 +566,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         return item;
       });
       saveOrders(updatedOrders);
+      
+      // JANDI 알림: 법인장(U-SUN)에게 결재 요청
+      sendJandiNotification(channel, 'REQUEST', notifyTitle, 'U-SUN', formDate);
+
       alert('수정이 완료되어 결재대기로 재제출되었습니다.');
       setEditingOrderId(null);
       setOriginalRejectedOrder(null);
@@ -587,6 +599,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       } as any;
       
       saveOrders([newOrder, ...orders]);
+
+      // JANDI 알림: 법인장(U-SUN)에게 결재 요청
+      sendJandiNotification(channel, 'REQUEST', notifyTitle, 'U-SUN', formDate);
+
       alert('작성이 완료되었습니다.');
       setFormRows(createInitialRows(6));
       setFormTitle('');
@@ -763,7 +779,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       }
     }
     setBorders(newBorders);
-    if (activeOrder && !editingOrderId) {
+    if (activeOrder) {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
       const updated = currentFullList.map((o: OrderItem) => o.id === activeOrder.id ? { ...o, borders: newBorders } : o);
       saveOrders(updated);
@@ -949,6 +965,9 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
   }, [handleMerge, handleClearSelectionText, sub, activeOrder, selection, editingOrderId]);
 
+  /**
+   * 2. 단계별 승인 처리 (잔디 알림 연동)
+   */
   const handleStampAction = (order: OrderItem, type: 'head' | 'manager' | 'director') => {
     const userInit = currentUser.initials.toLowerCase().trim();
     const isMaster = currentUser.loginId === 'AJ5200';
@@ -961,8 +980,30 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const isSeoul = order.location === 'SEOUL';
     const isFullApproved = isSeoul ? (updatedStamps.writer && updatedStamps.head && updatedStamps.manager && updatedStamps.director) : (updatedStamps.writer && updatedStamps.head);
     if (isFullApproved) nextStatus = OrderSubCategory.APPROVED;
+    
     const updatedOrders = orders.map(o => o.id === order.id ? { ...o, stamps: updatedStamps, status: nextStatus } : o);
     saveOrders(updatedOrders);
+
+    // 잔디 알림 채널 분기 및 제목 접두사
+    const channel: 'KR' | 'VN' = order.location === 'SEOUL' ? 'KR' : 'VN';
+    const locText = order.location === 'SEOUL' ? '서울' : order.location === 'DAECHEON' ? '대천' : '베트남';
+    const notifyTitle = `[${locText}] ${order.title}`;
+
+    // 결재 단계별 알림 전송
+    if (isFullApproved) {
+        // 최종 승인 완료
+        sendJandiNotification(channel, 'COMPLETE', notifyTitle, order.authorId, order.date);
+    } else {
+        // 다음 결재자 호출
+        if (type === 'head' && isSeoul) {
+            // 법인장 승인 후 과장(J-SUNG)에게
+            sendJandiNotification(channel, 'REQUEST', notifyTitle, 'J-SUNG', order.date);
+        } else if (type === 'manager' && isSeoul) {
+            // 과장 승인 후 이사(M-YEUN)에게
+            sendJandiNotification(channel, 'REQUEST', notifyTitle, 'M-YEUN', order.date);
+        }
+    }
+
     if (activeOrder?.id === order.id) setActiveOrder({...order, stamps: updatedStamps, status: nextStatus});
     if (nextStatus === OrderSubCategory.APPROVED) { alert('최종 결재가 승인되어 결재완료 폴더로 이동되었습니다.'); setActiveOrder(null); }
   };
@@ -979,6 +1020,9 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setActiveOrder(null);
   };
 
+  /**
+   * 3. 반송 처리 (잔디 알림 연동)
+   */
   const handleRejectAction = () => {
     if (!rejectingOrder) return;
     if (!rejectReasonText.trim()) { alert('반송 사유를 입력해 주세요.'); return; }
@@ -1007,6 +1051,12 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     });
     
     saveOrders(updatedOrders);
+
+    // JANDI 알림: 반송 알림 (작성자에게)
+    const channel: 'KR' | 'VN' = rejectingOrder.location === 'SEOUL' ? 'KR' : 'VN';
+    const locText = rejectingOrder.location === 'SEOUL' ? '서울' : rejectingOrder.location === 'DAECHEON' ? '대천' : '베트남';
+    sendJandiNotification(channel, 'REJECT', `[${locText}] ${rejectingOrder.title}`, rejectingOrder.authorId, rejectingOrder.date);
+
     setRejectingOrder(null);
     setRejectReasonText('');
     setActiveOrder(null);
