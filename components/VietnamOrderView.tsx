@@ -450,7 +450,51 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     setRejectReasonText('');
     setActiveItem(null);
   };
+// --- [승인 함수] ---
+const handleApprove = async (id: string) => {
+  try {
+    const { error } = await supabase.from('vietnam_orders').update({ status: 'approved' }).eq('id', id);
+    if (error) throw error;
 
+    // ✅ 승인 알림 전송
+    await fetch('/api/jandi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mainCategory: "VIETNAM",
+        subCategory: "APPROVE",
+        status: "request", // 다음 결재자에게 알림
+        // ... 생략
+      })
+    });
+
+    await fetchOrders();
+    toast.success('승인되었습니다.');
+  } catch (error) { ... }
+};
+
+// --- [반려 함수] ---
+const handleReject = async (id: string) => {
+  try {
+    const { error } = await supabase.from('vietnam_orders').update({ status: 'rejected' }).eq('id', id);
+    if (error) throw error;
+
+    // ✅ 반려 알림 전송
+    await fetch('/api/jandi', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mainCategory: "VIETNAM",
+        subCategory: "REJECT",
+        status: "complete", // 반려로 종결됨을 알림
+        // ... 생략
+      })
+    });
+
+    await fetchOrders();
+    toast.error('반려되었습니다.');
+  } catch (error) { ... }
+};
   const handleDeleteDocument = (id: string) => {
     const updated = items.filter(it => it.id !== id);
     saveVietnamItems(updated);
