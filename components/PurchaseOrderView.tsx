@@ -152,7 +152,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
       // 1. Supabase에서 데이터 가져오기 시도
       if (supabase) {
-        const { data, error } = await supabase.storage.from('purchase-orders').list('', {
+        const { data, error } = await supabase.storage.from('ajin-pdfdata').list('', {
           limit: 1000,
           offset: 0,
           sortBy: { column: 'created_at', order: 'desc' }
@@ -200,7 +200,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       // Supabase 연동이 되어있을 때
       if (supabase) {
         const { error } = await supabase.storage
-          .from('purchase-orders')
+          .from('ajin-pdfdata')
           .upload(fileName, file);
         if (error) throw error;
       } else {
