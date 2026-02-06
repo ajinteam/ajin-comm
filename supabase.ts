@@ -3,11 +3,13 @@ import { createClient } from '@supabase/supabase-js';
 
 const getEnvVar = (name: string): string => {
   try {
+    // Vite 환경 (import.meta.env)
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      return (import.meta as any).env[name] || '';
+      if ((import.meta as any).env[name]) return (import.meta as any).env[name];
     }
+    // Node/Process 환경 (process.env)
     if (typeof process !== 'undefined' && process.env) {
-      return process.env[name] || '';
+      if (process.env[name]) return process.env[name] || '';
     }
   } catch (e) {}
   return '';
@@ -21,8 +23,8 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 // JANDI Webhook URLs
-const JANDI_WEBHOOK_KR = getEnvVar('VITE_JANDI_WEBHOOK_KR');
-const JANDI_WEBHOOK_VN = getEnvVar('VITE_JANDI_WEBHOOK_VN');
+const JANDI_WEBHOOK_KR = getEnvVar('VITE_JANDI_WEBHOOK_KR') || getEnvVar('JANDI_WEBHOOK_KR');
+const JANDI_WEBHOOK_VN = getEnvVar('VITE_JANDI_WEBHOOK_VN') || getEnvVar('JANDI_WEBHOOK_VN');
 
 /**
  * 잔디 알림 전송 함수
@@ -38,8 +40,9 @@ export const sendJandiNotification = async (
   recipient: string
 ) => {
   const webhookUrl = target === 'KR' ? JANDI_WEBHOOK_KR : JANDI_WEBHOOK_VN;
+  
   if (!webhookUrl) {
-    console.warn(`[JANDI] Webhook URL for ${target} is missing.`);
+    console.error(`[JANDI ERROR] Webhook URL for ${target} is not configured in environment variables.`);
     return;
   }
 
@@ -49,11 +52,11 @@ export const sendJandiNotification = async (
   } else if (type === 'COMPLETE') {
     message = `[${title}] 결재 완료 / 작성자(${recipient}) 확인 부탁드립니다.`;
   } else if (type === 'REJECT') {
-    message = `[${title}] 반송 처리됨 / 작성자(${recipient}) 사유 확인 후 수정 바랍니다.`;
+    message = `[${title}] 반송 처리됨 / 다음 확인자(작성자): ${recipient} / 사유 확인 후 수정 바랍니다.`;
   }
 
   try {
-    await fetch(webhookUrl, {
+    const response = await fetch(webhookUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -61,9 +64,13 @@ export const sendJandiNotification = async (
       },
       body: JSON.stringify({ body: message })
     });
-    console.log(`[JANDI] Notification sent to ${target}: ${message}`);
+    
+    if (!response.ok) {
+      throw new Error(`Jandi API responded with status ${response.status}`);
+    }
+    console.log(`[JANDI SUCCESS] Sent to ${target}: ${message}`);
   } catch (err) {
-    console.error('[JANDI] Send error:', err);
+    console.error('[JANDI FETCH ERROR]', err);
   }
 };
 

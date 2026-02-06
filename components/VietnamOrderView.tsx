@@ -391,7 +391,12 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             stamps: isTemp ? it.stamps : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
         } : it);
         saveVietnamItems(updated);
-        if (!isTemp) sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
+        
+        // JANDI 알림: 재제출 시 법인장(U-SUN)에게 결재 요청
+        if (!isTemp) {
+          sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
+        }
+        
         alert(isTemp ? '임시저장되었습니다.' : '수정 완료되어 결재 대기로 재전송되었습니다.');
         setEditingId(null);
     } else {
@@ -404,7 +409,12 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         };
         const updated = [newItem, ...items];
         saveVietnamItems(updated);
-        if (!isTemp) sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
+        
+        // JANDI 알림: 신규 작성 완료 시 법인장(U-SUN)에게 결재 요청
+        if (!isTemp) {
+          sendJandiNotification('VN', 'REQUEST', vTitle, 'U-SUN');
+        }
+        
         alert(isTemp ? '임시저장되었습니다.' : '작성 결재가 완료되어 결재 대기로 전송되었습니다.');
     }
     setView({ type: 'VIETNAM', sub: targetStatus });
@@ -433,10 +443,12 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     } : it);
     saveVietnamItems(updated);
 
-    // JANDI Notification Logic
+    // JANDI 알림 로직
     if (isFullApproved) {
+        // 최종 승인 완료 시 작성자에게 알림
         sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId);
     } else {
+        // 법인장 승인 후, 지불요청서라면 대표(K-YEUN)에게 결재 요청
         if (type === 'head' && isPay) {
             sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN');
         }
@@ -457,7 +469,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     } : it);
     saveVietnamItems(updated);
     
-    // Notify Rejection
+    // JANDI 알림: 반송 시 작성자에게 알림
     sendJandiNotification('VN', 'REJECT', rejectingItem.title, rejectingItem.authorId);
 
     alert('문서가 반송 처리되었습니다.');
