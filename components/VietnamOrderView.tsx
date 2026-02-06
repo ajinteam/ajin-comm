@@ -457,7 +457,7 @@ const handleApprove = async (id: string) => {
     if (error) throw error;
 
     // ✅ 승인 알림 전송
-    await fetch('/api/jandi', {
+    await fetch('api/jandi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -482,7 +482,7 @@ const handleReject = async (id: string) => {
     if (error) throw error;
 
     // ✅ 반려 알림 전송
-    await fetch('/api/jandi', {
+    await fetch('api/jandi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
