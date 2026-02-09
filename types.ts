@@ -53,6 +53,19 @@ export enum VietnamSubCategory {
   PAYMENT_COMPLETED = 'VN지불요청서완료'
 }
 
+export interface VnVendorInfo {
+  name: string;
+  address: string;
+  taxId: string;
+}
+
+export interface VnBankVendorInfo {
+  beneficiary: string;
+  accountNo: string;
+  bank: string;
+  bankAddr: string;
+}
+
 export interface StampInfo {
   userId: string;
   timestamp: string;

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState } from '../types';
+import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState, VnVendorInfo, VnBankVendorInfo } from '../types';
 import { pushStateToCloud, sendJandiNotification } from '../supabase';
 
 interface VietnamOrderViewProps {
@@ -62,6 +62,16 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   
   const isMaster = currentUser.loginId === 'AJ5200';
 
+  // 베트남 수신처 관리 상태 (Khách hàng)
+  const [vnVendors, setVnVendors] = useState<VnVendorInfo[]>([]);
+  const [isVnVendorManagerOpen, setIsVnVendorManagerOpen] = useState(false);
+  const [newVnVendor, setNewVnVendor] = useState<VnVendorInfo>({ name: '', address: '', taxId: '' });
+
+  // 베트남 은행 수신처 관리 상태 (Thụ hưởng/Ngân hàng)
+  const [vnBankVendors, setVnBankVendors] = useState<VnBankVendorInfo[]>([]);
+  const [isVnBankVendorManagerOpen, setIsVnBankVendorManagerOpen] = useState(false);
+  const [newVnBankVendor, setNewVnBankVendor] = useState<VnBankVendorInfo>({ beneficiary: '', accountNo: '', bank: '', bankAddr: '' });
+
   // 폼 공통 상태
   const [vTitle, setVTitle] = useState('ĐƠN ĐẶT HÀNG (PO)');
   const [vDate, setVDate] = useState(new Date().toLocaleDateString('ko-KR'));
@@ -107,6 +117,10 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   useEffect(() => {
     const saved = localStorage.getItem('ajin_vietnam_orders');
     if (saved) setItems(JSON.parse(saved));
+    const savedVendors = localStorage.getItem('ajin_vn_vendors');
+    if (savedVendors) setVnVendors(JSON.parse(savedVendors));
+    const savedBankVendors = localStorage.getItem('ajin_vn_bank_vendors');
+    if (savedBankVendors) setVnBankVendors(JSON.parse(savedBankVendors));
   }, [dataVersion]);
 
   useEffect(() => {
@@ -124,6 +138,51 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       }
     }
   }, [sub]);
+
+  const handleSaveVnVendor = () => {
+    if (!newVnVendor.name.trim()) return;
+    const updated = vnVendors.filter(v => v.name !== newVnVendor.name);
+    const final = [...updated, newVnVendor];
+    setVnVendors(final);
+    localStorage.setItem('ajin_vn_vendors', JSON.stringify(final));
+    setNewVnVendor({ name: '', address: '', taxId: '' });
+    pushStateToCloud();
+  };
+
+  const handleVnVendorSelect = (name: string) => {
+    takeSnapshot();
+    const vendor = vnVendors.find(v => v.name === name);
+    if (vendor) {
+      setVClientName(vendor.name);
+      setVClientAddress(vendor.address);
+      setVTaxId(vendor.taxId);
+    } else {
+      setVClientName(name);
+    }
+  };
+
+  const handleSaveVnBankVendor = () => {
+    if (!newVnBankVendor.beneficiary.trim()) return;
+    const updated = vnBankVendors.filter(v => v.beneficiary !== newVnBankVendor.beneficiary);
+    const final = [...updated, newVnBankVendor];
+    setVnBankVendors(final);
+    localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(final));
+    setNewVnBankVendor({ beneficiary: '', accountNo: '', bank: '', bankAddr: '' });
+    pushStateToCloud();
+  };
+
+  const handleVnBankVendorSelect = (beneficiary: string) => {
+    takeSnapshot();
+    const bankVendor = vnBankVendors.find(v => v.beneficiary === beneficiary);
+    if (bankVendor) {
+      setVBeneficiary(bankVendor.beneficiary);
+      setVAccountNo(bankVendor.accountNo);
+      setVBank(bankVendor.bank);
+      setVBankAddr(bankVendor.bankAddr);
+    } else {
+      setVBeneficiary(beneficiary);
+    }
+  };
 
   const takeSnapshot = useCallback(() => {
     const snapshot = JSON.stringify({ vRows, merges, aligns, weights, borders, vTitle, vClientName, vClientAddress, vTaxId, vDeliveryAddress, vBeneficiary, vAccountNo, vBank, vBankAddr, vVatRate, vRemark });
@@ -659,8 +718,20 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                 {isReadOnly ? <span>{dDate}</span> : <input type="text" value={vDate} onChange={e => setVDate(e.target.value)} className="flex-1 outline-none font-black bg-slate-50/20 px-2"/>}
             </div>
             <div className="flex items-center py-0.5 border-b border-slate-100 info-row">
-                <span className="w-52 font-black">Khách hàng/Tên (수신):</span>
-                {isReadOnly ? <span>{dClient}</span> : <input value={vClientName} onChange={e => setVClientName(e.target.value)} className="flex-1 outline-none font-black bg-slate-50/20 px-2" placeholder="수신처 상호명"/>}
+                <span className="w-52 font-black shrink-0">Khách hàng/Tên (수신):</span>
+                {isReadOnly ? <span className="flex-1">{dClient}</span> : (
+                  <div className="flex flex-1 gap-2 items-center min-w-0">
+                    <select 
+                      value={vnVendors.find(v => v.name === vClientName) ? vClientName : ""} 
+                      onChange={(e) => handleVnVendorSelect(e.target.value)}
+                      className="bg-slate-50 border rounded px-1 py-0.5 text-[10px] outline-none w-20 shrink-0"
+                    >
+                      <option value="">직접입력</option>
+                      {vnVendors.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
+                    </select>
+                    <input value={vClientName} onChange={e => { takeSnapshot(); setVClientName(e.target.value); }} className="flex-1 outline-none font-black bg-slate-50/20 px-2 min-w-0" placeholder="수신처 상호명"/>
+                  </div>
+                )}
             </div>
             <div className="flex items-center py-0.5 border-b border-slate-100 info-row">
                 <span className="w-52 font-black">Địa chỉ (수신 주소):</span>
@@ -744,7 +815,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
                                 const isSelected = selection && rIdx >= Math.min(selection.sR, selection.eR) && rIdx <= Math.max(selection.sR, selection.eR) && cell.c >= Math.min(selection.sC, selection.eC) && cell.c <= Math.max(selection.sC, selection.eC);
                                 const align = dAligns[`${rIdx}-${cell.c}`] || (cell.f === 'itemName' ? 'left' : 'center');
-                                const weight = dWeights[`${rIdx}-${cell.c}`] || 'bold';
                                 const borderS = getCellBorderStyle(rIdx, cell.c, dBorders);
 
                                 return (
@@ -843,8 +913,20 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             <>
               <div className="mt-6 w-full border-2 border-slate-300 p-4 rounded-xl text-[12px] space-y-1">
                   <div className="flex items-center">
-                      <span className="w-48 font-black">Người thụ hưởng (수익자):</span>
-                      {isReadOnly ? <span className="flex-1 font-black text-blue-800">{dBeneficiary}</span> : <input value={vBeneficiary} onChange={e => setVBeneficiary(e.target.value)} className="flex-1 outline-none font-black bg-slate-50/50 px-2 border-b border-dotted" placeholder="수익자 성명/업체명"/>}
+                      <span className="w-48 font-black shrink-0">Người thụ hưởng (수익자):</span>
+                      {isReadOnly ? <span className="flex-1 font-black text-blue-800">{dBeneficiary}</span> : (
+                        <div className="flex-1 flex gap-2 items-center">
+                          <select 
+                            value={vnBankVendors.find(v => v.beneficiary === vBeneficiary) ? vBeneficiary : ""} 
+                            onChange={(e) => handleVnBankVendorSelect(e.target.value)}
+                            className="bg-slate-50 border rounded px-1 py-0.5 text-[10px] outline-none w-20 shrink-0"
+                          >
+                            <option value="">직접입력</option>
+                            {vnBankVendors.map(v => <option key={v.beneficiary} value={v.beneficiary}>{v.beneficiary}</option>)}
+                          </select>
+                          <input value={vBeneficiary} onChange={e => setVBeneficiary(e.target.value)} className="flex-1 outline-none font-black bg-slate-50/50 px-2 border-b border-dotted" placeholder="수익자 성명/업체명"/>
+                        </div>
+                      )}
                   </div>
                   <div className="flex items-center">
                       <span className="w-48 font-black">Số tài khoản (계좌번호):</span>
@@ -932,8 +1014,93 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
               </span>
             )}
           </div>
-          <button onClick={handlePrint} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-black text-xs shadow-lg hover:bg-blue-700">PDF 저장 / 인쇄</button>
+          <div className="flex gap-2">
+            <button onClick={() => setIsVnVendorManagerOpen(true)} className="px-5 py-2 bg-slate-900 text-white rounded-xl font-black text-xs shadow-lg hover:bg-slate-700 active:scale-95 transition-all">Khách hàng (수신처 관리)</button>
+            {docType === 'PAYMENT' && (
+              <button onClick={() => setIsVnBankVendorManagerOpen(true)} className="px-5 py-2 bg-indigo-600 text-white rounded-xl font-black text-xs shadow-lg hover:bg-indigo-700 active:scale-95 transition-all">Thụ hưởng (은행 관리)</button>
+            )}
+            <button onClick={handlePrint} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-black text-xs shadow-lg hover:bg-blue-700">PDF 저장 / 인쇄</button>
+          </div>
         </div>
+
+        {isVnVendorManagerOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 no-print">
+            <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[85vh]">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black text-black">베트남 수신처(Khách hàng) 관리</h3>
+                <button onClick={() => setIsVnVendorManagerOpen(false)} className="p-2 text-slate-400 hover:text-black">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div className="space-y-3 mb-6 p-6 bg-slate-50 rounded-3xl border border-slate-200">
+                <input type="text" value={newVnVendor.name} onChange={e => setNewVnVendor({...newVnVendor, name: e.target.value})} placeholder="수신처 상호명" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                <input type="text" value={newVnVendor.address} onChange={e => setNewVnVendor({...newVnVendor, address: e.target.value})} placeholder="수신처 주소" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                <input type="text" value={newVnVendor.taxId} onChange={e => setNewVnVendor({...newVnVendor, taxId: e.target.value})} placeholder="Mã số thuế (사업자번호)" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                <button onClick={handleSaveVnVendor} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-sm hover:bg-indigo-700 transition-all">수신처 저장</button>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                {vnVendors.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 italic font-bold">등록된 수신처가 없습니다.</div>
+                ) : (
+                  vnVendors.map(v => (
+                    <div key={v.name} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl hover:bg-indigo-50 transition-colors group">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <p className="font-black text-black truncate">{v.name}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{v.address}</p>
+                        <p className="text-[10px] text-indigo-500 font-bold">MST: {v.taxId}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => setNewVnVendor(v)} className="text-xs font-bold text-indigo-600 hover:underline">편집</button>
+                        <button onClick={() => { setVnVendors(vnVendors.filter(vendor => vendor.name !== v.name)); localStorage.setItem('ajin_vn_vendors', JSON.stringify(vnVendors.filter(vendor => vendor.name !== v.name))); pushStateToCloud(); }} className="text-xs font-bold text-red-500 hover:underline">삭제</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isVnBankVendorManagerOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 no-print">
+            <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[85vh]">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-2xl font-black text-black">베트남 은행 수신처(Thụ hưởng) 관리</h3>
+                <button onClick={() => setIsVnBankVendorManagerOpen(false)} className="p-2 text-slate-400 hover:text-black">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              <div className="space-y-3 mb-6 p-6 bg-slate-50 rounded-3xl border border-slate-200">
+                <input type="text" value={newVnBankVendor.beneficiary} onChange={e => setNewVnBankVendor({...newVnBankVendor, beneficiary: e.target.value})} placeholder="수익자 성명/업체명" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                <input type="text" value={newVnBankVendor.accountNo} onChange={e => setNewVnBankVendor({...newVnBankVendor, accountNo: e.target.value})} placeholder="은행 계좌번호" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                <div className="grid grid-cols-2 gap-3">
+                  <input type="text" value={newVnBankVendor.bank} onChange={e => setNewVnBankVendor({...newVnBankVendor, bank: e.target.value})} placeholder="은행명 (예: VCB)" className="px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                  <input type="text" value={newVnBankVendor.bankAddr} onChange={e => setNewVnBankVendor({...newVnBankVendor, bankAddr: e.target.value})} placeholder="지점명 또는 주소" className="px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-indigo-500 font-bold"/>
+                </div>
+                <button onClick={handleSaveVnBankVendor} className="w-full py-3 bg-indigo-600 text-white rounded-xl font-black text-sm hover:bg-indigo-700 transition-all">은행 수신처 저장</button>
+              </div>
+              <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar pr-2">
+                {vnBankVendors.length === 0 ? (
+                  <div className="py-12 text-center text-slate-400 italic font-bold">등록된 은행 수신처가 없습니다.</div>
+                ) : (
+                  vnBankVendors.map(v => (
+                    <div key={v.beneficiary} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl hover:bg-indigo-50 transition-colors group">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <p className="font-black text-black truncate">{v.beneficiary}</p>
+                        <p className="text-[10px] text-blue-600 font-bold">{v.accountNo} | {v.bank}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{v.bankAddr}</p>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button onClick={() => setNewVnBankVendor(v)} className="text-xs font-bold text-indigo-600 hover:underline">편집</button>
+                        <button onClick={() => { setVnBankVendors(vnBankVendors.filter(vendor => vendor.beneficiary !== v.beneficiary)); localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(vnBankVendors.filter(vendor => vendor.beneficiary !== v.beneficiary))); pushStateToCloud(); }} className="text-xs font-bold text-red-500 hover:underline">삭제</button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {selection && (
           <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
@@ -941,7 +1108,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold shadow-sm transition-all whitespace-nowrap">병합 해제</button>
             <div className="flex bg-slate-100 p-1 rounded-lg">
                 <button onClick={() => handleApplyAlign('left')} className="p-1.5 hover:bg-white rounded transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg></button>
-                <button onClick={() => handleApplyAlign('center')} className="p-1.5 hover:bg-white rounded transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h6a1 1 0 110 2H4a1 1 0 01-1-1zm0 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg></button>
+                <button onClick={() => handleApplyAlign('center')} className="p-1.5 hover:bg-white rounded transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor"><path d="M3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3 5a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm-3 5a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z"/></svg></button>
             </div>
             <div className="flex bg-slate-100 p-1 rounded-lg gap-1">
                 <select value={activeBorderStyle} onChange={(e) => setActiveBorderStyle(e.target.value)} className="text-[10px] font-bold border rounded px-1"><option value="solid">실선</option><option value="dotted">점선</option><option value="none">없음</option></select>
@@ -1072,7 +1239,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                         <div className="text-[10px] text-slate-400 truncate max-w-xs">{item.title}</div>
                                     </td>
                                     <td className="px-6 py-4">
-                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${item.type === 'PAYMENT' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'}`}>
+                                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${item.type === 'PAYMENT' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-100 text-indigo-600'}`}>
                                             {item.type === 'PAYMENT' ? 'PAYMENT' : 'ORDER'}
                                         </span>
                                     </td>

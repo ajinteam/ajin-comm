@@ -74,6 +74,8 @@ export const pushStateToCloud = async () => {
         invoices: JSON.parse(localStorage.getItem('ajin_invoices') || '[]'),
         purchase_orders: JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]'),
         vietnam_orders: JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]'),
+        vn_vendors: JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
+        vn_bank_vendors: JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
         notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
         updatedAt: updatedAt
       };
@@ -103,12 +105,14 @@ export const pullStateFromCloud = async () => {
       const localUpdatedAt = localStorage.getItem('ajin_last_local_update') || '';
 
       if (!localUpdatedAt || cloudUpdatedAt > localUpdatedAt) {
-        const { accounts, orders, invoices, purchase_orders, vietnam_orders, notices } = data.dataload;
+        const { accounts, orders, invoices, purchase_orders, vietnam_orders, vn_vendors, vn_bank_vendors, notices } = data.dataload;
         if (accounts) localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
         if (orders) localStorage.setItem('ajin_orders', JSON.stringify(orders));
         if (invoices) localStorage.setItem('ajin_invoices', JSON.stringify(invoices));
         if (purchase_orders) localStorage.setItem('ajin_purchase_orders', JSON.stringify(purchase_orders));
         if (vietnam_orders) localStorage.setItem('ajin_vietnam_orders', JSON.stringify(vietnam_orders));
+        if (vn_vendors) localStorage.setItem('ajin_vn_vendors', JSON.stringify(vn_vendors));
+        if (vn_bank_vendors) localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(vn_bank_vendors));
         if (notices) localStorage.setItem('ajin_notices', JSON.stringify(notices));
         localStorage.setItem('ajin_last_local_update', cloudUpdatedAt);
         return data.dataload;
