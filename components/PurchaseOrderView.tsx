@@ -316,10 +316,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const isPO1 = sub === PurchaseOrderSubCategory.PO1;
   const isPO2 = sub === PurchaseOrderSubCategory.PO2;
   const isPO3 = sub === PurchaseOrderSubCategory.PO3;
-  const isPO1_TEMP = sub === PurchaseOrderSubCategory.PO1_TEMP;
-  const isPO2_TEMP = sub === PurchaseOrderSubCategory.PO2_TEMP;
-  const isPO3_TEMP = sub === PurchaseOrderSubCategory.PO3_TEMP;
-  const isWritingAnyPO = isPO1 || isPO2 || isPO3 || isPO1_TEMP || isPO2_TEMP || isPO3_TEMP;
+  // 수정: 임시 저장 폴더는 '작성 중'인 화면이 아니라 '목록'을 보여주어야 하므로 isWritingAnyPO에서 제외합니다.
+  const isWritingAnyPO = isPO1 || isPO2 || isPO3;
   
   const [po2Title, setPo2Title] = useState('');
   const [po2Recipient, setPo2Recipient] = useState('');
@@ -529,8 +527,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
     const getColToField = () => {
       const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
-      if (currentItemType === PurchaseOrderSubCategory.PO1) return { 0: 'dept', 1: 'model', 2: 's', 3: 'itemName', 4: 'cty', 5: 'price', 6: 'material', 7: 'vendor', 8: 'injectionVendor', 9: 'orderQty', 10: 'unitPrice', 11: 'amount', 12: 'remarks' };
-      if (currentItemType === PurchaseOrderSubCategory.PO3) return { 0: 'dept', 1: 'itemName', 2: 'model', 3: 'price', 4: 'unitPrice', 5: 'amount', 6: 'remarks' };
+      if (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) return { 0: 'dept', 1: 'model', 2: 's', 3: 'itemName', 4: 'cty', 5: 'price', 6: 'material', 7: 'vendor', 8: 'injectionVendor', 9: 'orderQty', 10: 'unitPrice', 11: 'amount', 12: 'remarks' };
+      if (currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP) return { 0: 'dept', 1: 'itemName', 2: 'model', 3: 'price', 4: 'unitPrice', 5: 'amount', 6: 'remarks' };
       return { 0: 'itemName', 1: 'model', 2: 'price', 3: 'unitPrice', 4: 'amount', 5: 'remarks' };
     };
 
@@ -574,8 +572,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const handleRowKeyDown = (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {
     const getValidCols = () => {
       const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
-      const baseCols = currentItemType === PurchaseOrderSubCategory.PO1 ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : (currentItemType === PurchaseOrderSubCategory.PO3 ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4, 5]);
-      if (currentItemType === PurchaseOrderSubCategory.PO1 && hideInjectionColumn) return baseCols.filter(c => c !== 8);
+      const baseCols = (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : ((currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP) ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4, 5]);
+      if ((currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) && hideInjectionColumn) return baseCols.filter(c => c !== 8);
       return baseCols;
     };
     const validCols = getValidCols();
@@ -705,18 +703,24 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     let targetStatus: PurchaseOrderSubCategory;
     const currentType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
 
+    // 수정: currentType이 _TEMP일 수도 있으므로 포함하여 체크합니다.
     if (isTemp) {
-      if (currentType === PurchaseOrderSubCategory.PO1) targetStatus = PurchaseOrderSubCategory.PO1_TEMP;
-      else if (currentType === PurchaseOrderSubCategory.PO3) targetStatus = PurchaseOrderSubCategory.PO3_TEMP;
+      if (currentType === PurchaseOrderSubCategory.PO1 || currentType === PurchaseOrderSubCategory.PO1_TEMP) targetStatus = PurchaseOrderSubCategory.PO1_TEMP;
+      else if (currentType === PurchaseOrderSubCategory.PO3 || currentType === PurchaseOrderSubCategory.PO3_TEMP) targetStatus = PurchaseOrderSubCategory.PO3_TEMP;
       else targetStatus = PurchaseOrderSubCategory.PO2_TEMP;
     } else {
       targetStatus = PurchaseOrderSubCategory.PENDING;
     }
 
+    // 새 아이템의 type을 기본 타입(PO1, PO2, PO3)으로 고정하기 위한 매핑
+    const baseType = (currentType.includes('사출')) ? PurchaseOrderSubCategory.PO1 
+                  : (currentType.includes('메탈')) ? PurchaseOrderSubCategory.PO3 
+                  : PurchaseOrderSubCategory.PO2;
+
     if (editingItemId) {
       const updated = items.map(item => {
         if (item.id === editingItemId) {
-          const isFromTemp = originalRejectedItem?.status.includes('임시저장');
+          const isFromTemp = item.status.includes('임시저장');
           return {
             ...item, title: po2Title, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, date: po2Date,
             rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()).map(r => {
@@ -741,7 +745,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       setEditingItemId(null); setOriginalRejectedItem(null);
     } else {
       const newItem: PurchaseOrderItem = {
-        id: `${currentType}-${Date.now()}`, code: '', title: po2Title, type: currentType as string, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, authorId: currentUser.initials, date: po2Date, createdAt: new Date().toISOString(),
+        id: `${baseType}-${Date.now()}`, code: '', title: po2Title, type: baseType as string, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, authorId: currentUser.initials, date: po2Date, createdAt: new Date().toISOString(),
         rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()),
         notes: po2Notes, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, hideInjectionColumn: hideInjectionColumn
       };
@@ -1288,7 +1292,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
         {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-            <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
               <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
               <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
@@ -1633,11 +1637,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const weights = activeItem.weights || {};
     const borders = activeItem.borders || {};
     const activeHideInjection = activeItem.hideInjectionColumn || false;
-    const tableColsActive = isPO1Active ? 
+    const tableColsActive = (isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP) ? 
       (activeHideInjection ? 
         [{ f: 'dept', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 12, label: '비고', w: 'w-[10%]' }] :
         [{ f: 'dept', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 12, label: '비고', w: 'w-[10%]' }]
-      ) : (isPO3Active ? [{ f: 'dept', cIdx: 0, label: '도 번', w: 'w-[11%]' }, { f: 'itemName', cIdx: 1, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 2, label: '규 격', w: 'w-[13.3%]' }, { f: 'price', cIdx: 3, label: '수 량', w: 'w-[8%]' }, { f: 'unitPrice', cIdx: 4, label: '단 가', w: 'w-[9.6%]' }, { f: 'amount', cIdx: 5, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 6, label: '비 고', w: 'w-[15%]' }] : [{ f: 'itemName', cIdx: 0, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 1, label: '규 격', w: 'w-[20%]' }, { f: 'price', cIdx: 2, label: '수 량', w: 'w-[10%]' }, { f: 'unitPrice', cIdx: 3, label: '단 가', w: 'w-[12%]' }, { f: 'amount', cIdx: 4, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 5, label: '비 고', w: 'w-[15%]' }]);
+      ) : ((isPO3Active || activeItem.type === PurchaseOrderSubCategory.PO3_TEMP) ? [{ f: 'dept', cIdx: 0, label: '도 번', w: 'w-[11%]' }, { f: 'itemName', cIdx: 1, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 2, label: '규 격', w: 'w-[13.3%]' }, { f: 'price', cIdx: 3, label: '수 량', w: 'w-[8%]' }, { f: 'unitPrice', cIdx: 4, label: '단 가', w: 'w-[9.6%]' }, { f: 'amount', cIdx: 5, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 6, label: '비 고', w: 'w-[15%]' }] : [{ f: 'itemName', cIdx: 0, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 1, label: '규 격', w: 'w-[20%]' }, { f: 'price', cIdx: 2, label: '수 량', w: 'w-[10%]' }, { f: 'unitPrice', cIdx: 3, label: '단 가', w: 'w-[12%]' }, { f: 'amount', cIdx: 4, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 5, label: '비 고', w: 'w-[15%]' }]);
     
     const upColIdxActive = tableColsActive.findIndex(c => c.f === 'unitPrice');
     const visibleSlots = getApprovalSlots(activeItem.type, activeItem.recipient || '');
