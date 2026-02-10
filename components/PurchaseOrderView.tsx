@@ -539,7 +539,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       let newRows = [...prev];
       grid.forEach((pRow, rOffset) => {
         const rIdx = startRowIdx + rOffset;
-        if (rIdx >= 200) return;
+        if (rIdx >= 500) return;
         if (!newRows[rIdx]) newRows[rIdx] = createEmptyRow();
         const startValidIdx = validCols.indexOf(startColIdx);
         if (startValidIdx !== -1) {
@@ -1776,7 +1776,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
             <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
             <div className="flex gap-3">
@@ -1788,7 +1788,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
       {isRejectModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-3xl p-8 max-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
             <h3 className="text-2xl font-black text-black mb-4">반송 사유 입력</h3>
             <p className="text-slate-500 text-sm mb-6 font-medium">결재권자에게 전달할 반송 사유를 상세히 입력해 주세요.</p>
             <textarea 
