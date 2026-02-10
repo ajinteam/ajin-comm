@@ -509,11 +509,17 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     }
   };
 
+  /**
+   * 사출발주서 등 발주서 입력란에 대량의 데이터를 붙여넣기하는 함수입니다.
+   * 사용자의 요청에 따라 최대 500행까지 지원되도록 설계되었습니다.
+   */
   const handlePaste = (e: React.ClipboardEvent, startRowIdx: number, startColIdx: number) => {
     const pasteData = e.clipboardData.getData('text');
     if (!pasteData.includes('\t') && !pasteData.includes('\n')) return;
     e.preventDefault();
     takeSnapshot();
+    
+    // 행 구분 (멀티라인 지원)
     const rowsText = pasteData.split(/\r?\n(?=(?:(?:[^"]*"){2})*[^"]*$)/);
     const grid = rowsText.map(row => {
       return row.split('\t').map(cell => {
@@ -525,10 +531,13 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       });
     });
 
+    // 현재 발주서 유형에 따른 열 필드 매핑
     const getColToField = () => {
       const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
-      if (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) return { 0: 'dept', 1: 'model', 2: 's', 3: 'itemName', 4: 'cty', 5: 'price', 6: 'material', 7: 'vendor', 8: 'injectionVendor', 9: 'orderQty', 10: 'unitPrice', 11: 'amount', 12: 'remarks' };
-      if (currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP) return { 0: 'dept', 1: 'itemName', 2: 'model', 3: 'price', 4: 'unitPrice', 5: 'amount', 6: 'remarks' };
+      if (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) 
+        return { 0: 'dept', 1: 'model', 2: 's', 3: 'itemName', 4: 'cty', 5: 'price', 6: 'material', 7: 'vendor', 8: 'injectionVendor', 9: 'orderQty', 10: 'unitPrice', 11: 'amount', 12: 'remarks' };
+      if (currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP) 
+        return { 0: 'dept', 1: 'itemName', 2: 'model', 3: 'price', 4: 'unitPrice', 5: 'amount', 6: 'remarks' };
       return { 0: 'itemName', 1: 'model', 2: 'price', 3: 'unitPrice', 4: 'amount', 5: 'remarks' };
     };
 
@@ -539,7 +548,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       let newRows = [...prev];
       grid.forEach((pRow, rOffset) => {
         const rIdx = startRowIdx + rOffset;
+        
+        // 사용자의 요청에 따라 최대 500행까지만 붙여넣기를 허용합니다.
         if (rIdx >= 500) return;
+        
         if (!newRows[rIdx]) newRows[rIdx] = createEmptyRow();
         const startValidIdx = validCols.indexOf(startColIdx);
         if (startValidIdx !== -1) {
@@ -873,7 +885,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       for (let r = minR; r < maxR; r++) {
         for (let c = minC; c <= maxC; c++) { setBorder(r, c, 'b', style); setBorder(r + 1, c, 't', style); }
       }
-      for (let c = minC; c < maxC; c++) {
+      for (let c = minC; c < maxC; r++) {
         for (let r = minR; r <= maxR; r++) { setBorder(r, c, 'r', style); setBorder(r, c + 1, 'l', style); }
       }
     }
@@ -1292,7 +1304,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
         {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-            <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-500">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
               <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
               <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
@@ -1554,7 +1566,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         {/* New: File Selector Modal for linking PDF files */}
         {isFileSelectorOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[150] flex items-center justify-center p-4 no-print">
-            <div className="bg-white rounded-[2rem] p-8 w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[80vh]">
+            <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[80vh]">
               <div className="flex justify-between items-center mb-6">
                 <div>
                   <h3 className="text-2xl font-black text-black">파일 링크 선택</h3>
@@ -1770,13 +1782,13 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           }))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : item.status.includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>)}</div></td></tr>)))}</tbody></table></div>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : item.status.includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>)}</div></td></tr>)))}</tbody></table></div>
       )}
       {totalPages > 1 && (<div className="flex justify-center items-center gap-3 mt-12 no-print pb-10"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button><div className="flex gap-2">{Array.from({length: totalPages}, (_, i) => i + 1).map(num => (<button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${currentPage === num ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{num}</button>))}</div><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7"/></svg></button></div>)}
       
       {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-500">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
             <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
             <div className="flex gap-3">
