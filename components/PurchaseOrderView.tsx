@@ -1292,7 +1292,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
         {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-            <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-500">
               <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
               <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
@@ -1776,7 +1776,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-500">
             <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
             <div className="flex gap-3">
