@@ -885,7 +885,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       for (let r = minR; r < maxR; r++) {
         for (let c = minC; c <= maxC; c++) { setBorder(r, c, 'b', style); setBorder(r + 1, c, 't', style); }
       }
-      for (let c = minC; c < maxC; r++) {
+      /* Fixed: Correctly use c++ in the outer loop for vertical inner borders to avoid out-of-scope 'r' access */
+      for (let c = minC; c < maxC; c++) {
         for (let r = minR; r <= maxR; r++) { setBorder(r, c, 'r', style); setBorder(r, c + 1, 'l', style); }
       }
     }
@@ -1616,7 +1617,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
         {isRejectModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="bg-white rounded-3xl p-8 max-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
               <h3 className="text-2xl font-black text-black mb-4">반송 사유 입력</h3>
               <p className="text-slate-500 text-sm mb-6 font-medium">결재권자에게 전달할 반송 사유를 상세히 입력해 주세요.</p>
               <textarea 
@@ -1707,7 +1708,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         
         {isRejectModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-            <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+            <div className="bg-white rounded-3xl p-8 max-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
               <h3 className="text-2xl font-black text-black mb-4">반송 사유 입력</h3>
               <p className="text-slate-500 text-sm mb-6 font-medium">결재권자에게 전달할 반송 사유를 상세히 입력해 주세요.</p>
               <textarea 

@@ -49,20 +49,32 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       order: {
         pending: orders.filter((o: any) => o.status === OrderSubCategory.PENDING).length,
         rejected: orders.filter((o: any) => o.status === OrderSubCategory.REJECTED).length,
-        approved: orders.filter((o: any) => o.status === OrderSubCategory.APPROVED).length
+        // 완료 상태는 하위 폴더 상태까지 모두 포함
+        approved: orders.filter((o: any) => 
+          o.status === OrderSubCategory.APPROVED || 
+          o.status === OrderSubCategory.APPROVED_SEOUL || 
+          o.status === OrderSubCategory.APPROVED_DAECHEON || 
+          o.status === OrderSubCategory.APPROVED_VIETNAM
+        ).length
       },
       invoice: {
-        completed: invoices.filter((inv: any) => inv.status === InvoiceSubCategory.COMPLETED || !inv.isTemporary).length
+        // 임시저장이 아닌 완료된 송장 중, 아직 수신처 확인이 모두 끝나지 않은 건수 집계
+        completed: invoices.filter((inv: any) => !inv.isTemporary && !inv.stamps?.final).length
       },
       purchase: {
         pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
         rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
-        approved: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.APPROVED).length
+        approved: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.APPROVED || o.stamps?.final).length
       },
       vietnam: {
         pending: vOrders.filter((o: any) => o.status === VietnamSubCategory.PENDING).length,
         rejected: vOrders.filter((o: any) => o.status === VietnamSubCategory.REJECTED).length,
-        completed: vOrders.filter((o: any) => o.status === VietnamSubCategory.COMPLETED_ROOT).length
+        // 베트남 완료 상태 집계
+        completed: vOrders.filter((o: any) => 
+          o.status === VietnamSubCategory.COMPLETED_ROOT || 
+          o.status === VietnamSubCategory.ORDER_COMPLETED || 
+          o.status === VietnamSubCategory.PAYMENT_COMPLETED
+        ).length
       }
     });
   }, [dataVersion]);
@@ -106,8 +118,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     setEditingId(n.id);
   };
 
-  const StatCard = ({ title, count, onClick, colorClass, statusLabel }: any) => {
+  const StatCard = ({ title, count, onClick, colorClass, statusLabel, shouldBlink = false }: any) => {
     if (!isVisible(statusLabel)) return null;
+    
+    // 문서 건수가 0이면 숫자를 강조하지 않고 깜빡임도 완전 제거
+    const hasDocuments = count > 0;
+
     return (
       <button 
         onClick={onClick}
@@ -115,11 +131,11 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       >
         <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1">{title}</p>
         <div className="flex items-end justify-between">
-          <p className={`text-xl md:text-2xl font-black text-slate-900 ${count > 0 ? 'animate-blink' : ''}`}>
+          <p className={`text-xl md:text-2xl font-black ${hasDocuments ? 'text-slate-900' : 'text-slate-300'} ${hasDocuments && shouldBlink ? 'animate-blink' : ''}`}>
             {count} <span className="text-sm font-medium text-slate-400">건</span>
           </p>
-          <div className={`w-8 h-8 rounded-lg bg-${colorClass}-50 flex items-center justify-center group-hover:bg-${colorClass}-500 transition-colors`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-${colorClass}-600 group-hover:text-white`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className={`w-8 h-8 rounded-lg ${hasDocuments ? `bg-${colorClass}-50 text-${colorClass}-600` : 'bg-slate-50 text-slate-300'} flex items-center justify-center group-hover:bg-${colorClass}-500 group-hover:text-white transition-all`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -154,10 +170,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       </div>
 
       <div className="space-y-10">
-        {/* 주문서 섹션 */}
+        {/* 주문서 섹션 - 결재대기/반송만 깜빡임 적용 */}
         <CategorySection title="주문서 현황" mainCat={MainCategory.ORDER}>
-          <StatCard title="결재대기" count={counts.order.pending} colorClass="blue" statusLabel={OrderSubCategory.PENDING} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.PENDING })} />
-          <StatCard title="결재반송" count={counts.order.rejected} colorClass="red" statusLabel={OrderSubCategory.REJECTED} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.REJECTED })} />
+          <StatCard title="결재대기" count={counts.order.pending} colorClass="blue" statusLabel={OrderSubCategory.PENDING} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.PENDING })} shouldBlink={true} />
+          <StatCard title="결재반송" count={counts.order.rejected} colorClass="red" statusLabel={OrderSubCategory.REJECTED} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.REJECTED })} shouldBlink={true} />
           <StatCard title="결재완료" count={counts.order.approved} colorClass="indigo" statusLabel={OrderSubCategory.APPROVED} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.APPROVED })} />
         </CategorySection>
 
@@ -168,15 +184,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
 
         {/* 발주서 섹션 */}
         <CategorySection title="발주서 현황" mainCat={MainCategory.PURCHASE}>
-          <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} />
-          <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} />
+          <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} shouldBlink={true} />
+          <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} shouldBlink={true} />
           <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.APPROVED })} />
         </CategorySection>
 
         {/* 베트남 섹션 */}
         <CategorySection title="VN베트남 현황" mainCat={MainCategory.VIETNAM}>
-          <StatCard title="VN 결재대기" count={counts.vietnam.pending} colorClass="indigo" statusLabel={VietnamSubCategory.PENDING} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.PENDING })} />
-          <StatCard title="VN 결재반송" count={counts.vietnam.rejected} colorClass="rose" statusLabel={VietnamSubCategory.REJECTED} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.REJECTED })} />
+          <StatCard title="VN 결재대기" count={counts.vietnam.pending} colorClass="indigo" statusLabel={VietnamSubCategory.PENDING} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.PENDING })} shouldBlink={true} />
+          <StatCard title="VN 결재반송" count={counts.vietnam.rejected} colorClass="rose" statusLabel={VietnamSubCategory.REJECTED} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.REJECTED })} shouldBlink={true} />
           <StatCard title="VN 결재완료" count={counts.vietnam.completed} colorClass="violet" statusLabel={VietnamSubCategory.COMPLETED_ROOT} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.COMPLETED_ROOT })} />
         </CategorySection>
       </div>
