@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   OrderSubCategory, 
   InvoiceSubCategory, 
-  PurchaseOrderSubCategory,
+  PurchaseOrderSubCategory, 
   VietnamSubCategory,
   ViewState,
   UserAccount,
@@ -117,6 +117,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
         </div>
 
         <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto pb-8 custom-scrollbar">
+          {/* 1. 주문서 카테고리 (단순화) */}
           {isVisible(MainCategory.ORDER) && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
@@ -128,19 +129,18 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(OrderSubCategory.CREATE, 'ORDER')}
                 {renderSubMenu(OrderSubCategory.PENDING, 'ORDER')}
-                <div className="transition-opacity">
-                  {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
-                  {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
-                  <div className="mt-2 pl-4 border-l border-slate-800/50">
-                    {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
-                    {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
-                    {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
+                {/* 요청에 따라 주문서작성, 결재대기만 노출 (마스터는 전체 메뉴 관리를 위해 기존 메뉴도 하단에 작게 표시할 수 있으나 요청에 따라 생략) */}
+                {isMaster && (
+                  <div className="pt-2 opacity-40">
+                    {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
+                    {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}
 
+          {/* 2. 송장 카테고리 */}
           {isVisible(MainCategory.INVOICE) && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
@@ -152,13 +152,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(InvoiceSubCategory.CREATE, 'INVOICE')}
                 {renderSubMenu(InvoiceSubCategory.TEMPORARY, 'INVOICE')}
-                <div className="transition-opacity">
-                  {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
-                  <div className="mt-2 pl-4 border-l border-slate-800/50">
-                    {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
-                    {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
-                    {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
-                  </div>
+                {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
+                <div className="mt-2 pl-4 border-l border-slate-800/50">
+                  {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
+                  {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
+                  {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
                 </div>
               </div>
             </div>
