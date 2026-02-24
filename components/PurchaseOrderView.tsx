@@ -994,7 +994,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const isMaster = currentUser.loginId === 'AJ5200';
     if (stampType === 'design' && !isMaster && userInit !== 'h-chun') { alert('설계 결재 권한이 없습니다. (h-chun 전용)'); return; }
     if (stampType === 'director' && !isMaster && userInit !== 'm-yeun') { alert('이사 결재 권한이 없습니다. (m-yeun 전용)'); return; }
-    if (stampType === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (david) 전용)'); return; }
+    if (stampType === 'ceo' && !isMaster && userInit !== 'k-yeun') { alert('대표 결재 권한이 없습니다. (k-yeun 전용)'); return; }
     
     const updated = items.map(item => {
       if (item.id === id) {
@@ -1016,9 +1016,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 // 설계 승인 후 이사(M-YEUN)에게 요청
                 sendJandiNotification('KR', 'REQUEST', notifyTitle, 'M-YEUN', item.date);
             } else if (stampType === 'director') {
-                // 이사 승인 후 슬롯에 대표가 있다면 대표(david)에게 요청
+                // 이사 승인 후 슬롯에 대표가 있다면 대표(K-YEUN)에게 요청
                 if (slots.includes('ceo')) {
-                    sendJandiNotification('KR', 'REQUEST', notifyTitle, 'david', item.date);
+                    sendJandiNotification('KR', 'REQUEST', notifyTitle, 'K-YEUN', item.date);
                 }
             }
         }

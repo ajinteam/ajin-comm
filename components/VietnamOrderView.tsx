@@ -490,7 +490,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const isMaster = currentUser.loginId === 'AJ5200';
     
     if (type === 'head' && !isMaster && userInit !== 'u-sun') { alert('법인장 결재 권한이 없습니다. (U-SUN 전용)'); return; }
-    if (type === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (david 전용)'); return; }
+    if (type === 'ceo' && !isMaster && userInit !== 'k-yeun') { alert('대표 결재 권한이 없습니다. (K-YEUN 전용)'); return; }
 
     const updatedStamps = { ...item.stamps, [type]: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
     
@@ -507,9 +507,9 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         // 최종 승인 완료 시 작성자에게 알림
         sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId, item.date);
     } else {
-        // 법인장 승인 후, 지불요청서라면 대표(david)에게 결재 요청
+        // 법인장 승인 후, 지불요청서라면 대표(K-YEUN)에게 결재 요청
         if (type === 'head' && isPay) {
-            sendJandiNotification('VN', 'REQUEST', item.title, 'david', item.date);
+            sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN', item.date);
         }
     }
 
