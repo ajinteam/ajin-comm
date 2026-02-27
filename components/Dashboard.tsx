@@ -163,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
 
         {/* 송장 섹션 */}
         <CategorySection title="송장 현황" mainCat={MainCategory.INVOICE}>
-          <StatCard title="송장완료" count={counts.invoice.completed} colorClass="emerald" statusLabel={InvoiceSubCategory.COMPLETED} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
+          <StatCard title="송장발송" count={counts.invoice.completed} colorClass="emerald" statusLabel={InvoiceSubCategory.COMPLETED} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
         </CategorySection>
 
         {/* 발주서 섹션 */}
@@ -171,6 +171,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} />
           <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} />
           <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.APPROVED })} />
+          {/* <StatCard title="사출발주서" count={0} colorClass="purple" statusLabel={PurchaseOrderSubCategory.INJECTION_ORDER} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.INJECTION_ORDER })} /> */}
         </CategorySection>
 
         {/* 베트남 섹션 */}

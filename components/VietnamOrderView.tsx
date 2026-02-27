@@ -33,7 +33,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none block whitespace-pre-wrap font-bold ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap brake-all ${className}`}
       rows={1}
     />
   );
@@ -490,7 +490,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const isMaster = currentUser.loginId === 'AJ5200';
     
     if (type === 'head' && !isMaster && userInit !== 'u-sun') { alert('법인장 결재 권한이 없습니다. (U-SUN 전용)'); return; }
-    if (type === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (david 전용)'); return; }
+    if (type === 'ceo' && !isMaster && userInit !== 'k-yeun') { alert('대표 결재 권한이 없습니다. (K-YEUN 전용)'); return; }
 
     const updatedStamps = { ...item.stamps, [type]: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
     
@@ -507,9 +507,9 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         // 최종 승인 완료 시 작성자에게 알림
         sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId, item.date);
     } else {
-        // 법인장 승인 후, 지불요청서라면 대표(david)에게 결재 요청
+        // 법인장 승인 후, 지불요청서라면 대표(K-YEUN)에게 결재 요청
         if (type === 'head' && isPay) {
-            sendJandiNotification('VN', 'REQUEST', item.title, 'david', item.date);
+            sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN', item.date);
         }
     }
 
@@ -752,37 +752,37 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                 <thead className="bg-slate-100 font-black text-center">
                     <tr>
                         <th className={`border border-black w-10 ${isPayDoc ? 'py-1' : 'py-2'}`}>STT</th>
-                        <th className="border border-black flex-1 min-w-[120px]">
+                        <th className="border border-black flex-1 min-w-[160px]">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>TÊN VẬT TƯ</span>
                             <span className="text-[10px] font-bold opacity-80">(구매품목)</span>
                           </div>
                         </th>
-                        {!isPayDoc && <th className="border border-black w-32">
+                        {!isPayDoc && <th className="border border-black w-26">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>HÌNH ẢNH</span>
                             <span className="text-[10px] font-bold opacity-80">(사진)</span>
                           </div>
                         </th>}
-                        <th className="border border-black w-14">
+                        <th className="border border-black w-12">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>ĐVT</span>
                             <span className="text-[10px] font-bold opacity-80">(단위)</span>
                           </div>
                         </th>
-                        <th className="border border-black w-14">
+                        <th className="border border-black w-16">
                           <div className="flex flex-col items-center leading-tight py-0.5 text-[10px]">
                             <span>SỐ LƯỢNG</span>
                             <span className="text-[9px] font-bold opacity-80">(수량)</span>
                           </div>
                         </th>
-                        <th className="border border-black w-24">
+                        <th className="border border-black w-16">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Đơn giá</span>
                             <span className="text-[10px] font-bold opacity-80">(단가)</span>
                           </div>
                         </th>
-                        <th className="border border-black w-24">
+                        <th className="border border-black w-16">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Thành tiền</span>
                             <span className="text-[10px] font-bold opacity-80">(금액)</span>

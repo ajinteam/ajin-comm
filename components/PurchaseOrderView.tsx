@@ -55,7 +55,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-all ${className}`}
       rows={1}
     />
   );
@@ -317,7 +317,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const isPO2 = sub === PurchaseOrderSubCategory.PO2;
   const isPO3 = sub === PurchaseOrderSubCategory.PO3;
   // 수정: 임시 저장 폴더는 '작성 중'인 화면이 아니라 '목록'을 보여주어야 하므로 isWritingAnyPO에서 제외합니다.
-  const isWritingAnyPO = isPO1 || isPO2 || isPO3;
+  const isWritingAnyPO = isPO1 || isPO2 || isPO3; // INJECTION_LIST는 작성 화면이 아닌 목록 화면이므로 제외합니다.
   
   const [po2Title, setPo2Title] = useState('');
   const [po2Recipient, setPo2Recipient] = useState('');
@@ -994,7 +994,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const isMaster = currentUser.loginId === 'AJ5200';
     if (stampType === 'design' && !isMaster && userInit !== 'h-chun') { alert('설계 결재 권한이 없습니다. (h-chun 전용)'); return; }
     if (stampType === 'director' && !isMaster && userInit !== 'm-yeun') { alert('이사 결재 권한이 없습니다. (m-yeun 전용)'); return; }
-    if (stampType === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (david 전용)'); return; }
+    if (stampType === 'ceo' && !isMaster && userInit !== 'k-yeun') { alert('대표 결재 권한이 없습니다. (k-yeun 전용)'); return; }
     
     const updated = items.map(item => {
       if (item.id === id) {
@@ -1016,9 +1016,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 // 설계 승인 후 이사(M-YEUN)에게 요청
                 sendJandiNotification('KR', 'REQUEST', notifyTitle, 'M-YEUN', item.date);
             } else if (stampType === 'director') {
-                // 이사 승인 후 슬롯에 대표가 있다면 대표(david)에게 요청
+                // 이사 승인 후 슬롯에 대표가 있다면 대표(K-YEUN)에게 요청
                 if (slots.includes('ceo')) {
-                    sendJandiNotification('KR', 'REQUEST', notifyTitle, 'david', item.date);
+                    sendJandiNotification('KR', 'REQUEST', notifyTitle, 'K-YEUN', item.date);
                 }
             }
         }
@@ -1735,7 +1735,20 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     );
   }
 
-  const filtered = sub === PurchaseOrderSubCategory.ARCHIVE ? archivedItems.filter(item => item.recipient === selectedArchiveVendor) : items.filter(item => item.status === sub && !item.stamps.final);
+  const filtered = useMemo(() => {
+    if (sub === PurchaseOrderSubCategory.ARCHIVE) {
+      return archivedItems.filter(item => item.recipient === selectedArchiveVendor);
+    } else if (sub === PurchaseOrderSubCategory.INJECTION_LIST) {
+      // Injection 발주서 목록: AJIN 수신처의 PO1 타입, 최종 승인 완료된 항목만 표시
+      return items.filter(item => 
+        item.type === PurchaseOrderSubCategory.PO1 && 
+        item.recipient === 'AJIN' && 
+        !!item.stamps.final
+      );
+    } else {
+      return items.filter(item => item.status === sub && !item.stamps.final);
+    }
+  }, [items, sub, selectedArchiveVendor, archivedItems]);
   const sorted = [...filtered].sort((a, b) => { const timeA = new Date(a.createdAt).getTime(); const timeB = new Date(b.createdAt).getTime(); return sortOrder === 'DESC' ? timeB - timeA : timeA - timeB; });
   const searchFiltered = sorted.filter(item => item.title.toLowerCase().includes(searchTerm.toLowerCase()) || (item.recipient && item.recipient.toLowerCase().includes(searchTerm.toLowerCase())));
   const totalPages = Math.ceil(searchFiltered.length / itemsPerPage);

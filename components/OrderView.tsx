@@ -35,7 +35,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-all ${className}`}
       rows={1}
     />
   );
