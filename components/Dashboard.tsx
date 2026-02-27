@@ -163,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
 
         {/* 송장 섹션 */}
         <CategorySection title="송장 현황" mainCat={MainCategory.INVOICE}>
-          <StatCard title="송장발송" count={counts.invoice.completed} colorClass="emerald" statusLabel={InvoiceSubCategory.COMPLETED} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
+          <StatCard title="송장완료" count={counts.invoice.completed} colorClass="emerald" statusLabel={InvoiceSubCategory.COMPLETED} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
         </CategorySection>
 
         {/* 발주서 섹션 */}
