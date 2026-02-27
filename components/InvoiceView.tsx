@@ -55,7 +55,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-all ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap ${className}`}
       rows={1}
     />
   );
@@ -95,7 +95,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   const [formCargo, setFormCargo] = useState('');
   const [formWeight, setFormWeight] = useState('');
   const [formBoxQty, setFormBoxQty] = useState('');
-  const [confirmedStamp, setConfirmedStamp] = useState<{ userId: string; timestamp: string } | null>(null);
   
   const cargoOptions = ['대신화물', '경동화물', '우리해운항공'];
 
@@ -319,7 +318,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   };
 
   const handleRowKeyDown = (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {
-    const validCols = [0, 1, 2, 3, 4, 5, 6];
+    const validCols = [0, 1, 2, 3, 4, 5, 6, 7];
     const currentIndex = validCols.indexOf(colIdx);
     
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -617,7 +616,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             ...inv, title: newTitle, date: formDate, recipient: formRecipient, cargoInfo: formCargo, 
             rows: isTemp ? activeInvoice.rows : validRows, 
             weight: formWeight, boxQty: formBoxQty, isTemporary: isTemp,
-            status: isTemp ? InvoiceSubCategory.TEMPORARY : InvoiceSubCategory.COMPLETED, // Set status here
             merges: merges, aligns: aligns, borders: borders,
             stamps: { ...inv.stamps, writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
           };
@@ -630,7 +628,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
         id: `INV-${Date.now()}`, title: newTitle, date: formDate, recipient: formRecipient, cargoInfo: formCargo, 
         rows: isTemp ? formRows : validRows, 
         weight: formWeight, boxQty: formBoxQty, authorId: currentUser.initials, createdAt: new Date().toISOString(), merges: merges, aligns: aligns, borders: borders, isTemporary: isTemp,
-        status: isTemp ? InvoiceSubCategory.TEMPORARY : InvoiceSubCategory.COMPLETED, // Set status here
         stamps: { writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
       };
       saveInvoices([newInvoice, ...invoices]);
@@ -646,44 +643,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const filtered = invoices.filter(inv => inv.id !== invoiceId);
     saveInvoices(filtered); setModal(null); setActiveInvoice(null);
     alert('송장 파일이 영구 삭제되었습니다.');
-  };
-
-  const handleConfirmInvoice = () => {
-    if (!activeInvoice) return;
-    takeSnapshot();
-    const newStamp = { userId: currentUser.initials, timestamp: getCurrentAmPmTime() };
-    setConfirmedStamp(newStamp);
-
-    let targetSubCategory: InvoiceSubCategory;
-    switch (formRecipient) {
-      case 'SEOUL':
-        targetSubCategory = InvoiceSubCategory.SEOUL;
-        break;
-      case 'DAECHEON':
-        targetSubCategory = InvoiceSubCategory.DAECHEON;
-        break;
-      case 'VIETNAM':
-        targetSubCategory = InvoiceSubCategory.VIETNAM;
-        break;
-      default:
-        targetSubCategory = InvoiceSubCategory.COMPLETED;
-    }
-
-    const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
-    const updated = currentFullList.map((inv: InvoiceItem) => {
-      if (inv.id === activeInvoice.id) {
-        return {
-          ...inv,
-          stamps: { ...inv.stamps, final: newStamp },
-          recipient: formRecipient, // Ensure recipient is saved with confirmation
-          status: targetSubCategory // Update status to recipient-specific sub-category
-        };
-      }
-      return inv;
-    });
-    saveInvoices(updated);
-    alert(`확인 완료: ${currentUser.initials}, ${getCurrentAmPmTime()}. 수신처: ${formRecipient}으로 저장되었습니다.`);
-    setView({ type: 'INVOICE', sub: targetSubCategory });
   };
 
   // Add helper function to get color for specific locations
@@ -755,18 +714,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             </div>
           </div>
 
-          {/* Confirmation Button */}
-          {(sub === InvoiceSubCategory.COMPLETED && data && !data.isTemporary) && (
-            <div className="flex justify-end mt-4 mb-6 no-print">
-              <button
-                onClick={handleConfirmInvoice}
-                className="bg-blue-600 text-white px-6 py-2 rounded-md shadow-md hover:bg-blue-700 transition-colors font-bold text-sm"
-              >
-                확인
-              </button>
-            </div>
-          )}
-
           <table className="w-full border-collapse border border-slate-900 text-[10px] md:text-[11px] select-none">
             <thead className="bg-slate-50">
               <tr>
@@ -775,7 +722,8 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                 <th className="border border-slate-900 p-1 md:p-2 flex-1 min-w-[120px] text-center">품 목</th>
                 <th className="border border-slate-900 p-1 md:p-2 w-[12%] text-center">수 량</th>
                 <th className="border border-slate-900 p-1 md:p-2 w-[9%] text-center leading-tight">완료</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[18%] text-center">비고</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[13%] text-center">확인</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[15%] text-center">비고</th>
                 <th className="border border-slate-900 p-1 md:p-2 w-14 text-center no-print">관리</th>
               </tr>
             </thead>
@@ -783,8 +731,8 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
               {rows.map((row, idx) => {
                 const rowCells = [
                   { f: 'model', c: 0 }, { f: 'drawingNo', c: 1 }, { f: 'itemName', c: 2 },
-                  { f: 'qty_group', c: 3 }, { f: 'completion_group', c: 4 },
-                  { f: 'remarks', c: 5 }
+                  { f: 'qty_group', c: 3 }, { f: 'completion_group', c: 5 },
+                  { f: 'confirm', c: 7 }, { f: 'remarks', c: 8 }
                 ];
                 
                 return (
@@ -837,7 +785,11 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                               <div className="col-span-5 h-full flex items-center"><AutoExpandingTextarea value={row.completionStatus} dataRow={idx} dataCol={6} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 6, eR: idx, eC: 6 }); }} onChange={(e: any) => updateRowField(row.id, 'completionStatus', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 6)} onPaste={(e: any) => handlePaste(e, idx, 6)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/></div>
                             </div>
                           )}
-
+                          {cell.f === 'confirm' && (
+                            <div className={`w-full h-full min-h-[30px] flex items-center justify-center transition-colors ${row.qtyConfirm ? 'bg-blue-50/30' : ''} ${isReadOnly && !row.isDeleted && !isTempDoc ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => isReadOnly && !row.isDeleted && handleQtyConfirm(row.id)}>
+                              {row.qtyConfirm ? <div className="flex flex-col items-center scale-90"><span className="font-bold text-blue-600 leading-tight whitespace-nowrap">{row.qtyConfirm.userId}</span><span className="text-[7px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">{formatAmPm(row.qtyConfirm.timestamp)}</span></div> : <span className="text-slate-300 text-[9px]">{isReadOnly && !row.isDeleted && !isTempDoc ? '확인' : ''}</span>}
+                            </div>
+                          )}
                           {cell.f === 'remarks' && <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={8} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 8, eR: idx, eC: 8 }); }} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 8)} onPaste={(e: any) => handlePaste(e, idx, 8)} style={{ textAlign }} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>}
                         </td>
                       );
@@ -948,15 +900,22 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
 
   const locationFilter = sub === InvoiceSubCategory.SEOUL ? 'SEOUL' : sub === InvoiceSubCategory.DAECHEON ? 'DAECHEON' : 'VIETNAM';
   const filtered = useMemo(() => {
-    if (sub === InvoiceSubCategory.TEMPORARY) return invoices.filter(inv => inv.status === InvoiceSubCategory.TEMPORARY);
-    if (sub === InvoiceSubCategory.COMPLETED) return invoices.filter(inv => inv.status === InvoiceSubCategory.COMPLETED);
-    if (sub === InvoiceSubCategory.SEOUL || sub === InvoiceSubCategory.DAECHEON || sub === InvoiceSubCategory.VIETNAM) {
-      return invoices.filter(inv => inv.status === sub);
+    if (sub === InvoiceSubCategory.TEMPORARY) return invoices.filter(inv => !!inv.isTemporary);
+    const nonTempInvoices = invoices.filter(inv => !inv.isTemporary);
+    if (sub === InvoiceSubCategory.COMPLETED) {
+      return nonTempInvoices.filter(inv => { 
+        const activeRows = inv.rows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim())); 
+        if (activeRows.length === 0) return true; 
+        return !activeRows.every(r => !!r.qtyConfirm); 
+      });
     }
-    // Default case if no specific sub-category filter matches, perhaps show all non-temporary or a specific default.
-    // For now, returning all invoices that are not temporary or completed if no specific status matches.
-    return invoices.filter(inv => inv.status !== InvoiceSubCategory.TEMPORARY && inv.status !== InvoiceSubCategory.COMPLETED);
-  }, [invoices, sub]);
+    return nonTempInvoices.filter(inv => { 
+      if (inv.recipient !== locationFilter) return false; 
+      const activeRows = inv.rows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim())); 
+      if (activeRows.length === 0) return false; 
+      return activeRows.every(r => !!r.qtyConfirm); 
+    });
+  }, [invoices, sub, locationFilter]);
 
   const sortedAll = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const searchFiltered = sortedAll.filter(inv => { if (!searchTerm.trim()) return true; const lower = searchTerm.toLowerCase(); const hasItem = inv.rows.some(r => r.itemName.toLowerCase().includes(lower) || r.model.toLowerCase().includes(lower)); return (inv.title && inv.title.toLowerCase().includes(lower)) || hasItem; });

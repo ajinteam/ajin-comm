@@ -171,7 +171,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} />
           <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} />
           <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.APPROVED })} />
-          {/* <StatCard title="사출발주서" count={0} colorClass="purple" statusLabel={PurchaseOrderSubCategory.INJECTION_ORDER} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.INJECTION_ORDER })} /> */}
         </CategorySection>
 
         {/* 베트남 섹션 */}
