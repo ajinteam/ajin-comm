@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { 
   OrderSubCategory, 
   InvoiceSubCategory, 
-  PurchaseOrderSubCategory, 
+  PurchaseOrderSubCategory,
   VietnamSubCategory,
   ViewState,
   UserAccount,
@@ -141,7 +141,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             </div>
           )}
 
-          {/* 2. 송장 카테고리 */}
           {isVisible(MainCategory.INVOICE) && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
@@ -153,11 +152,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(InvoiceSubCategory.CREATE, 'INVOICE')}
                 {renderSubMenu(InvoiceSubCategory.TEMPORARY, 'INVOICE')}
-                {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
-                <div className="mt-2 pl-4 border-l border-slate-800/50">
-                  {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
-                  {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
-                  {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
+                <div className="transition-opacity">
+                  {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
+                  <div className="mt-2 pl-4 border-l border-slate-800/50">
+                    {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
+                    {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
+                    {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
+                  </div>
                 </div>
               </div>
             </div>
@@ -173,7 +174,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
-                {renderSubMenu(PurchaseOrderSubCategory.INJECTION_ORDER, 'PURCHASE')}
                 {isPOWritingExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
                     {renderSubMenu(PurchaseOrderSubCategory.PO1, 'PURCHASE', true)}

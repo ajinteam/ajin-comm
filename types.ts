@@ -34,8 +34,10 @@ export enum PurchaseOrderSubCategory {
   PO2_TEMP = '인쇄발주서 임시저장',
   PO3 = '메탈발주서',
   PO3_TEMP = '메탈발주서 임시저장',
-  INJECTION_ORDER = '사출발주서(Injection)',
   PENDING = 'PO 결재대기',
+  DESIGN_PENDING = '설계 결재대기',
+  DIRECTOR_PENDING = '이사 결재대기',
+  CEO_PENDING = '대표 결재대기',
   REJECTED = 'PO 결재반송',
   APPROVED = 'PO 결재완료',
   ARCHIVE = '수신처별 보관함',
@@ -254,7 +256,6 @@ export interface InvoiceItem {
   boxQty: string;
   authorId: string;
   createdAt: string;
-  status: InvoiceSubCategory; // New: to track the current status of the invoice
   isTemporary?: boolean;
   merges?: Record<string, { rS: number, cS: number }>;
   aligns?: Record<string, 'left' | 'center' | 'right'>; 
@@ -262,7 +263,6 @@ export interface InvoiceItem {
   stamps?: {
     writer?: StampInfo;
     final?: StampInfo;
-    confirmed?: StampInfo; // New: for the confirmation button
   };
 }
 
@@ -279,7 +279,6 @@ export type ViewState =
   | { type: 'ORDER', sub: OrderSubCategory }
   | { type: 'INVOICE', sub: InvoiceSubCategory }
   | { type: 'PURCHASE', sub: PurchaseOrderSubCategory }
-  | { type: 'INJECTION_ORDER', sub: OrderSubCategory }
   | { type: 'VIETNAM', sub: VietnamSubCategory }
   | { type: 'STORAGE' }
   | { type: 'SETTINGS' };

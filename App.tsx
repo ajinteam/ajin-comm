@@ -12,7 +12,6 @@ import Header from './components/Header';
 import OrderView from './components/OrderView';
 import InvoiceView from './components/InvoiceView';
 import PurchaseOrderView from './components/PurchaseOrderView';
-import InjectionOrderView from './components/InjectionOrderView';
 import VietnamOrderView from './components/VietnamOrderView';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
@@ -90,8 +89,6 @@ const App: React.FC = () => {
   const handleSetView = async (v: ViewState) => {
     setIsSyncing(true);
     await pushStateToCloud();
-    const updated = await pullStateFromCloud(); // Pull latest state after push
-    if (updated) setDataVersion(v => v + 1); // Update dataVersion if new data was pulled
     setIsSyncing(false);
     setView(v);
     setIsSidebarOpen(false);
@@ -143,7 +140,6 @@ const App: React.FC = () => {
             {view.type === 'ORDER' && <OrderView key={`order-${view.sub}`} sub={view.sub} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'INVOICE' && <InvoiceView key={`invoice-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'PURCHASE' && <PurchaseOrderView key={`purchase-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
-            {view.type === 'INJECTION_ORDER' && <InjectionOrderView key={`injection-order-${view.sub}`} sub={view.sub} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'VIETNAM' && <VietnamOrderView key={`vietnam-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'STORAGE' && <PurchaseOrderView key="storage-view" sub={PurchaseOrderSubCategory.UPLOAD} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'SETTINGS' && isMaster && <SettingsView accounts={userAccounts} onUpdate={updateAccounts} setView={handleSetView} />}
