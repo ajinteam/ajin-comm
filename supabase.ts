@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 const getEnvVar = (name: string): string => {
@@ -21,13 +20,7 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 /**
- * 잔디 알림 전송 함수 (프론트엔드 전용)
- * 직접 웹훅을 쏘지 않고, 서버 핸들러(/api/jandi)를 통해 전송하여 CORS를 우회합니다.
- * @param target 'KR' (한국) 또는 'VN' (베트남)
- * @param type 'REQUEST' (결재요청) | 'COMPLETE' (결재완료) | 'REJECT' (반송)
- * @param title 문서 제목
- * @param recipient 이니셜 (다음 결재자 또는 작성자)
- * @param date 문서 작성일자
+ * 잔디 알림 전송 함수
  */
 export const sendJandiNotification = async (
   target: 'KR' | 'VN',
@@ -37,37 +30,30 @@ export const sendJandiNotification = async (
   date: string
 ) => {
   try {
-    // 본인의 서버 API 엔드포인트 호출
     const response = await fetch('/api/jandi', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target, type, title, recipient, date })
     });
     
     const result = await response.json();
-    if (!response.ok) {
-      throw new Error(result.error || 'Unknown API error');
-    }
+    if (!response.ok) throw new Error(result.error || 'Unknown API error');
     console.log(`[JANDI SUCCESS] API call finished: ${target}, ${type}`);
   } catch (err) {
     console.error('[JANDI API CALL ERROR]', err);
-    // 개발 환경 편의를 위해 알림이 안 가더라도 시스템이 멈추지는 않게 처리
   }
 };
 
 let pushTimer: any = null;
+let lastPushedData: string = ''; // 마지막으로 전송한 데이터의 해시/문자열 저장
 
 export const pushStateToCloud = async () => {
   if (!supabase) return;
   if (pushTimer) clearTimeout(pushTimer);
   
+  // 1. 저장 주기를 5초로 늘려 트래픽을 아낍니다.
   pushTimer = setTimeout(async () => {
     try {
-      const updatedAt = new Date().toISOString();
-      localStorage.setItem('ajin_last_local_update', updatedAt);
-
       const dataload = {
         accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
         orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
@@ -77,16 +63,31 @@ export const pushStateToCloud = async () => {
         vn_vendors: JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
         vn_bank_vendors: JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
         notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
-        updatedAt: updatedAt
       };
 
-      await supabase
+      // 2. 데이터가 실제로 변경되었는지 확인 (동일한 데이터면 업로드 안 함)
+      const currentDataStr = JSON.stringify(dataload);
+      if (currentDataStr === lastPushedData) {
+        console.log('[Cloud Sync] No changes detected. Skip push.');
+        return;
+      }
+
+      const updatedAt = new Date().toISOString();
+      const finalPayload = { ...dataload, updatedAt };
+
+      const { error } = await supabase
         .from('ajin-comm-backup')
-        .upsert({ id: 1, dataload: dataload }, { onConflict: 'id' });
+        .upsert({ id: 1, dataload: finalPayload }, { onConflict: 'id' });
+
+      if (!error) {
+        lastPushedData = currentDataStr; // 전송 성공 시 마지막 데이터 업데이트
+        localStorage.setItem('ajin_last_local_update', updatedAt);
+        console.log('[Cloud Sync] Push successful at', updatedAt);
+      }
     } catch (err) {
       console.error('[Cloud Sync] Push error:', err);
     }
-  }, 800);
+  }, 5000); // 5초 디바운스
 };
 
 export const pullStateFromCloud = async () => {
@@ -106,6 +107,7 @@ export const pullStateFromCloud = async () => {
 
       if (!localUpdatedAt || cloudUpdatedAt > localUpdatedAt) {
         const { accounts, orders, invoices, purchase_orders, vietnam_orders, vn_vendors, vn_bank_vendors, notices } = data.dataload;
+        
         if (accounts) localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
         if (orders) localStorage.setItem('ajin_orders', JSON.stringify(orders));
         if (invoices) localStorage.setItem('ajin_invoices', JSON.stringify(invoices));
@@ -114,7 +116,13 @@ export const pullStateFromCloud = async () => {
         if (vn_vendors) localStorage.setItem('ajin_vn_vendors', JSON.stringify(vn_vendors));
         if (vn_bank_vendors) localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(vn_bank_vendors));
         if (notices) localStorage.setItem('ajin_notices', JSON.stringify(notices));
+        
         localStorage.setItem('ajin_last_local_update', cloudUpdatedAt);
+        
+        // Pull 받은 데이터도 마지막 전송 데이터로 기록하여 중복 Push 방지
+        const { updatedAt: _, ...pureData } = data.dataload;
+        lastPushedData = JSON.stringify(pureData);
+        
         return data.dataload;
       }
     }
