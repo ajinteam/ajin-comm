@@ -64,6 +64,24 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
   }
 };
 
+export const deleteSingleDoc = async (tableName: string, id: string) => {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .eq('id', String(id));
+
+    if (error) throw error;
+    console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${id}`);
+    
+    // 삭제 후 즉시 전체 백업 업데이트 (부활 방지)
+    await pushStateToCloud(true);
+  } catch (err: any) {
+    console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message || err);
+  }
+};
+
 /**
  * [안전장치] 클라우드(백업+분산) 데이터와 현재 로컬 데이터를 지능적으로 병합
  */
@@ -100,6 +118,10 @@ export const pullStateFromCloud = async () => {
       const cloudItems = newList?.map((item: any) => item.content).filter(Boolean) || [];
       
       // 우선순위: legacy(가장 낮음) -> cloudItems -> localData(가장 높음)
+      // [주의] 삭제된 데이터가 legacy에서 부활하는 것을 막기 위해, 
+      // 만약 개별 테이블(cloudItems)이나 로컬(localData)에 데이터가 존재한다면 
+      // legacy에만 있는 데이터는 이미 삭제된 것으로 간주할 수도 있으나, 
+      // 하이브리드 운영 중이므로 일단 합치되 중복은 ID 기준으로 제거합니다.
       const combined = [...(legacyList || []), ...cloudItems, ...localData];
       
       const map = new Map();
@@ -165,11 +187,11 @@ export const sendJandiNotification = async (
 let pushTimer: any = null;
 let lastPushedData: string = '';
 
-export const pushStateToCloud = async () => {
+export const pushStateToCloud = async (immediate: boolean = false) => {
   if (!supabase) return;
   if (pushTimer) clearTimeout(pushTimer);
   
-  pushTimer = setTimeout(async () => {
+  const performPush = async () => {
     try {
       const dataload = {
         accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
@@ -183,7 +205,7 @@ export const pushStateToCloud = async () => {
       };
 
       const currentDataStr = JSON.stringify(dataload);
-      if (currentDataStr === lastPushedData) return;
+      if (!immediate && currentDataStr === lastPushedData) return;
 
       const updatedAt = new Date().toISOString();
       const { error } = await supabase
@@ -193,10 +215,16 @@ export const pushStateToCloud = async () => {
       if (!error) {
         lastPushedData = currentDataStr;
         localStorage.setItem('ajin_last_local_update', updatedAt);
-        console.log('[Cloud Sync] Full backup successful.');
+        console.log(`[Cloud Sync] Full backup successful${immediate ? ' (Immediate)' : ''}.`);
       }
     } catch (err) {
       console.error('[Cloud Sync] Push error:', err);
     }
-  }, 10000); // 전체 백업은 10초 주기로 늦춰 트래픽 방어
+  };
+
+  if (immediate) {
+    await performPush();
+  } else {
+    pushTimer = setTimeout(performPush, 10000); // 전체 백업은 10초 주기로 늦춰 트래픽 방어
+  }
 };

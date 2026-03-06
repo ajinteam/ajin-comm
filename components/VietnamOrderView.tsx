@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState, VnVendorInfo, VnBankVendorInfo } from '../types';
-import { pushStateToCloud, sendJandiNotification, saveSingleDoc } from '../supabase';
+import { pushStateToCloud, sendJandiNotification, saveSingleDoc, deleteSingleDoc } from '../supabase';
 
 interface VietnamOrderViewProps {
   sub: VietnamSubCategory;
@@ -567,6 +567,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const handleDeleteDocument = (id: string) => {
     const updated = items.filter(it => it.id !== id);
     saveVietnamItems(updated);
+    deleteSingleDoc('vn_purchase_orders', id);
     setDeletingId(null);
     alert('삭제되었습니다.');
   };

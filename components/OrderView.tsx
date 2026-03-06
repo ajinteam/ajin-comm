@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
-import { pushStateToCloud, sendJandiNotification, saveSingleDoc } from '../supabase';
+import { pushStateToCloud, sendJandiNotification, saveSingleDoc, deleteSingleDoc } from '../supabase';
 
 interface OrderViewProps {
   sub: OrderSubCategory;
@@ -1137,6 +1137,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const handleFileDelete = (orderId: string) => {
     if (!isMaster) return;
     saveOrders(orders.filter(o => o.id !== orderId));
+    deleteSingleDoc('orders', orderId);
     setDeletingFileId(null); setActiveOrder(null);
   };
 

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
-import { pushStateToCloud, supabase, sendJandiNotification, saveSingleDoc } from '../supabase';
+import { pushStateToCloud, supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc } from '../supabase';
 
 interface PurchaseOrderViewProps {
   sub: PurchaseOrderSubCategory;
@@ -1071,6 +1071,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       onConfirm: () => {
         const updated = items.filter(i => i.id !== id);
         saveItems(updated);
+        deleteSingleDoc('purchase_orders', id);
         setModal(null);
         alert('발주서가 삭제되었습니다.');
       }

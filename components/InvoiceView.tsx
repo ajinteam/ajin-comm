@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState, MainCategory } from '../types';
-import { pushStateToCloud, saveSingleDoc } from '../supabase';
+import { pushStateToCloud, saveSingleDoc, deleteSingleDoc } from '../supabase';
 
 interface InvoiceViewProps {
   sub: InvoiceSubCategory;
@@ -650,7 +650,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   const handleFileDelete = (invoiceId: string) => {
     if (!isMaster) return;
     const filtered = invoices.filter(inv => inv.id !== invoiceId);
-    saveInvoices(filtered); setModal(null); setActiveInvoice(null);
+    saveInvoices(filtered); 
+    deleteSingleDoc('invoices', invoiceId);
+    setModal(null); setActiveInvoice(null);
     alert('송장 파일이 영구 삭제되었습니다.');
   };
 
