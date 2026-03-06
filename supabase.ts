@@ -27,21 +27,27 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
   try {
-    // [보완] upsert 시 id가 문자열이므로 테이블의 id 컬럼이 text/varchar여야 합니다.
+    // [중요] Supabase 테이블의 id 컬럼은 반드시 'text' 타입이어야 합니다. (uuid 아님)
+    const payload = {
+      id: String(doc.id), // ID를 확실히 문자열로 변환
+      content: doc,
+      category: category || doc.type || doc.location || '일반',
+      status: doc.status || '결재대기'
+    };
+
     const { error } = await supabase
       .from(tableName)
-      .upsert({
-        id: doc.id, 
-        content: doc,
-        category: category || doc.type || doc.location || null,
-        status: doc.status || '결재대기'
-      }, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      console.error(`[Supabase Upsert Error] Table: ${tableName}, ID: ${doc.id}`, error);
+      console.error(`[Supabase Save Error] 테이블: ${tableName}, 에러:`, error.message);
+      // UUID 타입 오류인 경우 사용자에게 알림 (개발자 도구 콘솔 확인용)
+      if (error.message.includes('invalid input syntax for type uuid')) {
+        console.error('⚠️ 경고: Supabase 테이블의 id 컬럼 타입을 uuid에서 text로 변경해야 합니다.');
+      }
       return;
     }
-    console.log(`[Cloud Sync] ${tableName} 저장 성공: ${doc.id}`);
+    console.log(`[Cloud Sync] ${tableName} 실시간 저장 완료: ${doc.id}`);
   } catch (err) {
     console.error(`[Cloud Sync Exception] ${tableName}:`, err);
   }
