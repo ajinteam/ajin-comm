@@ -27,29 +27,40 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
   try {
-    // [중요] Supabase 테이블의 id 컬럼은 반드시 'text' 타입이어야 합니다. (uuid 아님)
-    const payload = {
-      id: String(doc.id), // ID를 확실히 문자열로 변환
+    // [보완] 테이블마다 컬럼 구성이 다를 수 있으므로, 기본 필수 필드만 먼저 구성
+    const payload: any = {
+      id: String(doc.id),
       content: doc,
-      category: category || doc.type || doc.location || '일반',
       status: doc.status || '결재대기'
     };
+
+    // category 컬럼이 있는 테이블(purchase_orders 등)을 위해 추가
+    // 만약 테이블에 category 컬럼이 없으면 Supabase 에러가 발생할 수 있으므로
+    // 일단 포함해서 보내되, 에러 발생 시 재시도하는 로직을 고려하거나 
+    // 사용자에게 컬럼 추가를 권장합니다.
+    payload.category = category || doc.type || doc.location || '일반';
 
     const { error } = await supabase
       .from(tableName)
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      console.error(`[Supabase Save Error] 테이블: ${tableName}, 에러:`, error.message);
-      // UUID 타입 오류인 경우 사용자에게 알림 (개발자 도구 콘솔 확인용)
-      if (error.message.includes('invalid input syntax for type uuid')) {
-        console.error('⚠️ 경고: Supabase 테이블의 id 컬럼 타입을 uuid에서 text로 변경해야 합니다.');
+      // 만약 category 컬럼이 없어서 발생하는 에러라면, category를 제외하고 재시도
+      if (error.message.includes('column "category" of relation') || error.message.includes('column "category" does not exist')) {
+        console.warn(`[Supabase] ${tableName} 테이블에 'category' 컬럼이 없어 제외하고 저장합니다.`);
+        delete payload.category;
+        const { error: retryError } = await supabase
+          .from(tableName)
+          .upsert(payload, { onConflict: 'id' });
+        
+        if (retryError) throw retryError;
+      } else {
+        throw error;
       }
-      return;
     }
-    console.log(`[Cloud Sync] ${tableName} 실시간 저장 완료: ${doc.id}`);
-  } catch (err) {
-    console.error(`[Cloud Sync Exception] ${tableName}:`, err);
+    console.log(`[Cloud Sync] ${tableName} 저장 성공: ${doc.id}`);
+  } catch (err: any) {
+    console.error(`[Cloud Sync Error] ${tableName}:`, err.message || err);
   }
 };
 
