@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
-import { pushStateToCloud, supabase, sendJandiNotification } from '../supabase';
+import { pushStateToCloud, supabase, sendJandiNotification, saveSingleDoc } from '../supabase';
 
 interface PurchaseOrderViewProps {
   sub: PurchaseOrderSubCategory;
@@ -482,10 +482,19 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     setFilePage(1);
   }, [sub, selectedArchiveVendor, searchTerm]);
 
-  const saveItems = (newItems: PurchaseOrderItem[]) => {
+  const saveItems = async (newItems: PurchaseOrderItem[], updatedDoc?: PurchaseOrderItem) => {
     setItems(newItems);
     localStorage.setItem('ajin_purchase_orders', JSON.stringify(newItems));
-    pushStateToCloud();
+    
+    // [트래픽 절약용] 수정된 발주서 한 건만 즉시 Supabase 새 테이블로 보냅니다.
+    if (updatedDoc) {
+      await saveSingleDoc('purchase_orders', updatedDoc);
+    } else if (activeItem) {
+      // activeItem이 있으면 그것을 저장 (기존 로직 보완)
+      await saveSingleDoc('purchase_orders', activeItem);
+    }
+
+    pushStateToCloud(); // 기존 전체 백업 (주기가 10초라 안전함)
   };
 
   const handleSaveVendor = () => {
@@ -718,10 +727,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   : PurchaseOrderSubCategory.PO2;
 
     if (editingItemId) {
+      let updatedDoc: PurchaseOrderItem | undefined;
       const updated = items.map(item => {
         if (item.id === editingItemId) {
           const isFromTemp = item.status.includes('임시저장');
-          return {
+          updatedDoc = {
             ...item, title: po2Title, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, date: po2Date,
             rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()).map(r => {
               if (isFromTemp) return { ...r, changedFields: [] };
@@ -731,10 +741,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
             stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } },
             rejectReason: undefined, rejectLog: undefined
           };
+          return updatedDoc;
         }
         return item;
       });
-      saveItems(updated);
+      saveItems(updated, updatedDoc);
       
       // JANDI 알림: 수정 제출 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       if (!isTemp) {
@@ -749,7 +760,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()),
         notes: po2Notes, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, hideInjectionColumn: hideInjectionColumn
       };
-      saveItems([newItem, ...items]);
+      saveItems([newItem, ...items], newItem);
       
       // JANDI 알림: 신규 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       if (!isTemp) {
@@ -984,6 +995,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     if (stampType === 'director' && !isMaster && userInit !== 'm-yeun') { alert('이사 결재 권한이 없습니다. (m-yeun 전용)'); return; }
     if (stampType === 'ceo' && !isMaster && userInit !== 'k-yeun') { alert('대표 결재 권한이 없습니다. (k-yeun 전용)'); return; }
     
+    let updatedDoc: PurchaseOrderItem | undefined;
     const updated = items.map(item => {
       if (item.id === id) {
         const newStamps = { ...item.stamps, [stampType]: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
@@ -1011,11 +1023,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
             }
         }
 
-        return { ...item, stamps: newStamps, status: nextStatus };
+        updatedDoc = { ...item, stamps: newStamps, status: nextStatus };
+        return updatedDoc;
       }
       return item;
     });
-    saveItems(updated);
+    saveItems(updated, updatedDoc);
     const updatedActive = updated.find(i => i.id === id);
     if (updatedActive) setActiveItem(updatedActive);
     if (updatedActive?.status === PurchaseOrderSubCategory.APPROVED) { alert("최종 결재가 완료되어 PO 결재완료 목록으로 이동되었습니다."); setActiveItem(null); }
@@ -1023,8 +1036,18 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   const handleFinalArchive = (order: PurchaseOrderItem) => {
     const updatedStamps = { ...order.stamps, final: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
-    const updatedOrders = items.map(o => o.id === order.id ? { ...o, stamps: updatedStamps } : o);
-    saveItems(updatedOrders); alert('최종 보관 처리가 완료되어 수신처 보관함으로 이동되었습니다.'); setActiveItem(null); setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE });
+    let updatedDoc: PurchaseOrderItem | undefined;
+    const updatedOrders = items.map(o => {
+      if (o.id === order.id) {
+        updatedDoc = { ...o, stamps: updatedStamps };
+        return updatedDoc;
+      }
+      return o;
+    });
+    saveItems(updatedOrders, updatedDoc); 
+    alert('최종 보관 처리가 완료되어 수신처 보관함으로 이동되었습니다.'); 
+    setActiveItem(null); 
+    setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE });
   };
 
   const handleCopyOrder = (item: PurchaseOrderItem) => {

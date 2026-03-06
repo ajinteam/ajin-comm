@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState, MainCategory } from '../types';
-import { pushStateToCloud } from '../supabase';
+import { pushStateToCloud, saveSingleDoc } from '../supabase';
 
 interface InvoiceViewProps {
   sub: InvoiceSubCategory;
@@ -174,9 +174,16 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     } catch (e) { console.error('Undo failed', e); }
   }, [undoStack, activeInvoice]);
 
-  const saveInvoices = (items: InvoiceItem[]) => {
+  const saveInvoices = (items: InvoiceItem[], updatedDoc?: InvoiceItem) => {
     setInvoices(items);
     localStorage.setItem('ajin_invoices', JSON.stringify(items));
+    
+    // 개별 문서 저장 (트래픽 절감)
+    if (updatedDoc) {
+      saveSingleDoc('invoices', updatedDoc);
+    }
+    
+    // 하이브리드 유지: 전체 백업 호출
     pushStateToCloud();
   };
 
@@ -610,19 +617,21 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     
     if (activeInvoice) {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
+      let updatedDoc: InvoiceItem | undefined;
       const updated = currentFullList.map((inv: InvoiceItem) => {
         if (inv.id === activeInvoice.id) {
-          return {
+          updatedDoc = {
             ...inv, title: newTitle, date: formDate, recipient: formRecipient, cargoInfo: formCargo, 
             rows: isTemp ? activeInvoice.rows : validRows, 
             weight: formWeight, boxQty: formBoxQty, isTemporary: isTemp,
             merges: merges, aligns: aligns, borders: borders,
             stamps: { ...inv.stamps, writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
           };
+          return updatedDoc;
         }
         return inv;
       });
-      saveInvoices(updated);
+      saveInvoices(updated, updatedDoc);
     } else {
       const newInvoice: InvoiceItem = {
         id: `INV-${Date.now()}`, title: newTitle, date: formDate, recipient: formRecipient, cargoInfo: formCargo, 
@@ -630,7 +639,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
         weight: formWeight, boxQty: formBoxQty, authorId: currentUser.initials, createdAt: new Date().toISOString(), merges: merges, aligns: aligns, borders: borders, isTemporary: isTemp,
         stamps: { writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
       };
-      saveInvoices([newInvoice, ...invoices]);
+      saveInvoices([newInvoice, ...invoices], newInvoice);
     }
 
     setFormRows(createInitialRows(10)); setFormCargo(''); setFormWeight(''); setFormBoxQty(''); setFormDate(new Date().toLocaleDateString('ko-KR')); setMerges({}); setAligns({}); setBorders({}); setUndoStack([]); setModal(null);

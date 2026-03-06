@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState, VnVendorInfo, VnBankVendorInfo } from '../types';
-import { pushStateToCloud, sendJandiNotification } from '../supabase';
+import { pushStateToCloud, sendJandiNotification, saveSingleDoc } from '../supabase';
 
 interface VietnamOrderViewProps {
   sub: VietnamSubCategory;
@@ -440,16 +440,23 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const targetStatus = isTemp ? VietnamSubCategory.TEMPORARY : VietnamSubCategory.PENDING;
 
     if (editingId) {
-        const updated = items.map(it => it.id === editingId ? {
-            ...it, title: vTitle, date: vDate, clientName: vClientName, clientAddress: vClientAddress, taxId: vTaxId, deliveryAddress: vDeliveryAddress,
-            beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
-            rows: vRows.filter(r => r.itemName.trim() || r.image), status: targetStatus,
-            rejectReason: isTemp ? it.rejectReason : undefined, 
-            rejectLog: isTemp ? it.rejectLog : undefined, 
-            merges, aligns, weights, borders,
-            stamps: isTemp ? it.stamps : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
-        } : it);
-        saveVietnamItems(updated);
+        let updatedDoc: VietnamOrderItem | undefined;
+        const updated = items.map(it => {
+          if (it.id === editingId) {
+            updatedDoc = {
+              ...it, title: vTitle, date: vDate, clientName: vClientName, clientAddress: vClientAddress, taxId: vTaxId, deliveryAddress: vDeliveryAddress,
+              beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
+              rows: vRows.filter(r => r.itemName.trim() || r.image), status: targetStatus,
+              rejectReason: isTemp ? it.rejectReason : undefined, 
+              rejectLog: isTemp ? it.rejectLog : undefined, 
+              merges, aligns, weights, borders,
+              stamps: isTemp ? it.stamps : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
+            };
+            return updatedDoc;
+          }
+          return it;
+        });
+        saveVietnamItems(updated, updatedDoc);
         
         // JANDI 알림: 재제출 시 법인장(U-SUN)에게 결재 요청
         if (!isTemp) {
@@ -467,7 +474,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             stamps: isTemp ? {} : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
         };
         const updated = [newItem, ...items];
-        saveVietnamItems(updated);
+        saveVietnamItems(updated, newItem);
         
         // JANDI 알림: 신규 작성 완료 시 법인장(U-SUN)에게 결재 요청
         if (!isTemp) {
@@ -479,9 +486,15 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     setView({ type: 'VIETNAM', sub: targetStatus });
   };
 
-  const saveVietnamItems = (updated: VietnamOrderItem[]) => {
+  const saveVietnamItems = (updated: VietnamOrderItem[], updatedDoc?: VietnamOrderItem) => {
     setItems(updated);
     localStorage.setItem('ajin_vietnam_orders', JSON.stringify(updated));
+    
+    // 개별 문서 저장 (트래픽 절감)
+    if (updatedDoc) {
+      saveSingleDoc('vn_purchase_orders', updatedDoc);
+    }
+    
     pushStateToCloud();
   };
 
@@ -497,10 +510,15 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const isPay = item.type === 'PAYMENT';
     const isFullApproved = isPay ? (updatedStamps.head && updatedStamps.ceo) : !!updatedStamps.head;
 
-    const updated = items.map(it => it.id === item.id ? { 
-        ...it, stamps: updatedStamps, status: isFullApproved ? VietnamSubCategory.COMPLETED_ROOT : it.status 
-    } : it);
-    saveVietnamItems(updated);
+    let updatedDoc: VietnamOrderItem | undefined;
+    const updated = items.map(it => {
+      if (it.id === item.id) {
+        updatedDoc = { ...it, stamps: updatedStamps, status: isFullApproved ? VietnamSubCategory.COMPLETED_ROOT : it.status };
+        return updatedDoc;
+      }
+      return it;
+    });
+    saveVietnamItems(updated, updatedDoc);
 
     // JANDI 알림 로직
     if (isFullApproved) {
@@ -515,18 +533,27 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     alert(`${type === 'head' ? '법인장' : '대표'} 결재가 완료되었습니다.`);
     
-    const currentActive = updated.find(it => it.id === item.id);
-    if (currentActive) setActiveItem(currentActive);
-    if (isFullApproved) setActiveItem(null);
+    if (isFullApproved) {
+      setActiveItem(null);
+    } else if (updatedDoc) {
+      setActiveItem(updatedDoc);
+    }
   };
 
   const handleRejectAction = () => {
     if (!rejectingItem || !rejectReasonText.trim()) { alert('반송 사유를 입력해 주세요.'); return; }
-    const updated = items.map(it => it.id === rejectingItem.id ? {
-        ...it, status: VietnamSubCategory.REJECTED, rejectReason: rejectReasonText,
-        rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() }
-    } : it);
-    saveVietnamItems(updated);
+    let updatedDoc: VietnamOrderItem | undefined;
+    const updated = items.map(it => {
+      if (it.id === rejectingItem.id) {
+        updatedDoc = {
+          ...it, status: VietnamSubCategory.REJECTED, rejectReason: rejectReasonText,
+          rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() }
+        };
+        return updatedDoc;
+      }
+      return it;
+    });
+    saveVietnamItems(updated, updatedDoc);
     
     // JANDI 알림: 반송 시 작성자에게 알림
     sendJandiNotification('VN', 'REJECT', rejectingItem.title, rejectingItem.authorId, rejectingItem.date);
@@ -547,10 +574,15 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const handleFinalVerify = (item: VietnamOrderItem) => {
     const updatedStamps = { ...item.stamps, final: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
     const nextStatus = item.type === 'PAYMENT' ? VietnamSubCategory.PAYMENT_COMPLETED : VietnamSubCategory.ORDER_COMPLETED;
-    const updated = items.map(it => it.id === item.id ? {
-        ...it, stamps: updatedStamps, status: nextStatus
-    } : it);
-    saveVietnamItems(updated);
+    let updatedDoc: VietnamOrderItem | undefined;
+    const updated = items.map(it => {
+      if (it.id === item.id) {
+        updatedDoc = { ...it, stamps: updatedStamps, status: nextStatus };
+        return updatedDoc;
+      }
+      return it;
+    });
+    saveVietnamItems(updated, updatedDoc);
     alert('확인 처리가 완료되어 보관함으로 이동되었습니다.');
     setActiveItem(null);
   };

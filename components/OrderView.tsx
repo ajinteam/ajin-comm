@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
-import { pushStateToCloud, sendJandiNotification } from '../supabase';
+import { pushStateToCloud, sendJandiNotification, saveSingleDoc } from '../supabase';
 
 interface OrderViewProps {
   sub: OrderSubCategory;
@@ -435,9 +435,16 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     }
   }, [sub, searchTerm]);
 
-  const saveOrders = (items: OrderItem[]) => {
+  const saveOrders = (items: OrderItem[], updatedDoc?: OrderItem) => {
     setOrders(items);
     localStorage.setItem('ajin_orders', JSON.stringify(items));
+    
+    // 개별 문서 저장 (트래픽 절감)
+    if (updatedDoc) {
+      saveSingleDoc('orders', updatedDoc);
+    }
+    
+    // 하이브리드 유지: 전체 백업 호출
     pushStateToCloud();
   };
 
@@ -544,9 +551,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
     if (editingOrderId) {
       // 기존 반송 주문서 수정(재제출)
+      let updatedDoc: OrderItem | undefined;
       const updatedOrders = orders.map(item => {
         if (item.id === editingOrderId) {
-          return {
+          updatedDoc = {
             ...item,
             title: formTitle,
             location: formLocation,
@@ -562,10 +570,11 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
               writer: { userId: currentUser.initials, timestamp: getCurrentTime() } 
             }
           };
+          return updatedDoc;
         }
         return item;
       });
-      saveOrders(updatedOrders);
+      saveOrders(updatedOrders, updatedDoc);
       
       // JANDI 알림: 법인장(U-SUN)에게 결재 요청
       sendJandiNotification(channel, 'REQUEST', notifyTitle, 'U-SUN', formDate);
@@ -598,7 +607,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         borders
       } as any;
       
-      saveOrders([newOrder, ...orders]);
+      saveOrders([newOrder, ...orders], newOrder);
 
       // JANDI 알림: 법인장(U-SUN)에게 결재 요청
       sendJandiNotification(channel, 'REQUEST', notifyTitle, 'U-SUN', formDate);
@@ -645,6 +654,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   const handleRowEdit = useCallback((order: OrderItem, rowId: string, field: keyof OrderRow, value: string) => {
     const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
+    let updatedDoc: OrderItem | undefined;
     const updatedList = currentFullList.map((o: OrderItem) => {
       if (o.id === order.id) {
         const nextRows = o.rows.map(r => 
@@ -654,11 +664,12 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'EDIT' as const } 
           } : r
         );
-        return { ...o, rows: nextRows };
+        updatedDoc = { ...o, rows: nextRows };
+        return updatedDoc;
       }
       return o;
     });
-    saveOrders(updatedList);
+    saveOrders(updatedList, updatedDoc);
     const nextActive = updatedList.find((o: OrderItem) => o.id === order.id);
     if (nextActive) setActiveOrder(nextActive);
   }, [currentUser.initials]);
@@ -712,8 +723,15 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setMerges(newMerges);
     if (activeOrder && !editingOrderId) {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
-      const updated = currentFullList.map((o: OrderItem) => o.id === activeOrder.id ? { ...o, merges: newMerges } : o);
-      saveOrders(updated);
+      let updatedDoc: OrderItem | undefined;
+      const updated = currentFullList.map((o: OrderItem) => {
+        if (o.id === activeOrder.id) {
+          updatedDoc = { ...o, merges: newMerges };
+          return updatedDoc;
+        }
+        return o;
+      });
+      saveOrders(updated, updatedDoc);
     }
     setSelection(null);
   }, [selection, merges, takeSnapshot, activeOrder, editingOrderId]);
@@ -732,8 +750,15 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setMerges(newMerges);
     if (activeOrder && !editingOrderId) {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
-      const updated = currentFullList.map((o: OrderItem) => o.id === activeOrder.id ? { ...o, merges: newMerges } : o);
-      saveOrders(updated);
+      let updatedDoc: OrderItem | undefined;
+      const updated = currentFullList.map((o: OrderItem) => {
+        if (o.id === activeOrder.id) {
+          updatedDoc = { ...o, merges: newMerges };
+          return updatedDoc;
+        }
+        return o;
+      });
+      saveOrders(updated, updatedDoc);
     }
     setSelection(null);
   }, [selection, merges, takeSnapshot, activeOrder, editingOrderId]);
@@ -748,8 +773,15 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setAligns(newAligns);
     if (activeOrder && !editingOrderId) {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
-      const updated = currentFullList.map((o: OrderItem) => o.id === activeOrder.id ? { ...o, aligns: newAligns } : o);
-      saveOrders(updated);
+      let updatedDoc: OrderItem | undefined;
+      const updated = currentFullList.map((o: OrderItem) => {
+        if (o.id === activeOrder.id) {
+          updatedDoc = { ...o, aligns: newAligns };
+          return updatedDoc;
+        }
+        return o;
+      });
+      saveOrders(updated, updatedDoc);
     }
   }, [selection, aligns, takeSnapshot, activeOrder, editingOrderId]);
 
@@ -781,8 +813,15 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setBorders(newBorders);
     if (activeOrder) {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
-      const updated = currentFullList.map((o: OrderItem) => o.id === activeOrder.id ? { ...o, borders: newBorders } : o);
-      saveOrders(updated);
+      let updatedDoc: OrderItem | undefined;
+      const updated = currentFullList.map((o: OrderItem) => {
+        if (o.id === activeOrder.id) {
+          updatedDoc = { ...o, borders: newBorders };
+          return updatedDoc;
+        }
+        return o;
+      });
+      saveOrders(updated, updatedDoc);
     }
   }, [selection, borders, takeSnapshot, activeOrder, editingOrderId]);
 
@@ -981,8 +1020,15 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const isFullApproved = isSeoul ? (updatedStamps.writer && updatedStamps.head && updatedStamps.manager && updatedStamps.director) : (updatedStamps.writer && updatedStamps.head);
     if (isFullApproved) nextStatus = OrderSubCategory.APPROVED;
     
-    const updatedOrders = orders.map(o => o.id === order.id ? { ...o, stamps: updatedStamps, status: nextStatus } : o);
-    saveOrders(updatedOrders);
+    let updatedDoc: OrderItem | undefined;
+    const updatedOrders = orders.map(o => {
+      if (o.id === order.id) {
+        updatedDoc = { ...o, stamps: updatedStamps, status: nextStatus };
+        return updatedDoc;
+      }
+      return o;
+    });
+    saveOrders(updatedOrders, updatedDoc);
 
     // 잔디 알림 채널 분기 및 제목 접두사
     const channel: 'KR' | 'VN' = order.location === 'SEOUL' ? 'KR' : 'VN';
@@ -1004,7 +1050,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         }
     }
 
-    if (activeOrder?.id === order.id) setActiveOrder({...order, stamps: updatedStamps, status: nextStatus});
+    if (activeOrder?.id === order.id) setActiveOrder(updatedDoc || null);
     if (nextStatus === OrderSubCategory.APPROVED) { alert('최종 결재가 승인되어 결재완료 폴더로 이동되었습니다.'); setActiveOrder(null); }
   };
 
@@ -1014,8 +1060,16 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     if (order.location === 'SEOUL') nextStatus = OrderSubCategory.APPROVED_SEOUL;
     else if (order.location === 'DAECHEON') nextStatus = OrderSubCategory.APPROVED_DAECHEON;
     else if (order.location === 'VIETNAM') nextStatus = OrderSubCategory.APPROVED_VIETNAM;
-    const updatedOrders = orders.map(o => o.id === order.id ? { ...o, stamps: updatedStamps, status: nextStatus } : o);
-    saveOrders(updatedOrders);
+    
+    let updatedDoc: OrderItem | undefined;
+    const updatedOrders = orders.map(o => {
+      if (o.id === order.id) {
+        updatedDoc = { ...o, stamps: updatedStamps, status: nextStatus };
+        return updatedDoc;
+      }
+      return o;
+    });
+    saveOrders(updatedOrders, updatedDoc);
     alert('최종 보관 처리가 완료되었습니다.');
     setActiveOrder(null);
   };
