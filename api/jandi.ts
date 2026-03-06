@@ -21,6 +21,9 @@ export default async function handler(req: any, res: any) {
       return res.status(400).json({ error: "Webhook configuration missing" });
     }
 
+// 👇 여기에 이 코드를 추가하면 아래 로직이 실행되지 않고 종료됩니다.
+  console.log("[JANDI API] 알림 전송이 일시 중지된 상태입니다.");
+  return res.status(200).json({ success: true, message: "Notifications are temporarily paused" });
     // 상태별 아이콘 및 메시지 구성
     let prefixIcon = "";
     let message = "";
