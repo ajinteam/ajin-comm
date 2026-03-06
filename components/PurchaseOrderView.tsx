@@ -950,6 +950,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     if (!rejectReasonText.trim()) { alert('반송 사유를 입력해 주세요.'); return; }
     
     const targetItem = items.find(it => it.id === itemToReject);
+    let updatedDoc: PurchaseOrderItem | undefined;
     const updated = items.map(item => {
       if (item.id === itemToReject) {
         let currentTitle = item.title;
@@ -962,17 +963,18 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         }
         const newTitle = `${baseTitle} (${nextCount})`;
         
-        return { 
+        updatedDoc = { 
           ...item, 
           title: newTitle,
           status: PurchaseOrderSubCategory.REJECTED, 
           rejectReason: rejectReasonText, 
           rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } 
         };
+        return updatedDoc;
       }
       return item;
     });
-    saveItems(updated);
+    saveItems(updated, updatedDoc);
 
     // JANDI 알림: 한국 반송 알림 전송 (작성자에게 알림) - [수신처] 제목 형식
     if (targetItem) {

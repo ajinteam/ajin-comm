@@ -1081,6 +1081,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     if (!rejectingOrder) return;
     if (!rejectReasonText.trim()) { alert('반송 사유를 입력해 주세요.'); return; }
     
+    let updatedDoc: OrderItem | undefined;
     const updatedOrders = orders.map(item => {
       if (item.id === rejectingOrder.id) {
         let currentTitle = item.title;
@@ -1093,18 +1094,19 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         }
         const newTitle = `${baseTitle} (${nextCount})`;
         
-        return { 
+        updatedDoc = { 
           ...item, 
           title: newTitle,
           status: OrderSubCategory.REJECTED, 
           rejectReason: rejectReasonText, 
           rejectLog: { userId: currentUser.initials, timestamp: getCurrentTime() } 
         };
+        return updatedDoc;
       }
       return item;
     });
     
-    saveOrders(updatedOrders);
+    saveOrders(updatedOrders, updatedDoc);
 
     // JANDI 알림: 반송 알림 (작성자에게)
     const channel: 'KR' | 'VN' = rejectingOrder.location === 'SEOUL' ? 'KR' : 'VN';

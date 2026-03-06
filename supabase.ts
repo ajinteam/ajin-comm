@@ -27,69 +27,84 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
   try {
+    // [보완] upsert 시 id가 문자열이므로 테이블의 id 컬럼이 text/varchar여야 합니다.
     const { error } = await supabase
       .from(tableName)
       .upsert({
-        id: doc.id, // 문서의 고유 고유 ID를 PK로 사용
+        id: doc.id, 
         content: doc,
-        category: category || doc.type || null,
+        category: category || doc.type || doc.location || null,
         status: doc.status || '결재대기'
-      });
+      }, { onConflict: 'id' });
 
-    if (error) throw error;
-    console.log(`[Cloud Sync] ${tableName} 1건 분산 저장 성공 (트래픽 최소화)`);
+    if (error) {
+      console.error(`[Supabase Upsert Error] Table: ${tableName}, ID: ${doc.id}`, error);
+      return;
+    }
+    console.log(`[Cloud Sync] ${tableName} 저장 성공: ${doc.id}`);
   } catch (err) {
-    console.error(`[Cloud Sync Error] ${tableName}:`, err);
+    console.error(`[Cloud Sync Exception] ${tableName}:`, err);
   }
 };
 
 /**
- * [안전장치] 기존 전체 백업과 새 분산 데이터를 모두 합쳐서 불러오는 함수
- * 현재 결재 대기 중인 문서들을 잃어버리지 않도록 양쪽에서 모두 읽어옵니다.
+ * [안전장치] 클라우드(백업+분산) 데이터와 현재 로컬 데이터를 지능적으로 병합
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
   try {
-    // 1. 기존 통짜 백업 데이터 가져오기 (결재대기 문서 포함됨)
-    const { data: legacy, error: legacyError } = await supabase
-      .from('ajin-comm-backup')
-      .select('dataload')
-      .eq('id', 1)
-      .maybeSingle();
+    // 1. 각 테이블 데이터를 개별적으로 로드 (하나가 실패해도 나머지는 진행)
+    const fetchTable = async (name: string) => {
+      try {
+        const { data, error } = await supabase.from(name).select('content');
+        if (error) {
+          console.warn(`[Supabase Fetch Warning] ${name}:`, error.message);
+          return [];
+        }
+        return data || [];
+      } catch (e) {
+        return [];
+      }
+    };
 
-    if (legacyError) throw legacyError;
-
-    // 2. 새 분산 테이블들에서 개별 데이터 가져오기
-    const [orders, invoices, p_orders, vn_orders] = await Promise.all([
-      supabase.from('orders').select('content'),
-      supabase.from('invoices').select('content'),
-      supabase.from('purchase_orders').select('content'),
-      supabase.from('vn_purchase_orders').select('content')
+    const [legacyRes, ordersRes, invoicesRes, pOrdersRes, vnOrdersRes] = await Promise.all([
+      supabase.from('ajin-comm-backup').select('dataload').eq('id', 1).maybeSingle(),
+      fetchTable('orders'),
+      fetchTable('invoices'),
+      fetchTable('purchase_orders'),
+      fetchTable('vn_purchase_orders')
     ]);
 
-    const legacyData = legacy?.dataload || {};
+    const legacyData = legacyRes.data?.dataload || {};
     
-    // 3. 데이터 병합 로직 (ID 중복 제거)
-    const merge = (legacyList: any[] = [], newList: any[] = []) => {
-      const newItems = newList?.map(item => item.content) || [];
-      const combined = [...newItems, ...legacyList];
-      // 동일 ID가 있을 경우 최신 데이터(새 테이블) 우선
-      return Array.from(new Map(combined.map(item => [item.id, item])).values());
+    // 2. 병합 함수: [기존 백업 < 클라우드 개별 < 로컬] 순으로 우선순위 부여
+    const merge = (localKey: string, legacyList: any[] = [], newList: any[] = []) => {
+      const localData = JSON.parse(localStorage.getItem(`ajin_${localKey}`) || '[]');
+      const cloudItems = newList?.map((item: any) => item.content).filter(Boolean) || [];
+      
+      // 우선순위: legacy(가장 낮음) -> cloudItems -> localData(가장 높음)
+      const combined = [...(legacyList || []), ...cloudItems, ...localData];
+      
+      const map = new Map();
+      combined.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
+      });
+      return Array.from(map.values());
     };
 
     const finalData = {
-      accounts: legacyData.accounts || [],
-      orders: merge(legacyData.orders, orders.data),
-      invoices: merge(legacyData.invoices, invoices.data),
-      purchase_orders: merge(legacyData.purchase_orders, p_orders.data),
-      vietnam_orders: merge(legacyData.vietnam_orders, vn_orders.data),
-      vn_vendors: legacyData.vn_vendors || [],
-      vn_bank_vendors: legacyData.vn_bank_vendors || [],
-      notices: legacyData.notices || [],
+      accounts: legacyData.accounts || JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
+      orders: merge('orders', legacyData.orders, ordersRes),
+      invoices: merge('invoices', legacyData.invoices, invoicesRes),
+      purchase_orders: merge('purchase_orders', legacyData.purchase_orders, pOrdersRes),
+      vietnam_orders: merge('vietnam_orders', legacyData.vietnam_orders, vnOrdersRes),
+      vn_vendors: legacyData.vn_vendors || JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
+      vn_bank_vendors: legacyData.vn_bank_vendors || JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
+      notices: legacyData.notices || JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
       updatedAt: legacyData.updatedAt || new Date().toISOString()
     };
 
-    // 4. 로컬 스토리지에 즉시 반영
+    // 3. 로컬 스토리지 업데이트
     Object.keys(finalData).forEach(key => {
       if (key !== 'updatedAt') {
         localStorage.setItem(`ajin_${key}`, JSON.stringify((finalData as any)[key]));
@@ -97,7 +112,7 @@ export const pullStateFromCloud = async () => {
     });
     localStorage.setItem('ajin_last_local_update', finalData.updatedAt);
 
-    console.log('[Cloud Sync] 모든 데이터 통합 로드 완료');
+    console.log('[Cloud Sync] 데이터 지능적 병합 및 로컬 동기화 완료');
     return finalData;
   } catch (err) {
     console.error('[Cloud Sync] Pull error:', err);
