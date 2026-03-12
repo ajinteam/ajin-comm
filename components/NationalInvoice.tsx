@@ -113,7 +113,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const saveItems = (newItems: NationalInvoiceItem[], updatedDoc?: NationalInvoiceItem) => {
     setItems(newItems);
     localStorage.setItem('ajin_national_invoices', JSON.stringify(newItems));
-    if (updatedDoc) saveSingleDoc('national_invoices', updatedDoc);
+    if (updatedDoc) saveSingleDoc('nationalinvoice', updatedDoc);
     pushStateToCloud();
   };
 
@@ -294,7 +294,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const handleDeleteDocument = (id: string) => {
     const updated = items.filter(it => it.id !== id);
     saveItems(updated);
-    deleteSingleDoc('national_invoices', id);
+    deleteSingleDoc('nationalinvoice', id);
     setDeletingId(null);
     alert('삭제되었습니다.');
   };

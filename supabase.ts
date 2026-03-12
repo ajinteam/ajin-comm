@@ -154,8 +154,8 @@ export const pullStateFromCloud = async () => {
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
       fetchTable('vn_purchase_orders'),
-      fetchTable('national_invoices'),
-      fetchTable('injection_orders'),
+      fetchTable('nationalinvoice'),
+      fetchTable('injectionorder'),
       fetchTable('national_entities')
     ]);
 
