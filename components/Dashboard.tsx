@@ -10,7 +10,7 @@ import {
   Announcement,
   MainCategory 
 } from '../types';
-import { pushStateToCloud } from '../supabase';
+import { pushStateToCloud, saveRecipient, deleteRecipient } from '../supabase';
 
 interface DashboardProps {
   user: UserAccount;
@@ -83,15 +83,33 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     if (editingId) {
       const updated = announcements.map(n => n.id === editingId ? { ...n, content: newNotice } : n);
       saveNotices(updated);
+      
+      // Supabase recipients 테이블에 저장
+      saveRecipient({
+        id: `notice-${editingId}`,
+        name: 'NOTICE',
+        remark: newNotice,
+        category: 'NOTICE'
+      });
+
       setEditingId(null);
     } else {
+      const id = Date.now().toString();
       const notice: Announcement = {
-        id: Date.now().toString(),
+        id,
         content: newNotice,
         date: new Date().toLocaleDateString('ko-KR').replace(/\.$/, ''),
         isNew: true
       };
       saveNotices([notice, ...announcements]);
+
+      // Supabase recipients 테이블에 저장
+      saveRecipient({
+        id: `notice-${id}`,
+        name: 'NOTICE',
+        remark: newNotice,
+        category: 'NOTICE'
+      });
     }
     setNewNotice('');
   };
@@ -99,6 +117,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const handleDeleteNotice = (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
     saveNotices(announcements.filter(n => n.id !== id));
+    deleteRecipient(`notice-${id}`);
   };
 
   const startEdit = (n: Announcement) => {
@@ -111,15 +130,15 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     return (
       <button 
         onClick={onClick}
-        className={`bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 hover:border-${colorClass}-500 hover:shadow-md transition-all text-left group`}
+        className={`bg-white p-3 md:p-5 landscape:p-2.5 rounded-xl md:rounded-2xl shadow-sm border border-slate-200 hover:border-${colorClass}-500 hover:shadow-md transition-all text-left group`}
       >
-        <p className="text-slate-400 text-[10px] md:text-xs font-bold uppercase tracking-wider mb-1">{title}</p>
+        <p className="text-slate-400 text-[9px] md:text-xs landscape:text-[8px] font-bold uppercase tracking-wider mb-1">{title}</p>
         <div className="flex items-end justify-between">
-          <p className={`text-xl md:text-2xl font-black text-slate-900 ${count > 0 ? 'animate-blink' : ''}`}>
-            {count} <span className="text-sm font-medium text-slate-400">건</span>
+          <p className={`text-lg md:text-2xl landscape:text-base font-black text-slate-900 ${count > 0 ? 'animate-blink' : ''}`}>
+            {count} <span className="text-xs md:sm landscape:text-[10px] font-medium text-slate-400">건</span>
           </p>
-          <div className={`w-8 h-8 rounded-lg bg-${colorClass}-50 flex items-center justify-center group-hover:bg-${colorClass}-500 transition-colors`}>
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-${colorClass}-600 group-hover:text-white`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <div className={`w-7 h-7 md:w-8 md:h-8 landscape:w-6 landscape:h-6 rounded-lg bg-${colorClass}-50 flex items-center justify-center group-hover:bg-${colorClass}-500 transition-colors`}>
+            <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 md:h-4 md:w-4 landscape:h-3 landscape:w-3 text-${colorClass}-600 group-hover:text-white`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -131,9 +150,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const CategorySection = ({ title, mainCat, children }: any) => {
     if (!isVisible(mainCat)) return null;
     return (
-      <div className="space-y-3">
-        <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{title}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="space-y-2 md:space-y-3">
+        <h3 className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-[0.2em] ml-1">{title}</h3>
+        <div className="grid grid-cols-2 landscape:grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 gap-2 md:gap-4">
           {children}
         </div>
       </div>
@@ -141,19 +160,22 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   };
 
   return (
-    <div className="space-y-10 md:space-y-12 animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row justify-between items-start gap-4">
-        <div>
-          <h2 className="text-3xl md:text-4xl font-black text-slate-900 mb-1 tracking-tight">대시보드</h2>
-          <p className="text-slate-500 text-sm font-medium">관리 시스템 현황 및 공지사항입니다.</p>
+    <div className="space-y-4 md:space-y-12 animate-in fade-in duration-700">
+      <div className="flex flex-col landscape:flex-row md:flex-row justify-between items-start gap-4 mb-4 md:mb-10">
+        <div className="space-y-1">
+          <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">대시보드</h2>
+          <p className="text-slate-500 text-[9px] md:text-sm font-medium uppercase tracking-wider">System Status & Announcements</p>
         </div>
-        <div className={`px-4 py-2 rounded-2xl border flex items-center gap-3 ${isMaster ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
-          <div className={`w-2 h-2 rounded-full ${isMaster ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></div>
-          <span className="text-xs font-black text-slate-700 uppercase tracking-tight">{user.initials} {isMaster && '(MASTER)'}</span>
+        <div className={`w-full md:w-auto px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl border flex items-center justify-between md:justify-start gap-2 md:gap-3 ${isMaster ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+          <div className="flex items-center gap-2">
+            <div className={`w-1 h-1 md:w-2 md:h-2 rounded-full ${isMaster ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></div>
+            <span className="text-[9px] md:text-xs font-black text-slate-700 uppercase tracking-tight">{user.initials} {isMaster && '(MASTER)'}</span>
+          </div>
+          <span className="md:hidden text-[7px] font-bold text-slate-400 uppercase tracking-widest">Active Session</span>
         </div>
       </div>
 
-      <div className="space-y-10">
+      <div className="space-y-6 md:space-y-12">
         {/* 주문서 섹션 */}
         <CategorySection title="주문서 현황" mainCat={MainCategory.ORDER}>
           <StatCard title="결재대기" count={counts.order.pending} colorClass="blue" statusLabel={OrderSubCategory.PENDING} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.PENDING })} />

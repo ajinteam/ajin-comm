@@ -5,12 +5,15 @@ import {
   UserAccount, 
   ViewState,
   PurchaseOrderSubCategory,
-  VietnamSubCategory
+  VietnamSubCategory,
+  NationalInvoiceSubCategory
 } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';
 import OrderView from './components/OrderView';
 import InvoiceView from './components/InvoiceView';
+import NationalInvoice from './components/NationalInvoice';
+import InjectionOrderView from './components/InjectionOrder';
 import PurchaseOrderView from './components/PurchaseOrderView';
 import VietnamOrderView from './components/VietnamOrderView';
 import SettingsView from './components/SettingsView';
@@ -48,6 +51,22 @@ const App: React.FC = () => {
 
       setUserAccounts(accounts);
       localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
+
+      // Persistent Login Check
+      const savedUser = localStorage.getItem('ajin_active_user');
+      if (savedUser) {
+        try {
+          const user = JSON.parse(savedUser);
+          // Verify user still exists in accounts
+          const found = accounts.find(u => u.loginId === user.loginId);
+          if (found) {
+            setCurrentUser(found);
+          }
+        } catch (e) {
+          console.error('Failed to parse saved user', e);
+        }
+      }
+
       setIsLoading(false);
       setIsSyncing(false);
     };
@@ -134,13 +153,15 @@ const App: React.FC = () => {
       <Sidebar currentView={view} setView={handleSetView} user={currentUser} isOpen={isSidebarOpen} onClose={() => setIsSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header userName={currentUser.initials} isMaster={isMaster} onLogout={handleLogout} onSettings={() => isMaster && handleSetView({ type: 'SETTINGS' })} onHome={() => handleSetView({ type: 'DASHBOARD' })} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} isSyncing={isSyncing} />
-        <main className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 overflow-y-auto p-2 md:p-10 landscape:p-4 landscape:md:p-6 custom-scrollbar">
+          <div className="max-w-7xl mx-auto w-full">
             {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} dataVersion={dataVersion} key={`dash-${dataVersion}`} />}
             {view.type === 'ORDER' && <OrderView key={`order-${view.sub}`} sub={view.sub} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'INVOICE' && <InvoiceView key={`invoice-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
-            {view.type === 'PURCHASE' && <PurchaseOrderView key={`purchase-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
+            {view.type === 'PURCHASE' && view.sub === PurchaseOrderSubCategory.INJECTION_ORDER && <InjectionOrderView key="injection-order" sub={view.sub as any} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
+            {view.type === 'PURCHASE' && view.sub !== PurchaseOrderSubCategory.INJECTION_ORDER && <PurchaseOrderView key={`purchase-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'VIETNAM' && <VietnamOrderView key={`vietnam-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
+            {view.type === 'NATIONAL_INVOICE' && <NationalInvoice key="national-invoice" sub={view.sub as NationalInvoiceSubCategory} editId={view.editId} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'STORAGE' && <PurchaseOrderView key="storage-view" sub={PurchaseOrderSubCategory.UPLOAD} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'SETTINGS' && isMaster && <SettingsView accounts={userAccounts} onUpdate={updateAccounts} setView={handleSetView} />}
           </div>

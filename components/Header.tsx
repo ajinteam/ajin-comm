@@ -13,7 +13,7 @@ interface HeaderProps {
 
 const Header: React.FC<HeaderProps> = ({ userName, isMaster, onLogout, onSettings, onHome, onToggleSidebar, isSyncing }) => {
   return (
-    <header className="h-16 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-8 shadow-sm shrink-0 sticky top-0 z-[40]">
+    <header className="h-16 landscape:h-12 bg-white/80 backdrop-blur-md border-b border-slate-200 flex items-center justify-between px-4 md:px-8 landscape:px-4 shadow-sm shrink-0 sticky top-0 z-[40]">
       <div className="flex items-center gap-2 md:gap-4">
         <button 
           onClick={onToggleSidebar}
@@ -26,35 +26,35 @@ const Header: React.FC<HeaderProps> = ({ userName, isMaster, onLogout, onSetting
         </button>
         <button 
           onClick={onHome}
-          className="font-black text-slate-900 text-lg tracking-tighter hover:text-blue-600 transition-colors hidden sm:block"
+          className="font-black text-slate-900 text-lg tracking-tighter hover:text-blue-600 transition-colors hidden md:block"
         >
           ERP
         </button>
         
-        <div className="flex items-center gap-2 ml-2">
+        <div className="flex items-center gap-2 ml-1 md:ml-2">
           {isSyncing ? (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100 animate-pulse">
-              <div className="w-1.5 h-1.5 bg-blue-600 rounded-full animate-ping"></div>
-              <span className="text-[10px] font-black uppercase tracking-widest">Syncing</span>
+            <div className="flex items-center gap-1 px-2 py-0.5 md:px-2.5 md:py-1 bg-blue-50 text-blue-600 rounded-full border border-blue-100 animate-pulse">
+              <div className="w-1 h-1 md:w-1.5 md:h-1.5 bg-blue-600 rounded-full animate-ping"></div>
+              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest">Syncing</span>
             </div>
           ) : (
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></div>
-              <span className="text-[10px] font-black uppercase tracking-widest">Cloud Live</span>
+            <div className="flex items-center gap-1 px-2 py-0.5 md:px-2.5 md:py-1 bg-emerald-50 text-emerald-600 rounded-full border border-emerald-100">
+              <div className="w-1 h-1 md:w-1.5 md:h-1.5 bg-emerald-500 rounded-full"></div>
+              <span className="text-[8px] md:text-[10px] font-black uppercase tracking-widest">Live</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="flex items-center gap-3 md:gap-5">
-        <div className="hidden md:flex flex-col items-end">
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">User Profile</span>
-          <span className="text-sm font-black text-slate-900">{userName}</span>
+      <div className="flex items-center gap-2 md:gap-5">
+        <div className="hidden sm:flex flex-col items-end">
+          <span className="text-[9px] md:text-[10px] text-slate-400 font-bold uppercase tracking-wider hidden md:block">User Profile</span>
+          <span className="text-xs md:text-sm font-black text-slate-900">{userName}</span>
         </div>
         
-        <div className="h-8 w-[1px] bg-slate-200"></div>
+        <div className="h-6 md:h-8 w-[1px] bg-slate-200"></div>
 
-        <div className="flex items-center gap-2 md:gap-3">
+        <div className="flex items-center gap-1.5 md:gap-3">
           {isMaster && (
             <button 
               onClick={onSettings}

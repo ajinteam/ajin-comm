@@ -66,8 +66,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   const [activeInvoice, setActiveInvoice] = useState<InvoiceItem | null>(null);
   const [isPreviewing, setIsPreviewing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
   const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
   
   const [undoStack, setUndoStack] = useState<string[]>([]);
@@ -187,16 +185,6 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     pushStateToCloud();
   };
 
-  const itemLibrary = useMemo(() => {
-    const names = new Set<string>();
-    invoices.forEach(inv => {
-      inv.rows.forEach(row => {
-        if (row.itemName.trim()) names.add(row.itemName.trim());
-      });
-    });
-    return Array.from(names);
-  }, [invoices]);
-
   const updateRowField = useCallback((rowId: string, field: keyof InvoiceRow, value: any) => {
     if (!activeInvoice) {
       setFormRows(prev => prev.map(row => row.id === rowId ? { ...row, [field]: value } : row));
@@ -224,17 +212,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       if (currentActive) setActiveInvoice(currentActive);
       pushStateToCloud();
     }
-    if (field === 'itemName') {
-      const query = value.toLowerCase().trim();
-      if (query.length > 0) {
-        const filtered = itemLibrary.filter(name => name.toLowerCase().includes(query)).slice(0, 10);
-        setSuggestions(filtered);
-        setSuggestionTarget({ rowId, field });
-      } else {
-        setSuggestions([]); setSuggestionTarget(null);
-      }
-    }
-  }, [itemLibrary, currentUser, activeInvoice]);
+  }, [currentUser, activeInvoice]);
 
   const handleBorderApply = useCallback((target: 'outer' | 'inner', style: string) => {
     if (!selection) return;
@@ -551,20 +529,25 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     }
   };
 
-  const handleQtyConfirm = (rowId: string) => {
-    if (sub === InvoiceSubCategory.CREATE || activeInvoice?.isTemporary) return;
-    const isAlreadyConfirmed = activeInvoice?.rows.find(r => r.id === rowId)?.qtyConfirm;
-    if (isAlreadyConfirmed) return;
+  const handleAllQtyConfirm = () => {
+    if (!activeInvoice || sub === InvoiceSubCategory.CREATE || activeInvoice.isTemporary) return;
+    const activeRows = activeInvoice.rows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
+    if (activeRows.length === 0) return;
+
     setModal({
-      type: 'ADD_ROW_CONFIRM', message: '수량 확인을 하셨습니까?',
+      type: 'ADD_ROW_CONFIRM', message: '모든 품목의 수량을 확인하셨습니까?',
       onConfirm: () => {
         const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
         let allConfirmed = false;
         let finalUpdated = currentFullList.map((inv: InvoiceItem) => {
-          if (inv.id === activeInvoice?.id) {
-            const updatedRows = inv.rows.map(row => row.id === rowId ? { ...row, qtyConfirm: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } } : row) as InvoiceRow[];
-            const activeRows = updatedRows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
-            allConfirmed = activeRows.length > 0 && activeRows.every(r => !!r.qtyConfirm);
+          if (inv.id === activeInvoice.id) {
+            const updatedRows = inv.rows.map(row => 
+              (!row.isDeleted && (row.model?.trim() || row.itemName?.trim()) && !row.qtyConfirm)
+                ? { ...row, qtyConfirm: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
+                : row
+            ) as InvoiceRow[];
+            const currentActiveRows = updatedRows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
+            allConfirmed = currentActiveRows.length > 0 && currentActiveRows.every(r => !!r.qtyConfirm);
             return { ...inv, rows: updatedRows, stamps: allConfirmed ? { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } } : inv.stamps } as InvoiceItem;
           }
           return inv;
@@ -574,7 +557,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
         if (allConfirmed) {
           setModal({ type: 'ALERT', message: '모든 확인이 완료되어 해당 수신처 폴더로 저장(분류)되었습니다.', onConfirm: () => { setModal(null); setActiveInvoice(null); } });
         } else {
-          const currentActive = finalUpdated.find((i: InvoiceItem) => i.id === activeInvoice?.id);
+          const currentActive = finalUpdated.find((i: InvoiceItem) => i.id === activeInvoice.id);
           if (currentActive) setActiveInvoice(currentActive);
           setModal(null);
         }
@@ -692,8 +675,8 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const stamps = data?.stamps;
 
     return (
-      <div className={`bg-white border-[1px] border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[210mm] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto`}>
-        <div className="min-w-[650px]">
+      <div className={`bg-white border-[1px] border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[210mm] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto`}>
+        <div className="min-w-[650px] md:min-w-0">
           <div className="flex justify-between items-start mb-8">
             <div className="text-3xl md:text-5xl font-bold uppercase tracking-widest">송 장</div>
             <div className="text-right">
@@ -708,12 +691,25 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
               <span className="w-16 font-bold">날짜</span>
               {isReadOnly && !isTempDoc ? <span>{date}</span> : <input type="text" value={date} onChange={(e) => { takeSnapshot(); setFormDate(e.target.value); }} className="flex-1 bg-transparent outline-none"/>}
             </div>
-            <div className="flex border-b border-slate-900 pb-1 items-center gap-2">
-              <span className="w-16 font-bold whitespace-nowrap">화물발송</span>
-              {isReadOnly && !isTempDoc ? <span>{cargo}</span> : (
-                <div className="flex flex-1 items-center gap-2">
-                  <select className="bg-slate-50 border rounded px-1 py-0.5 text-[10px] md:text-xs outline-none w-16 md:w-auto" onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} value={cargoOptions.includes(formCargo) ? formCargo : ''}><option value="">직접</option>{cargoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
-                  <input type="text" value={formCargo} onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} onFocus={takeSnapshot} placeholder="정보 입력" className="flex-1 bg-transparent outline-none border-l border-slate-200 pl-2 min-w-0"/>
+            <div className="flex flex-col border-b border-slate-900 pb-1">
+              <div className="flex items-center gap-2">
+                <span className="w-16 font-bold whitespace-nowrap">화물발송</span>
+                {isReadOnly && !isTempDoc ? <span>{cargo}</span> : (
+                  <div className="flex flex-1 items-center gap-2">
+                    <select className="bg-slate-50 border rounded px-1 py-0.5 text-[10px] md:text-xs outline-none w-16 md:w-auto" onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} value={cargoOptions.includes(formCargo) ? formCargo : ''}><option value="">직접</option>{cargoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                    <input type="text" value={formCargo} onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} onFocus={takeSnapshot} placeholder="정보 입력" className="flex-1 bg-transparent outline-none border-l border-slate-200 pl-2 min-w-0"/>
+                  </div>
+                )}
+              </div>
+              {isReadOnly && !isTempDoc && !stamps?.final && (
+                <div className="mt-2 no-print">
+                  <button 
+                    onClick={handleAllQtyConfirm}
+                    className="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-all shadow-sm flex items-center gap-1 w-fit"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+                    수량 확인 완료
+                  </button>
                 </div>
               )}
             </div>
@@ -731,10 +727,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                 <th className="border border-slate-900 p-1 md:p-2 w-[11%] text-center">기종</th>
                 <th className="border border-slate-900 p-1 md:p-2 w-[10%] text-center">도 번</th>
                 <th className="border border-slate-900 p-1 md:p-2 flex-1 min-w-[120px] text-center">품 목</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[12%] text-center">수 량</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[9%] text-center leading-tight">완료</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[13%] text-center">확인</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[15%] text-center">비고</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[13%] text-center">수 량</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[10%] text-center leading-tight">완료</th>
+                <th className="border border-slate-900 p-1 md:p-2 w-[18%] text-center">비고</th>
                 <th className="border border-slate-900 p-1 md:p-2 w-14 text-center no-print">관리</th>
               </tr>
             </thead>
@@ -743,7 +738,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                 const rowCells = [
                   { f: 'model', c: 0 }, { f: 'drawingNo', c: 1 }, { f: 'itemName', c: 2 },
                   { f: 'qty_group', c: 3 }, { f: 'completion_group', c: 5 },
-                  { f: 'confirm', c: 7 }, { f: 'remarks', c: 8 }
+                  { f: 'remarks', c: 7 }
                 ];
                 
                 return (
@@ -774,16 +769,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                         >
                           {cell.f === 'model' && <AutoExpandingTextarea value={row.model} dataRow={idx} dataCol={0} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 0, eR: idx, eC: 0 }); }} onChange={(e: any) => updateRowField(row.id, 'model', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 0)} onPaste={(e: any) => handlePaste(e, idx, 0)} style={{ textAlign }} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>}
                           {cell.f === 'drawingNo' && <AutoExpandingTextarea value={row.drawingNo} dataRow={idx} dataCol={1} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 1, eR: idx, eC: 1 }); }} onChange={(e: any) => updateRowField(row.id, 'drawingNo', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 1)} onPaste={(e: any) => handlePaste(e, idx, 1)} style={{ textAlign: 'center' }} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/>}
-                          {cell.f === 'itemName' && (
-                            <div className="relative">
-                              <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 2, eR: idx, eC: 2 }); }} onChange={(e: any) => updateRowField(row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} onPaste={(e: any) => handlePaste(e, idx, 2)} style={{ textAlign }} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>
-                              {suggestionTarget?.rowId === row.id && suggestions.length > 0 && (
-                                <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-xl z-50 rounded-b overflow-hidden max-h-32 overflow-y-auto no-print">
-                                  {suggestions.map((name, sIdx) => (<button key={sIdx} onClick={() => { takeSnapshot(); updateRowField(row.id, 'itemName', name); setSuggestions([]); setSuggestionTarget(null); }} className="w-full text-left px-3 py-1.5 text-[9px] md:text-[10px] hover:bg-blue-50 border-b last:border-0 border-slate-100 font-bold">{name}</button>))}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          {cell.f === 'itemName' && <AutoExpandingTextarea value={row.itemName} dataRow={idx} dataCol={2} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 2, eR: idx, eC: 2 }); }} onChange={(e: any) => updateRowField(row.id, 'itemName', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 2)} onPaste={(e: any) => handlePaste(e, idx, 2)} style={{ textAlign }} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>}
                           {cell.f === 'qty_group' && (
                             <div className="grid grid-cols-7 h-full min-h-[30px] items-center">
                               <div className="col-span-5 h-full flex items-center border-r border-slate-300"><AutoExpandingTextarea value={row.qty} dataRow={idx} dataCol={3} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 3, eR: idx, eC: 3 }); }} onChange={(e: any) => updateRowField(row.id, 'qty', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 3)} onPaste={(e: any) => handlePaste(e, idx, 3)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/></div>
@@ -796,12 +782,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                               <div className="col-span-5 h-full flex items-center"><AutoExpandingTextarea value={row.completionStatus} dataRow={idx} dataCol={6} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 6, eR: idx, eC: 6 }); }} onChange={(e: any) => updateRowField(row.id, 'completionStatus', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 6)} onPaste={(e: any) => handlePaste(e, idx, 6)} className={`text-center ${row.isDeleted ? 'text-red-600 line-through' : ''}`}/></div>
                             </div>
                           )}
-                          {cell.f === 'confirm' && (
-                            <div className={`w-full h-full min-h-[30px] flex items-center justify-center transition-colors ${row.qtyConfirm ? 'bg-blue-50/30' : ''} ${isReadOnly && !row.isDeleted && !isTempDoc ? 'cursor-pointer hover:bg-slate-50' : ''}`} onClick={() => isReadOnly && !row.isDeleted && handleQtyConfirm(row.id)}>
-                              {row.qtyConfirm ? <div className="flex flex-col items-center scale-90"><span className="font-bold text-blue-600 leading-tight whitespace-nowrap">{row.qtyConfirm.userId}</span><span className="text-[7px] text-slate-400 leading-tight mt-0.5 whitespace-nowrap">{formatAmPm(row.qtyConfirm.timestamp)}</span></div> : <span className="text-slate-300 text-[9px]">{isReadOnly && !row.isDeleted && !isTempDoc ? '확인' : ''}</span>}
-                            </div>
-                          )}
-                          {cell.f === 'remarks' && <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={8} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 8, eR: idx, eC: 8 }); }} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 8)} onPaste={(e: any) => handlePaste(e, idx, 8)} style={{ textAlign }} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>}
+                          {cell.f === 'remarks' && <AutoExpandingTextarea value={row.remarks} dataRow={idx} dataCol={7} disabled={finalDisabled} onFocus={() => { takeSnapshot(); setSelection({ sR: idx, sC: 7, eR: idx, eC: 7 }); }} onChange={(e: any) => updateRowField(row.id, 'remarks', e.target.value)} onKeyDown={(e: any) => handleRowKeyDown(e, idx, 7)} onPaste={(e: any) => handlePaste(e, idx, 7)} style={{ textAlign }} className={row.isDeleted ? 'text-red-600 line-through' : ''}/>}
                         </td>
                       );
                     })}
@@ -840,7 +821,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
           {stamps && (
             <div className="mt-8 flex flex-wrap justify-end items-center gap-4 md:gap-6 text-[9px] md:text-[10px] no-print">
               {stamps.writer && <div className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase">작성:</span><span className="text-blue-600 font-black">{stamps.writer.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.writer.timestamp)}</span></div>}
-              {stamps.final && <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-slate-400 font-bold uppercase">완료:</span><span className="text-emerald-600 font-black">{stamps.final.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.final.timestamp)}</span></div>}
+              {stamps.final && <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-slate-400 font-bold uppercase">확인:</span><span className="text-emerald-600 font-black">{stamps.final.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.final.timestamp)}</span></div>}
             </div>
           )}
 
@@ -860,7 +841,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
               <h3 className={`text-lg md:text-xl font-black mb-4 ${modal.type === 'DELETE' || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'text-red-600' : 'text-slate-900'} text-center`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
               <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
-                {modal.type === 'ALERT' ? <button onClick={() => { if (modal.onConfirm) modal.onConfirm(); else setModal(null); }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={() => modal.onConfirm && modal.onConfirm()} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${modal.type.includes('DELETE') || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
+                {modal.type === 'ALERT' ? <button onClick={() => { if (modal.onConfirm) modal.onConfirm(); else setModal(null); }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={() => modal.onConfirm && modal.onConfirm()} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${(modal.type || '').includes('DELETE') || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
               </div>
             </div>
           </div>
@@ -929,7 +910,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   }, [invoices, sub, locationFilter]);
 
   const sortedAll = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  const searchFiltered = sortedAll.filter(inv => { if (!searchTerm.trim()) return true; const lower = searchTerm.toLowerCase(); const hasItem = inv.rows.some(r => r.itemName.toLowerCase().includes(lower) || r.model.toLowerCase().includes(lower)); return (inv.title && inv.title.toLowerCase().includes(lower)) || hasItem; });
+  const searchFiltered = sortedAll.filter(inv => { 
+    if (!searchTerm.trim()) return true; 
+    const lower = searchTerm.toLowerCase(); 
+    const hasItem = inv.rows.some(r => (r.itemName || '').toLowerCase().includes(lower) || (r.model || '').toLowerCase().includes(lower)); 
+    return (inv.title && inv.title.toLowerCase().includes(lower)) || hasItem; 
+  });
   const totalItems = searchFiltered.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const paginatedItems = searchFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -942,6 +928,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
           {isPreviewing ? (<div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>) : (
             <div className="flex gap-2">
               <button onClick={() => setActiveInvoice(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 목록으로</button>
+              {isMaster && (
+                <button onClick={() => setModal({ type: 'DELETE_FILE', message: '해당 송장 파일을 영구 삭제하시겠습니까? (복구 불가)', onConfirm: () => handleFileDelete(activeInvoice.id) })} className="bg-red-50 text-red-600 px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-red-600 hover:text-white transition-all flex items-center gap-2 text-sm">삭제</button>
+              )}
               <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs shadow-xl transition-all ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Undo ({undoStack.length})</button>
             </div>
           )}
@@ -979,20 +968,33 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   }
 
   return (
-    <div className="space-y-4 md:space-y-6 text-left pb-12">
+    <div className="space-y-6 text-left pb-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div><h2 className="text-2xl md:text-3xl font-black text-slate-900">{sub} 송장 관리</h2><div className="flex flex-wrap items-center gap-2 md:gap-4 mt-2"><p className="text-slate-500 text-sm">총 {totalItems}건의 송장</p><div className="hidden md:block h-4 w-[1px] bg-slate-300"></div><div className="flex bg-slate-200 p-1 rounded-lg"><button onClick={() => setViewMode('ICON')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>아이콘</button><button onClick={() => setViewMode('DETAIL')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'DETAIL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>리스트</button></div></div></div>
-        <div className="relative w-full md:max-w-sm"><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="기종 또는 품목으로 찾기..." className="w-full px-4 md:px-5 py-2.5 md:py-3 rounded-xl md:rounded-2xl border border-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white text-sm font-medium"/><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 md:h-5 md:w-5 absolute right-4 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg></div>
+        <div>
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{sub}</h2>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-slate-500 text-sm font-bold">총 {totalItems}건</p>
+            <div className="h-4 w-[1px] bg-slate-300"></div>
+            <div className="flex bg-slate-200 p-1 rounded-lg no-print">
+              <button onClick={() => setViewMode('ICON')} className={`px-4 py-1.5 rounded-md text-[11px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>아이콘</button>
+              <button onClick={() => setViewMode('DETAIL')} className={`px-4 py-1.5 rounded-md text-[11px] font-bold transition-all ${viewMode === 'DETAIL' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>리스트</button>
+            </div>
+          </div>
+        </div>
+        <div className="relative w-full md:max-w-md">
+          <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="제목 또는 수신처 검색..." className="w-full px-6 py-3 rounded-full border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-medium bg-white shadow-sm pr-12"/>
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute right-5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+        </div>
       </div>
       {viewMode === 'ICON' ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-8">
-          {paginatedItems.length === 0 ? (<div className="col-span-full py-16 md:py-32 text-center text-slate-400 border-4 border-dashed rounded-3xl bg-white/50 text-sm md:text-lg">{searchTerm ? '검색 결과가 없습니다.' : '보관된 송장이 없습니다.'}</div>) : (paginatedItems.map(inv => {
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+          {paginatedItems.length === 0 ? (<div className="col-span-full py-24 text-center text-slate-400 bg-white rounded-3xl border-4 border-dashed border-slate-100 text-lg font-medium italic">데이터가 없습니다.</div>) : (paginatedItems.map(inv => {
             const colors = getLocationColor(inv.recipient);
             return (
               <div key={inv.id} className="relative group">
                 <button onClick={() => { 
                   setActiveInvoice(inv); 
-                  setSelection({ sR: 0, sC: 0, eR: 0, eC: 0 }); // Reset selection highlight
+                  setSelection({ sR: 0, sC: 0, eR: 0, eC: 0 }); 
                   setFormDate(inv.date);
                   setFormRecipient(inv.recipient);
                   setFormCargo(inv.cargoInfo);
@@ -1001,19 +1003,31 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                   setMerges(inv.merges || {});
                   setAligns(inv.aligns || {});
                   setBorders(inv.borders || {});
-                }} className="w-full bg-white p-6 md:p-8 rounded-2xl md:rounded-3xl shadow-sm border-2 border-slate-100 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col items-center relative overflow-hidden text-center h-full">
-                  <div className={`absolute top-2 right-2 md:top-3 md:right-3 px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold border ${colors.bg} ${colors.text} border-current opacity-70 z-10`}>
-                    {inv.recipient === 'SEOUL' ? '서울' : inv.recipient === 'DAECHEON' ? '대천' : '베트남'}
-                  </div>
-                  <div className={`w-12 h-16 md:w-16 md:h-20 ${colors.bg} ${colors.groupHover} rounded-lg shadow-inner mb-4 md:mb-6 flex items-center justify-center border border-slate-100 transition-colors relative`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-6 w-6 md:h-8 md:w-8 ${colors.text} opacity-60`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                }} className="w-full bg-white p-6 rounded-3xl border-2 border-slate-100 hover:border-blue-500 hover:shadow-xl transition-all flex flex-col items-center text-center group relative overflow-hidden h-full">
+                  <div className={`absolute top-0 left-0 w-full h-1 transition-opacity ${inv.isTemporary ? 'bg-amber-500' : 'bg-blue-500'}`}></div>
+                  <div className={`w-16 h-20 ${colors.bg} ${colors.groupHover} rounded-xl flex items-center justify-center mb-4 group-hover:scale-105 transition-transform border border-transparent`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 ${colors.text} opacity-60`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={inv.isTemporary ? "M12 6v6m0 0v6m0-6h6m-6 0H6" : "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"} />
                     </svg>
-                    {inv.isTemporary && <div className="absolute top-1 right-1 bg-amber-500 w-2 h-2 rounded-full animate-pulse"></div>}
                   </div>
-                  <h3 className="font-black text-slate-800 text-xs md:text-sm truncate w-full mb-1 leading-tight px-2">{inv.title || '무제 송장'}</h3><p className="text-[9px] md:text-[10px] text-slate-400 font-bold mb-1">{inv.date}</p><p className="text-[9px] md:text-[10px] text-blue-600 uppercase font-bold tracking-widest opacity-70 truncate w-full">{inv.cargoInfo || '-'}</p>
+                  <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full text-[8px] font-black uppercase ${colors.bg} ${colors.text}`}>
+                    {inv.recipient === 'SEOUL' ? '서울' : inv.recipient === 'DAECHEON' ? '대천' : '베트남'}
+                  </div>
+                  <h3 className="font-black text-sm truncate w-full mb-1">{inv.title || '무제 송장'}</h3>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase">{inv.date}</p>
+                  
+                  <div className="flex gap-2 mt-4">
+                    <div className={`w-4 h-4 rounded-full ${inv.stamps?.writer ? 'bg-blue-500' : 'bg-slate-200'}`} title="작성"></div>
+                    <div className={`w-4 h-4 rounded-full ${inv.stamps?.final ? 'bg-emerald-500' : 'bg-slate-200'}`} title="확인"></div>
+                  </div>
+
+                  {inv.isTemporary && (
+                    <div className="mt-4 px-3 py-1 bg-amber-100 text-amber-700 rounded-full text-[9px] font-black uppercase tracking-widest">
+                      임시 저장 중
+                    </div>
+                  )}
                 </button>
-                {isMaster && <button onClick={(e) => { e.stopPropagation(); setModal({ type: 'DELETE_FILE', message: '해당 송장 파일을 영구 삭제하시겠습니까? (복구 불가)', onConfirm: () => handleFileDelete(inv.id) }); }} className="absolute -top-2 -right-2 bg-red-600 text-white w-7 h-7 md:w-8 md:h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-20"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>}
+                {isMaster && <button onClick={(e) => { e.stopPropagation(); setModal({ type: 'DELETE_FILE', message: '해당 송장 파일을 영구 삭제하시겠습니까? (복구 불가)', onConfirm: () => handleFileDelete(inv.id) }); }} className="absolute -top-2 -right-2 bg-red-600 text-white w-7 h-7 md:w-8 md:h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg></button>}
               </div>
             );
           }))}
@@ -1037,15 +1051,29 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
           </table>
         </div>
       )}
-      {totalPages > 1 && (<div className="flex justify-center items-center gap-4 mt-8 no-print pb-10"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm">이전</button><div className="flex gap-2">{Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (<button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`w-10 h-10 rounded-xl font-black transition-all ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{pageNum}</button>))}</div><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="px-4 py-2 bg-white border border-slate-300 rounded-xl font-bold text-slate-700 disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm">다음</button></div>)}
+      {totalPages > 1 && (
+        <div className="flex justify-center items-center gap-3 mt-8 no-print pb-10">
+          <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div className="flex gap-2">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
+              <button key={pageNum} onClick={() => setCurrentPage(pageNum)} className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${currentPage === pageNum ? 'bg-blue-600 text-white shadow-lg shadow-blue-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{pageNum}</button>
+            ))}
+          </div>
+          <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      )}
 
       {modal && (modal.type === 'DELETE' || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' || modal.type === 'ADD_ROW_CONFIRM' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print">
           <div className="bg-white rounded-2xl shadow-2xl p-6 md:p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200 text-center">
-            <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-slate-900'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
+            <h3 className={`text-xl font-black mb-4 ${(modal.type || '').includes('DELETE') ? 'text-red-600' : 'text-slate-900'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base">{modal.message}</p>
             <div className="flex gap-3">
-              {modal.type === 'ALERT' ? <button onClick={() => { if (modal.onConfirm) modal.onConfirm(); else setModal(null); }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={() => modal.onConfirm && modal.onConfirm()} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${modal.type.includes('DELETE') || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
+              {modal.type === 'ALERT' ? <button onClick={() => { if (modal.onConfirm) modal.onConfirm(); else setModal(null); }} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={() => modal.onConfirm && modal.onConfirm()} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${(modal.type || '').includes('DELETE') || modal.type === 'DELETE_SAVED' || modal.type === 'DELETE_FILE' ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
             </div>
           </div>
         </div>

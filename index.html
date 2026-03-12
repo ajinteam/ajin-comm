@@ -13,6 +13,8 @@
         body { font-family: 'Inter', sans-serif; }
         /* Gulim font fallback for the order document */
         .font-gulim { font-family: 'Gulim', 'Dotum', 'AppleGothic', sans-serif; }
+        .font-bold-print { font-weight: 700 !important; }
+        .font-normal-print { font-weight: 400 !important; }
         
         @keyframes blink {
             0%, 100% { opacity: 1; }
@@ -27,6 +29,15 @@
             aside, header, button { display: none !important; }
             main { padding: 0 !important; margin: 0 !important; }
             .bg-white { box-shadow: none !important; border: none !important; }
+        }
+
+        /* Landscape optimization for mobile */
+        @media (orientation: landscape) and (max-height: 500px) {
+            header { height: 3rem !important; }
+            main { padding: 0.5rem !important; }
+            .stat-card-container { gap: 0.5rem !important; }
+            h2 { font-size: 1.25rem !important; }
+            .category-section { space-y: 1rem !important; }
         }
     </style>
 <script type="importmap">

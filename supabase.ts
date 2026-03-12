@@ -46,7 +46,8 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
 
     if (error) {
       // 만약 category 컬럼이 없어서 발생하는 에러라면, category를 제외하고 재시도
-      if (error.message.includes('column "category" of relation') || error.message.includes('column "category" does not exist')) {
+      const msg = error.message || '';
+      if (msg.includes('column "category" of relation') || msg.includes('column "category" does not exist')) {
         console.warn(`[Supabase] ${tableName} 테이블에 'category' 컬럼이 없어 제외하고 저장합니다.`);
         delete payload.category;
         const { error: retryError } = await supabase
@@ -61,6 +62,51 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
     console.log(`[Cloud Sync] ${tableName} 저장 성공: ${doc.id}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Error] ${tableName}:`, err.message || err);
+  }
+};
+
+/**
+ * [수신처/은행/공지/계정 관리] recipients 테이블에 통합 저장하는 함수
+ */
+export const saveRecipient = async (data: {
+  id: string;
+  name: string;
+  tel?: string;
+  fax?: string;
+  remark?: string;
+  category: string;
+}) => {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from('recipients')
+      .upsert({
+        id: data.id,
+        name: data.name,
+        tel: data.tel || '',
+        fax: data.fax || '',
+        remark: data.remark || '',
+        category: data.category
+      }, { onConflict: 'id' });
+
+    if (error) throw error;
+    console.log(`[Cloud Sync] Recipients 저장 성공: ${data.name} (${data.category})`);
+  } catch (err: any) {
+    console.error(`[Cloud Sync Error] Recipients:`, err.message || err);
+  }
+};
+
+export const deleteRecipient = async (id: string) => {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from('recipients')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    console.log(`[Cloud Sync] Recipients 삭제 성공: ${id}`);
+  } catch (err: any) {
+    console.error(`[Cloud Sync Delete Error] Recipients:`, err.message || err);
   }
 };
 
@@ -102,12 +148,15 @@ export const pullStateFromCloud = async () => {
       }
     };
 
-    const [legacyRes, ordersRes, invoicesRes, pOrdersRes, vnOrdersRes] = await Promise.all([
+    const [legacyRes, ordersRes, invoicesRes, pOrdersRes, vnOrdersRes, nationalInvoicesRes, injectionOrdersRes, nationalEntitiesRes] = await Promise.all([
       supabase.from('ajin-comm-backup').select('dataload').eq('id', 1).maybeSingle(),
       fetchTable('orders'),
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
-      fetchTable('vn_purchase_orders')
+      fetchTable('vn_purchase_orders'),
+      fetchTable('national_invoices'),
+      fetchTable('injection_orders'),
+      fetchTable('national_entities')
     ]);
 
     const legacyData = legacyRes.data?.dataload || {};
@@ -137,6 +186,9 @@ export const pullStateFromCloud = async () => {
       invoices: merge('invoices', legacyData.invoices, invoicesRes),
       purchase_orders: merge('purchase_orders', legacyData.purchase_orders, pOrdersRes),
       vietnam_orders: merge('vietnam_orders', legacyData.vietnam_orders, vnOrdersRes),
+      national_invoices: merge('national_invoices', legacyData.national_invoices, nationalInvoicesRes),
+      national_entities: legacyData.national_entities || JSON.parse(localStorage.getItem('ajin_national_entities') || '[]'),
+      injection_orders: merge('injection_orders', legacyData.injection_orders, injectionOrdersRes),
       vn_vendors: legacyData.vn_vendors || JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
       vn_bank_vendors: legacyData.vn_bank_vendors || JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
       notices: legacyData.notices || JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
@@ -163,7 +215,7 @@ export const pullStateFromCloud = async () => {
  * 잔디 알림 전송 함수 (기존 유지)
  */
 export const sendJandiNotification = async (
-  target: 'KR' | 'VN',
+  target: 'KR' | 'VN' | 'KR_PO',
   type: 'REQUEST' | 'COMPLETE' | 'REJECT',
   title: string,
   recipient: string,
@@ -199,6 +251,9 @@ export const pushStateToCloud = async (immediate: boolean = false) => {
         invoices: JSON.parse(localStorage.getItem('ajin_invoices') || '[]'),
         purchase_orders: JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]'),
         vietnam_orders: JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]'),
+        national_invoices: JSON.parse(localStorage.getItem('ajin_national_invoices') || '[]'),
+        national_entities: JSON.parse(localStorage.getItem('ajin_national_entities') || '[]'),
+        injection_orders: JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]'),
         vn_vendors: JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
         vn_bank_vendors: JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
         notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),

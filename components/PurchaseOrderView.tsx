@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
-import { pushStateToCloud, supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc } from '../supabase';
+import { pushStateToCloud, supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 
 interface PurchaseOrderViewProps {
   sub: PurchaseOrderSubCategory;
@@ -131,11 +131,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   // Helper to determine approval slots
   const getApprovalSlots = useCallback((type: string, recipient: string) => {
     const isPO1 = type === PurchaseOrderSubCategory.PO1 || type === PurchaseOrderSubCategory.PO1_TEMP || type === '사출발주서';
-    const isAjin = recipient?.trim().toUpperCase() === 'AJIN';
     
     if (isPO1) {
-      // AJIN이면 담당-설계-이사-대표, 아니면 담당-설계-이사
-      return isAjin ? ['writer', 'design', 'director', 'ceo'] : ['writer', 'design', 'director'];
+      // 사출발주서는 항상 담당-설계-이사-대표 순으로 결재
+      return ['writer', 'design', 'director', 'ceo'];
     }
     return ['writer', 'design', 'director', 'ceo'];
   }, []);
@@ -503,6 +502,16 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const final = [...updated, newVendor];
     setVendors(final);
     localStorage.setItem('ajin_vendors', JSON.stringify(final));
+    
+    // Supabase recipients 테이블에 저장
+    saveRecipient({
+      id: `po-vendor-${newVendor.name}`,
+      name: newVendor.name,
+      tel: newVendor.tel,
+      remark: newVendor.remarks,
+      category: 'PO_RECIPIENT'
+    });
+
     setNewVendor({ name: '', tel: '', remarks: '' });
     pushStateToCloud();
   };
@@ -648,7 +657,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const normalize = (str: string) => (str || '').replace(/[\r\n\s]/g, '').toLowerCase();
     const searchNormalized = normalize(injectionSearch);
     const titleNormalized = normalize(po2Title);
-    const ajinArchivedDocs = items.filter(item => item.recipient === 'AJIN' && item.stamps.final && normalize(item.title).includes(titleNormalized));
+    const ajinArchivedDocs = items.filter(item => item.recipient === 'AJIN' && item.stamps.final && normalize(item.title || '').includes(titleNormalized));
     if (ajinArchivedDocs.length === 0) { alert('수신처 AJIN 보관함에서 일치하는 기종의 문서를 찾을 수 없습니다.'); return; }
     const foundRows: OrderRow[] = [];
     const foundMerges: Record<string, { rS: number, cS: number }> = {};
@@ -666,7 +675,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         const mergeKey = `${r}-8`;
         const merge = docMerges[mergeKey];
         const vendorVal = normalize(row.injectionVendor);
-        if (vendorVal.includes(searchNormalized)) {
+        if ((vendorVal || '').includes(searchNormalized)) {
           const rowCount = merge ? merge.rS : 1;
           for (let i = 0; i < rowCount; i++) {
             const targetIdx = r + i;
@@ -722,15 +731,15 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     }
 
     // 새 아이템의 type을 기본 타입(PO1, PO2, PO3)으로 고정하기 위한 매핑
-    const baseType = (currentType.includes('사출')) ? PurchaseOrderSubCategory.PO1 
-                  : (currentType.includes('메탈')) ? PurchaseOrderSubCategory.PO3 
+    const baseType = ((currentType || '').includes('사출')) ? PurchaseOrderSubCategory.PO1 
+                  : ((currentType || '').includes('메탈')) ? PurchaseOrderSubCategory.PO3 
                   : PurchaseOrderSubCategory.PO2;
 
     if (editingItemId) {
       let updatedDoc: PurchaseOrderItem | undefined;
       const updated = items.map(item => {
         if (item.id === editingItemId) {
-          const isFromTemp = item.status.includes('임시저장');
+          const isFromTemp = (item.status || '').includes('임시저장');
           updatedDoc = {
             ...item, title: po2Title, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, date: po2Date,
             rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()).map(r => {
@@ -749,7 +758,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       // JANDI 알림: 수정 제출 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       if (!isTemp) {
-        sendJandiNotification('KR', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
+        sendJandiNotification('KR_PO', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
       }
       
       alert(isTemp ? "임시 저장되었습니다." : "수정이 완료되어 설계 결재요청 되었습니다."); 
@@ -764,7 +773,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       // JANDI 알림: 신규 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       if (!isTemp) {
-        sendJandiNotification('KR', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
+        sendJandiNotification('KR_PO', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
       }
       
       alert(isTemp ? "임시 저장되었습니다." : "작성이 완료되어 설계 결재요청 되었습니다.");
@@ -978,7 +987,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
     // JANDI 알림: 한국 반송 알림 전송 (작성자에게 알림) - [수신처] 제목 형식
     if (targetItem) {
-      sendJandiNotification('KR', 'REJECT', `[${targetItem.recipient || '-'}] ${targetItem.title}`, targetItem.authorId, targetItem.date);
+      sendJandiNotification('KR_PO', 'REJECT', `[${targetItem.recipient || '-'}] ${targetItem.title}`, targetItem.authorId, targetItem.date);
     }
 
     setIsRejectModalOpen(false); 
@@ -995,7 +1004,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const isMaster = currentUser.loginId === 'AJ5200';
     if (stampType === 'design' && !isMaster && userInit !== 'h-chun') { alert('설계 결재 권한이 없습니다. (h-chun 전용)'); return; }
     if (stampType === 'director' && !isMaster && userInit !== 'm-yeun') { alert('이사 결재 권한이 없습니다. (m-yeun 전용)'); return; }
-    if (stampType === 'ceo' && !isMaster && userInit !== 'k-yeun') { alert('대표 결재 권한이 없습니다. (k-yeun 전용)'); return; }
+    if (stampType === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
     
     let updatedDoc: PurchaseOrderItem | undefined;
     const updated = items.map(item => {
@@ -1011,16 +1020,16 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         const notifyTitle = `[${item.recipient || '-'}] ${item.title}`;
         if (isComplete) {
             // 최종 승인 완료 (대표 승인 또는 대표가 없는 건의 이사 승인)
-            sendJandiNotification('KR', 'COMPLETE', notifyTitle, item.authorId, item.date);
+            sendJandiNotification('KR_PO', 'COMPLETE', notifyTitle, item.authorId, item.date);
         } else {
             // 단계별 다음 결재자 호출
             if (stampType === 'design') {
                 // 설계 승인 후 이사(M-YEUN)에게 요청
-                sendJandiNotification('KR', 'REQUEST', notifyTitle, 'M-YEUN', item.date);
+                sendJandiNotification('KR_PO', 'REQUEST', notifyTitle, 'M-YEUN', item.date);
             } else if (stampType === 'director') {
                 // 이사 승인 후 슬롯에 대표가 있다면 대표(K-YEUN)에게 요청
-                if (slots.includes('ceo')) {
-                    sendJandiNotification('KR', 'REQUEST', notifyTitle, 'K-YEUN', item.date);
+                if ((slots || []).includes('ceo')) {
+                    sendJandiNotification('KR_PO', 'REQUEST', notifyTitle, 'K-YEUN', item.date);
                 }
             }
         }
@@ -1037,7 +1046,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   const handleFinalArchive = (order: PurchaseOrderItem) => {
-    const updatedStamps = { ...order.stamps, final: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
+    const updatedStamps = { ...order.stamps, final: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
     let updatedDoc: PurchaseOrderItem | undefined;
     const updatedOrders = items.map(o => {
       if (o.id === order.id) {
@@ -1188,7 +1197,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const filteredFiles = files
       .filter(f => {
         const name = f.name.split('_').slice(1).join('_') || f.name;
-        return name.toLowerCase().includes(searchTerm.toLowerCase());
+        return (name || '').toLowerCase().includes(searchTerm.toLowerCase());
       })
       .sort((a, b) => {
         if (fileSortField === 'name') {
@@ -1319,10 +1328,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
             <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
-              <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
+              <h3 className={`text-xl font-black mb-4 ${(modal.type || '').includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
               <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
-                {modal.type === 'ALERT' ? <button onClick={modal.onConfirm} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={modal.onConfirm} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${modal.type.includes('DELETE') ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
+                {modal.type === 'ALERT' ? <button onClick={modal.onConfirm} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={modal.onConfirm} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${(modal.type || '').includes('DELETE') ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
               </div>
             </div>
           </div>
@@ -1383,9 +1392,23 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       <div className="space-y-6">
         <div className="flex justify-between items-center max-w-[1000px] mx-auto no-print px-4">
           <div className="flex gap-2 items-center">
-            {editingItemId && (
-              <button onClick={() => { setEditingItemId(null); setOriginalRejectedItem(null); setView({ type: 'PURCHASE', sub: originalRejectedItem?.status || PurchaseOrderSubCategory.PENDING }); }} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95">← 목록으로</button>
-            )}
+            <button 
+              onClick={() => {
+                if (editingItemId) {
+                  setEditingItemId(null);
+                  setOriginalRejectedItem(null);
+                  setView({ type: 'PURCHASE', sub: originalRejectedItem?.status || PurchaseOrderSubCategory.PENDING });
+                } else {
+                  setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.CREATE });
+                }
+              }} 
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              닫기
+            </button>
             <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>되돌리기 ({undoStack.length})</button>
             {editingItemId && <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black animate-pulse border border-red-200">반송 건 수정 중</span>}
           </div>
@@ -1399,7 +1422,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 <div className="grid grid-cols-2 gap-4"><input type="text" value={newVendor.name} onChange={e => setNewVendor({...newVendor, name: e.target.value})} placeholder="수신처 이름" className="px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500 font-bold"/><input type="text" value={newVendor.tel} onChange={e => setNewVendor({...newVendor, tel: e.target.value})} placeholder="TEL / FAX" className="px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500 font-bold"/></div>
                 <input type="text" value={newVendor.remarks} onChange={e => setNewVendor({...newVendor, remarks: e.target.value})} placeholder="비고" className="w-full px-4 py-2 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-amber-500 font-bold"/><button onClick={handleSaveVendor} className="w-full py-3 bg-amber-600 text-white rounded-xl font-black text-sm hover:bg-amber-700 transition-all">수신처 저장</button>
               </div>
-              <div className="max-h-64 overflow-y-auto space-y-2 custom-scrollbar">{vendors.map(v => (<div key={v.name} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl hover:bg-amber-50 transition-colors"><div><p className="font-black text-black">{v.name}</p><p className="text-xs text-slate-400">{v.tel} | {v.remarks}</p></div><div className="flex gap-2"><button onClick={() => setNewVendor(v)} className="text-xs font-bold text-amber-600 hover:underline">편집</button><button onClick={() => { setVendors(vendors.filter(vendor => vendor.name !== v.name)); localStorage.setItem('ajin_vendors', JSON.stringify(vendors.filter(vendor => vendor.name !== v.name))); }} className="text-xs font-bold text-red-500 hover:underline">삭제</button></div></div>))}</div>
+              <div className="max-h-64 overflow-y-auto space-y-2 custom-scrollbar">{vendors.map(v => (<div key={v.name} className="flex justify-between items-center p-4 bg-white border border-slate-100 rounded-2xl hover:bg-amber-50 transition-colors"><div><p className="font-black text-black">{v.name}</p><p className="text-xs text-slate-400">{v.tel} | {v.remarks}</p></div><div className="flex gap-2"><button onClick={() => setNewVendor(v)} className="text-xs font-bold text-amber-600 hover:underline">편집</button><button onClick={() => { const filtered = vendors.filter(vendor => vendor.name !== v.name); setVendors(filtered); localStorage.setItem('ajin_vendors', JSON.stringify(filtered)); deleteRecipient(`po-vendor-${v.name}`); }} className="text-xs font-bold text-red-500 hover:underline">삭제</button></div></div>))}</div>
             </div>
           </div>
         )}
@@ -1436,8 +1459,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           </div>
         )}
         <div className="py-4 md:py-8 bg-slate-200 min-h-screen overflow-x-auto overflow-y-auto">
-          <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1000px] text-black font-gulim text-left overflow-x-auto animate-in slide-in-from-bottom-8 duration-500">
-            <div className="min-w-[800px]">
+          <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto animate-in slide-in-from-bottom-8 duration-500">
+            <div className="min-w-[800px] md:min-w-0">
               <div className="flex flex-col items-center mb-1">
                 <h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1>
                 <p className="text-sm font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
@@ -1682,11 +1705,6 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       반송
     </button>
   )}
-  {activeItem.status === PurchaseOrderSubCategory.APPROVED && !stamps.final && (
-    <button onClick={() => handleFinalArchive(activeItem)} className="px-10 py-2.5 bg-emerald-600 text-white rounded-xl font-black shadow-lg hover:bg-emerald-700 transition-all active:scale-95 text-xs">
-      완 료
-    </button>
-  )}
   {stamps.final && (
     <button onClick={() => handleCopyOrder(activeItem)} className="px-8 py-2.5 bg-amber-500 text-white rounded-xl font-black shadow-lg hover:bg-amber-600 transition-all active:scale-95 text-xs">
       발주서 복사하기
@@ -1696,7 +1714,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     PDF 저장 / 인쇄
   </button>
 </div>        </div>
-        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px]">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => (<tr key={row.id}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 relative ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : (<div className="whitespace-pre-wrap relative group/activefile">{row[cell.f]}{cell.f === 'itemName' && row.fileUrl && (<button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></button>)}</div>)}</td>); })}</tr>))}
+        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px] md:min-w-0">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => (<tr key={row.id}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 relative ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : (<div className="whitespace-pre-wrap relative group/activefile">{row[cell.f]}{cell.f === 'itemName' && row.fileUrl && (<button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></button>)}</div>)}</td>); })}</tr>))}
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
                   <td colSpan={upColIdxActive} className="border border-black p-1 text-center tracking-widest text-black">합 계</td>
                   <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{subtotal.toLocaleString()}</td>
@@ -1717,7 +1735,21 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{total.toLocaleString()}</td>
                   <td className="border border-black"></td>
                 </tr>
-              </tbody></table><div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>{activeItem.notes?.map((note, idx) => (<div key={idx} className="flex gap-2"><span className="shrink-0 w-6">{idx + 1}.</span><span className={`shrink-0 w-32 tracking-tighter ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.label !== note.label) ? 'text-red-600' : ''}`}>{note.label}</span><span className="shrink-0">:</span><span className={`flex-1 ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.content !== note.content) ? 'text-red-600' : ''}`}>{note.content}</span></div>)) || (<p className="text-slate-300 italic">추가 항목 없음</p>)}</div>{activeItem.stamps.final && (<div className="mt-12 pt-4 border-t border-slate-100 flex items-center gap-3 text-xs md:text-sm font-bold text-blue-400"><span className="text-slate-400 uppercase">완료:</span><span className="text-blue-500 uppercase">{activeItem.stamps.final.userId}</span><span className="tabular-nums">{formatCompletionDate(activeItem.stamps.final.timestamp)}</span></div>)}</>) : (<div className="p-10 text-center italic text-slate-400">양식 준비중</div>)}</div></div>
+              </tbody></table><div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>{activeItem.notes?.map((note, idx) => (<div key={idx} className="flex gap-2"><span className="shrink-0 w-6">{idx + 1}.</span><span className={`shrink-0 w-32 tracking-tighter ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.label !== note.label) ? 'text-red-600' : ''}`}>{note.label}</span><span className="shrink-0">:</span><span className={`flex-1 ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.content !== note.content) ? 'text-red-600' : ''}`}>{note.content}</span></div>)) || (<p className="text-slate-300 italic">추가 항목 없음</p>)}</div>
+              {activeItem.status === PurchaseOrderSubCategory.APPROVED && !stamps.final && (
+                <div className="mt-12 flex justify-center no-print">
+                  <button 
+                    onClick={() => handleFinalArchive(activeItem)} 
+                    className="px-20 py-4 bg-emerald-600 text-white rounded-2xl font-black shadow-xl hover:bg-emerald-700 transition-all active:scale-95 text-lg flex items-center gap-3"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                    확 인
+                  </button>
+                </div>
+              )}
+              {activeItem.stamps.final && (<div className="mt-12 pt-4 border-t border-slate-100 flex items-center gap-3 text-xs md:text-sm font-bold text-blue-400"><span className="text-slate-400 uppercase">확인:</span><span className="text-blue-500 uppercase">{activeItem.stamps.final.userId}</span><span className="tabular-nums">{formatCompletionDate(activeItem.stamps.final.timestamp)}</span></div>)}</>) : (<div className="p-10 text-center italic text-slate-400">양식 준비중</div>)}</div></div>
         
         {isRejectModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
@@ -1751,7 +1783,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   const filtered = sub === PurchaseOrderSubCategory.ARCHIVE ? archivedItems.filter(item => item.recipient === selectedArchiveVendor) : items.filter(item => item.status === sub && !item.stamps.final);
   const sorted = [...filtered].sort((a, b) => { const timeA = new Date(a.createdAt).getTime(); const timeB = new Date(b.createdAt).getTime(); return sortOrder === 'DESC' ? timeB - timeA : timeA - timeB; });
-  const searchFiltered = sorted.filter(item => item.title.toLowerCase().includes(searchTerm.toLowerCase()) || (item.recipient && item.recipient.toLowerCase().includes(searchTerm.toLowerCase())));
+  const searchFiltered = sorted.filter(item => (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.recipient && item.recipient.toLowerCase().includes(searchTerm.toLowerCase())));
   const totalPages = Math.ceil(searchFiltered.length / itemsPerPage);
   const paginated = searchFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const renderApprovalSteps = (item: PurchaseOrderItem) => {
@@ -1778,7 +1810,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           {paginated.length === 0 ? (<div className="col-span-full py-24 text-center text-slate-400 bg-white rounded-3xl border-4 border-dashed border-slate-100 text-lg font-medium italic">데이터가 없습니다.</div>) : (paginated.map(item => {
             const theme = getPOTheme(item.type);
             const themeColors: any = { amber: 'bg-amber-50 border-amber-100 text-amber-600', blue: 'bg-blue-50 border-blue-100 text-blue-600', emerald: 'bg-emerald-50 border-emerald-100 text-emerald-600', slate: 'bg-slate-50 border-slate-100 text-slate-600' };
-            const isTemp = item.status.includes('임시저장');
+            const isTemp = (item.status || '').includes('임시저장');
             return (
               <div key={item.id} className="relative group">
                 <button onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || isTemp) handleEditItem(item); else setActiveItem(item); }} className="w-full bg-white p-6 rounded-3xl shadow-sm border-2 border-slate-100 hover:border-slate-400 hover:shadow-xl transition-all flex flex-col items-center relative overflow-hidden text-center h-full">
@@ -1796,17 +1828,17 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           }))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : item.status.includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || item.status.includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>)}</div></td></tr>)))}</tbody></table></div>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || (item.status || '').includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : (item.status || '').includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || (item.status || '').includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>)}</div></td></tr>)))}</tbody></table></div>
       )}
       {totalPages > 1 && (<div className="flex justify-center items-center gap-3 mt-12 no-print pb-10"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button><div className="flex gap-2">{Array.from({length: totalPages}, (_, i) => i + 1).map(num => (<button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${currentPage === num ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{num}</button>))}</div><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7"/></svg></button></div>)}
       
       {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
           <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
-            <h3 className={`text-xl font-black mb-4 ${modal.type.includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
+            <h3 className={`text-xl font-black mb-4 ${(modal.type || '').includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
             <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
             <div className="flex gap-3">
-              {modal.type === 'ALERT' ? <button onClick={modal.onConfirm} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={modal.onConfirm} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${modal.type.includes('DELETE') ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
+              {modal.type === 'ALERT' ? <button onClick={modal.onConfirm} className="flex-1 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all">확인</button> : <><button onClick={() => setModal(null)} className="flex-1 py-3 bg-slate-100 text-slate-600 rounded-xl font-bold hover:bg-slate-200 transition-all">취소</button><button onClick={modal.onConfirm} className={`flex-1 py-3 text-white rounded-xl font-bold transition-all shadow-lg ${(modal.type || '').includes('DELETE') ? 'bg-red-600 hover:bg-red-700 shadow-red-100' : 'bg-blue-600 hover:bg-blue-700 shadow-blue-100'}`}>확인</button></>}
             </div>
           </div>
         </div>
@@ -1814,7 +1846,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
       {isRejectModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl animate-in fade-in zoom-in duration-300">
             <h3 className="text-2xl font-black text-black mb-4">반송 사유 입력</h3>
             <p className="text-slate-500 text-sm mb-6 font-medium">결재권자에게 전달할 반송 사유를 상세히 입력해 주세요.</p>
             <textarea 

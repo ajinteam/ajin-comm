@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { UserAccount, OrderSubCategory, InvoiceSubCategory, PurchaseOrderSubCategory, VietnamSubCategory, ViewState, MainCategory } from '../types';
+import { saveRecipient, deleteRecipient } from '../supabase';
 
 interface SettingsViewProps {
   accounts: UserAccount[];
@@ -72,6 +73,16 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
     };
 
     onUpdate([...accounts, newAccount]);
+    
+    // Supabase recipients 테이블에 저장
+    saveRecipient({
+      id: newAccount.id,
+      name: newAccount.loginId,
+      tel: newAccount.initials,
+      remark: JSON.stringify(newAccount.allowedMenus),
+      category: 'ACCOUNT'
+    });
+
     setNewId('');
     setNewInitials('');
     setSelectedMenus([]);
@@ -110,6 +121,19 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
     );
 
     onUpdate(updated);
+    
+    // Supabase recipients 테이블에 저장
+    const updatedAcc = updated.find(a => a.id === id);
+    if (updatedAcc) {
+      saveRecipient({
+        id: updatedAcc.id,
+        name: updatedAcc.loginId,
+        tel: updatedAcc.initials,
+        remark: JSON.stringify(updatedAcc.allowedMenus),
+        category: 'ACCOUNT'
+      });
+    }
+
     setEditingId(null);
     alert('사용자 정보가 수정되었습니다.');
   };
@@ -117,6 +141,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
   const performDelete = (id: string, loginId: string) => {
     const filtered = accounts.filter(a => a.id !== id);
     onUpdate(filtered);
+    deleteRecipient(id);
     setConfirmingId(null);
     alert(`${loginId} 사용자가 삭제되었습니다.`);
   };

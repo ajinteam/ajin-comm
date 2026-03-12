@@ -79,7 +79,7 @@ const RenderDocumentTable = React.memo(({
   const isLocked = !isCreate;
   const isFinalApproved = !isCreate && order && (
     order.status === OrderSubCategory.APPROVED || 
-    order.status.includes('완료')
+    (order.status || '').includes('완료')
   );
 
   const showManager = location === 'SEOUL';
@@ -135,8 +135,8 @@ const RenderDocumentTable = React.memo(({
   const currentBorders = borders || {};
 
   return (
-    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
-      <div className="min-w-[700px]">
+    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
+      <div className="min-w-[700px] md:min-w-0">
         <div className="flex justify-between items-start mb-10">
           <div className="text-3xl md:text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
           <table className="border-collapse border border-slate-900 text-center text-[10px] w-auto min-w-[300px]">
@@ -524,7 +524,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const library: OrderRow[] = [];
     const seen = new Set<string>();
     orders.filter(o => 
-      o.status.includes('완료') || o.status === OrderSubCategory.APPROVED
+      (o.status || '').includes('완료') || o.status === OrderSubCategory.APPROVED
     ).forEach(order => {
       order.rows.forEach(row => {
         const key = row.itemName.trim().toLowerCase();
@@ -998,7 +998,6 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       const isEditingMode = editingOrderId || sub === OrderSubCategory.CREATE || activeOrder;
       if (e.key === 'F4' && isEditingMode) { e.preventDefault(); handleMerge(); }
-      if (e.key === 'Delete' && isEditingMode && selection) { e.preventDefault(); handleClearSelectionText(); }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
@@ -1279,9 +1278,19 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     <div className="space-y-6">
       <div className="flex justify-between items-center max-w-[1000px] mx-auto no-print px-4">
         <div className="flex items-center gap-4">
-          {editingOrderId && (
-            <button onClick={() => { setEditingOrderId(null); setOriginalRejectedOrder(null); setFormTitle(''); setFormRows(createInitialRows(6)); setMerges({}); setAligns({}); setBorders({}); setView({ type: 'ORDER', sub: OrderSubCategory.REJECTED }); }} className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95">← 목록으로</button>
-          )}
+          <button 
+            onClick={() => { 
+              if (editingOrderId) {
+                setEditingOrderId(null); setOriginalRejectedOrder(null); setFormTitle(''); setFormRows(createInitialRows(6)); setMerges({}); setAligns({}); setBorders({}); setView({ type: 'ORDER', sub: OrderSubCategory.REJECTED }); 
+              } else {
+                setView({ type: 'DASHBOARD' });
+              }
+            }} 
+            className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
+            닫기
+          </button>
           <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>되돌리기 ({undoStack.length})</button>
           {editingOrderId && <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black animate-pulse border border-red-200">반송 건 수정 중</span>}
         </div>
@@ -1291,7 +1300,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       </div>
       {selection && (
         <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100">Cell Tools (F4: Merge, Del: Clear)</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100">Cell Tools (F4: Merge)</span>
           <button onClick={handleMerge} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">셀 병합</button>
           <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 shadow-sm transition-all whitespace-nowrap">병합 해제</button>
           <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
@@ -1311,7 +1320,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             <button onClick={() => handleBorderApply('inner', activeBorderStyle)} className="px-2 py-1 bg-white hover:bg-blue-50 text-[10px] font-bold border border-slate-200 rounded transition-all shadow-sm">내측</button>
           </div>
           <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
-          <button onClick={handleClearSelectionText} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all whitespace-nowrap">글자 삭제 (Del)</button>
+          <button onClick={handleClearSelectionText} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all whitespace-nowrap">전체 삭제</button>
           <button onClick={() => setSelection(null)} className="p-1 text-slate-400 hover:text-slate-900 ml-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>
         </div>
       )}
@@ -1331,14 +1340,14 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   );
   
   if (!activeOrder) {
-    const isSearchableFolder = sub.includes('(완료)');
+    const isSearchableFolder = (sub || '').includes('(완료)');
     const filtered = orders.filter(o => o.status === sub);
     const sortedAll = [...filtered].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     const searchFiltered = sortedAll.filter(o => {
       if (!searchTerm.trim()) return true;
       const lowerSearch = searchTerm.toLowerCase();
-      const hasMatchInRows = o.rows.some(r => r.model.toLowerCase().includes(lowerSearch) || r.itemName.toLowerCase().includes(lowerSearch));
-      return o.title.toLowerCase().includes(lowerSearch) || hasMatchInRows;
+      const hasMatchInRows = o.rows.some(r => (r.model || '').toLowerCase().includes(lowerSearch) || (r.itemName || '').toLowerCase().includes(lowerSearch));
+      return (o.title || '').toLowerCase().includes(lowerSearch) || hasMatchInRows;
     });
     const totalItems = searchFiltered.length;
     const totalPages = Math.ceil(totalItems / itemsPerPage);
@@ -1437,7 +1446,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
                       <td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-slate-800">{o.title}</td>
                       <td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2 md:px-3 py-0.5 md:py-1 rounded-full text-[9px] md:text-[10px] font-bold border ${colors.bg} ${colors.text} border-transparent`}>{o.location === 'SEOUL' ? '서울' : o.location === 'DAECHEON' ? '대천' : '베트남'}</span></td>
                       <td className="px-4 md:px-6 py-3 md:py-4 text-center text-[10px] md:text-xs font-bold text-slate-600 uppercase tracking-tighter">{o.authorId}</td>
-                      <td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black tracking-tighter uppercase ${o.status.includes('(완료)') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{o.status}</span></td>
+                      <td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2 py-0.5 rounded text-[8px] md:text-[9px] font-black tracking-tighter uppercase ${(o.status || '').includes('(완료)') ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'}`}>{o.status}</span></td>
                       <td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end items-center gap-3"><span className="text-[10px] font-bold text-blue-600 hidden md:inline opacity-0 group-hover:opacity-100 transition-opacity">{sub === OrderSubCategory.REJECTED ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={(e) => { e.stopPropagation(); setDeletingFileId(o.id); }} className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg></button>)}</div></td>
                     </tr>
                   );
@@ -1465,8 +1474,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   }
 
   return (
-    <div className={`py-4 md:py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-      <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
+    <div className={`py-4 md:py-8 landscape:py-2 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
+      <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
         {isPreviewing ? (
           <div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>
         ) : (
@@ -1476,8 +1485,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
           </div>
         )}
         {selection && !isPreviewing && !activeOrder?.stamps.final && (
-          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100">Cell Tools (F4: Merge, Del: Clear)</span>
+          <div className="fixed bottom-10 landscape:bottom-2 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 landscape:p-1.5 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100 hidden landscape:block">Cell Tools</span>
             <button onClick={handleMerge} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">셀 병합</button>
             <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 shadow-sm transition-all whitespace-nowrap">병합 해제</button>
             <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
@@ -1497,7 +1506,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
               <button onClick={() => handleBorderApply('inner', activeBorderStyle)} className="px-2 py-1 bg-white hover:bg-blue-50 text-[10px] font-bold border border-slate-200 rounded transition-all shadow-sm">내측</button>
             </div>
             <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
-            <button onClick={handleClearSelectionText} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all whitespace-nowrap">글자 삭제 (Del)</button>
+            <button onClick={handleClearSelectionText} className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-bold hover:bg-red-600 hover:text-white transition-all whitespace-nowrap">전체 삭제</button>
             <button onClick={() => setSelection(null)} className="p-1 text-slate-400 hover:text-slate-900 ml-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>
           </div>
         )}
@@ -1509,7 +1518,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             </>
           ) : (
             <>
-              {(activeOrder.status === OrderSubCategory.APPROVED_VIETNAM || activeOrder.location === 'VIETNAM' || sub.includes('(완료)')) && <button onClick={handleTranslateToVietnam} disabled={isTranslating} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs ${isVietnameseLabels ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>{isTranslating ? '...' : (isVietnameseLabels ? '한글' : 'VIET')}</button>}
+              {(activeOrder.status === OrderSubCategory.APPROVED_VIETNAM || activeOrder.location === 'VIETNAM' || (sub || '').includes('(완료)')) && <button onClick={handleTranslateToVietnam} disabled={isTranslating} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs ${isVietnameseLabels ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>{isTranslating ? '...' : (isVietnameseLabels ? '한글' : 'VIET')}</button>}
               {activeOrder.status === OrderSubCategory.PENDING && <button onClick={() => { setRejectingOrder(activeOrder); setRejectReasonText(''); }} className="flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white border border-red-200 transition-all text-[10px] md:text-xs">반송</button>}
               <button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs">PDF 저장 / 인쇄</button>
             </>

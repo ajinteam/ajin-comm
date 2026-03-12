@@ -5,6 +5,7 @@ import {
   InvoiceSubCategory, 
   PurchaseOrderSubCategory,
   VietnamSubCategory,
+  NationalInvoiceSubCategory,
   ViewState,
   UserAccount,
   MainCategory
@@ -29,13 +30,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     return user.allowedMenus?.includes(menuName);
   };
 
-  const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'VIETNAM', isNested: boolean = false) => {
+  const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'VIETNAM' | 'NATIONAL_INVOICE', isNested: boolean = false) => {
     if (!isVisible(sub)) return null;
 
     const isActive = (currentView.type === type && (currentView as any).sub === sub);
     
     let activeBg = 'bg-blue-600';
     if (type === 'INVOICE') activeBg = 'bg-emerald-600';
+    if (type === 'NATIONAL_INVOICE') activeBg = 'bg-cyan-600';
     if (type === 'PURCHASE') activeBg = 'bg-amber-600';
     if (type === 'VIETNAM') activeBg = 'bg-indigo-600';
 
@@ -164,6 +166,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             </div>
           )}
 
+          {isVisible(MainCategory.NATIONAL_INVOICE) && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">국제인보이스</h2>
+              </div>
+              <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}
+                {renderSubMenu(NationalInvoiceSubCategory.TEMPORARY, 'NATIONAL_INVOICE')}
+                {renderSubMenu(NationalInvoiceSubCategory.COMPLETED, 'NATIONAL_INVOICE')}
+              </div>
+            </div>
+          )}
+
           {isVisible(MainCategory.PURCHASE) && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
@@ -173,6 +191,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">발주서</h2>
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                {renderSubMenu(PurchaseOrderSubCategory.INJECTION_ORDER, 'PURCHASE')}
                 {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
                 {isPOWritingExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
@@ -205,6 +224,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {isVNWritingExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
                     {renderSubMenu(VietnamSubCategory.ORDER, 'VIETNAM', true)}
+                    {renderSubMenu(VietnamSubCategory.METAL_ORDER, 'VIETNAM', true)}
                     {renderSubMenu(VietnamSubCategory.PAYMENT, 'VIETNAM', true)}
                     {renderSubMenu(VietnamSubCategory.TEMPORARY, 'VIETNAM', true)}
                   </div>
@@ -215,6 +235,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {isVNCompletedExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
                     {renderSubMenu(VietnamSubCategory.ORDER_COMPLETED, 'VIETNAM', true)}
+                    {renderSubMenu(VietnamSubCategory.METAL_ORDER_COMPLETED, 'VIETNAM', true)}
                     {renderSubMenu(VietnamSubCategory.PAYMENT_COMPLETED, 'VIETNAM', true)}
                   </div>
                 )}

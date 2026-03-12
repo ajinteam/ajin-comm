@@ -4,7 +4,8 @@ export enum MainCategory {
   INVOICE = '송장',
   PURCHASE = '발주서',
   VIETNAM = 'VN베트남',
-  STORAGE = '파일관리'
+  STORAGE = '파일관리',
+  NATIONAL_INVOICE = '국제인보이스'
 }
 
 export enum OrderSubCategory {
@@ -27,6 +28,7 @@ export enum InvoiceSubCategory {
 }
 
 export enum PurchaseOrderSubCategory {
+  INJECTION_ORDER = 'Injection 발주서',
   CREATE = 'PO 발주서작성',
   PO1 = '사출발주서',
   PO1_TEMP = '사출발주서 임시저장',
@@ -47,12 +49,14 @@ export enum PurchaseOrderSubCategory {
 export enum VietnamSubCategory {
   CREATE_ROOT = 'VN작성',
   ORDER = 'VN주문서',
+  METAL_ORDER = 'VN METAL발주서',
   PAYMENT = 'VN지불요청서',
   TEMPORARY = 'VN임시저장',
   PENDING = 'VN결재대기',
   REJECTED = 'VN결재반송',
   COMPLETED_ROOT = 'VN결재완료',
   ORDER_COMPLETED = 'VN주문서완료',
+  METAL_ORDER_COMPLETED = 'VN METAL발주서완료',
   PAYMENT_COMPLETED = 'VN지불요청서완료'
 }
 
@@ -60,6 +64,7 @@ export interface VnVendorInfo {
   name: string;
   address: string;
   taxId: string;
+  tel?: string;
 }
 
 export interface VnBankVendorInfo {
@@ -104,12 +109,18 @@ export interface OrderRow {
   vendor?: string;
   injectionVendor?: string;
   orderQty?: string;
+  qty?: string;
+  extra?: string;
+  extraAmount?: string;
+  remarksRSP?: string;
 }
 
 export interface VietnamOrderRow {
   id: string;
   itemName: string;
+  drawingNo?: string;
   image?: string; // base64
+  fileUrl?: string; // PDF link
   unit: string;
   qty: string;
   unitPrice: string;
@@ -121,12 +132,15 @@ export interface VietnamOrderRow {
 export interface VietnamOrderItem {
   id: string;
   title: string;
-  type: 'ORDER' | 'PAYMENT';
+  type: 'ORDER' | 'PAYMENT' | 'METAL';
   date: string;
   clientName: string;
   clientAddress: string;
   taxId: string;
   deliveryAddress: string;
+  clientTel?: string;
+  writerName?: string;
+  modelName?: string;
   beneficiary?: string;
   accountNo?: string;
   bank?: string;
@@ -266,6 +280,91 @@ export interface InvoiceItem {
   };
 }
 
+export enum NationalInvoiceSubCategory {
+  CREATE = '인보이스작성',
+  TEMPORARY = '인보이스임시',
+  COMPLETED = '인보이스완료'
+}
+
+export interface NationalInvoiceRow {
+  id: string;
+  type: 'ITEM' | 'HEADER' | 'TOTAL';
+  pkgNo?: string;
+  description?: string;
+  quantity?: string;
+  unit?: string;
+  price?: string;
+  amount?: string;
+  headerLeft?: string;
+  headerRight?: string;
+  fontSize?: number;
+  isBold?: boolean;
+}
+
+export interface NationalInvoiceItem {
+  id: string;
+  status: NationalInvoiceSubCategory;
+  authorId: string;
+  createdAt: string;
+  
+  invoiceType: 'SAMPLE' | 'COMMERCIAL';
+  currency: 'USD' | 'EUR' | 'KRW' | 'JPY' | 'VND';
+  currencySymbol: string;
+  
+  // Header Info
+  shipperName: string;
+  shipperAddress: string;
+  idCode: string;
+  invoiceNo: string;
+  invoiceDate: string;
+  pageNo: string;
+  consigneeName: string;
+  consigneeAddress: string;
+  consigneeTaxId?: string;
+  consigneeTel?: string;
+  consigneeAttn?: string;
+  poNo: string;
+  factoryOutDate: string;
+  buyer: string;
+  otherRef: string;
+  
+  // Transport Info
+  departureDate: string;
+  vesselFlight: string;
+  from: string;
+  to: string;
+  deliveryTerms: string;
+  
+  // Table
+  rows: NationalInvoiceRow[];
+  totalQuantity: string;
+  totalAmount: string;
+  
+  // Footer
+  trackingNo?: string;
+  remarks?: string;
+  footerTel?: string;
+  footerFax?: string;
+  signedBy: string;
+  signedTitle: string;
+  signatureName: string;
+  completedByInitials?: string;
+  completedAt?: string;
+  modifiedByInitials?: string;
+  modifiedAt?: string;
+}
+
+export interface NationalEntity {
+  id: string;
+  type: 'SHIPPER' | 'CONSIGNEE' | 'SIGNATURE';
+  name: string;
+  content: string; // Address or Title
+  extra?: string; // ID Code or Signature Name
+  taxId?: string;
+  tel?: string;
+  attn?: string;
+}
+
 export interface UserAccount {
   id: string;
   loginId: string;
@@ -280,5 +379,6 @@ export type ViewState =
   | { type: 'INVOICE', sub: InvoiceSubCategory }
   | { type: 'PURCHASE', sub: PurchaseOrderSubCategory }
   | { type: 'VIETNAM', sub: VietnamSubCategory }
+  | { type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory, editId?: string }
   | { type: 'STORAGE' }
   | { type: 'SETTINGS' };
