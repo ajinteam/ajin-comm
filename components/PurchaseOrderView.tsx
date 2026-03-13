@@ -1182,12 +1182,17 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 table-layout: fixed;
               }
               th, td { 
-                border: 1px solid black; 
+                border: 0px solid black; 
                 padding: 2px 4px; 
                 vertical-align: middle;
                 word-break: break-all;
                 overflow: hidden;
               }
+              /* Ensure tailwind border classes work in print */
+              .border { border-width: 1px !important; }
+              .border-x { border-left-width: 1px !important; border-right-width: 1px !important; }
+              .border-t-2 { border-top-width: 2px !important; }
+              .border-b-2 { border-bottom-width: 2px !important; }
               .total-row { 
                 background-color: white !important; 
               }
@@ -1831,8 +1836,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const activeHideInjection = activeItem.hideInjectionColumn || false;
     const tableColsActive = (isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP) ? 
       (activeHideInjection ? 
-        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고', w: 'w-[10%]' }] :
-        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고', w: 'w-[10%]' }]
+        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'CTY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'QTY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고 R.S/P', w: 'w-[10%]' }] :
+        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'CTY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'QTY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고 R.S/P', w: 'w-[10%]' }]
       ) : ((isPO3Active || activeItem.type === PurchaseOrderSubCategory.PO3_TEMP) ? [{ f: 'dept', cIdx: 0, label: '도 번', w: 'w-[11%]' }, { f: 'itemName', cIdx: 1, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 2, label: '규 격', w: 'w-[13.3%]' }, { f: 'price', cIdx: 3, label: '수 량', w: 'w-[8%]' }, { f: 'unitPrice', cIdx: 4, label: '단 가', w: 'w-[9.6%]' }, { f: 'amount', cIdx: 5, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 6, label: '비 고', w: 'w-[15%]' }] : [{ f: 'itemName', cIdx: 0, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 1, label: '규 격', w: 'w-[20%]' }, { f: 'price', cIdx: 2, label: '수 량', w: 'w-[10%]' }, { f: 'unitPrice', cIdx: 3, label: '단 가', w: 'w-[12%]' }, { f: 'amount', cIdx: 4, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 5, label: '비 고', w: 'w-[15%]' }]);
     
     const upColIdxActive = tableColsActive.findIndex(c => c.f === 'unitPrice');
@@ -1857,14 +1862,178 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     PDF 저장 / 인쇄
   </button>
 </div>        </div>
-        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px] md:min-w-0">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20 whitespace-nowrap">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => {
-  const hasMold = isPO1Active && !!row.model && row.model.trim() !== '';
-  const nextRowHasMold = isPO1Active && rIdx < activeItem.rows.length - 1 && !!activeItem.rows[rIdx + 1].model && activeItem.rows[rIdx + 1].model.trim() !== '';
-  const isLastRow = rIdx === activeItem.rows.length - 1;
-  const borderTopClass = hasMold ? 'border-t-2 border-black' : '';
-  const borderBottomClass = isPO1Active && (nextRowHasMold || isLastRow) ? 'border-b-2 border-black' : '';
+        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content">
+          <div className="min-w-[800px] md:min-w-0">
+            {isPOForm ? (
+              <>
+                {isPO1Active ? (
+                  <div className="mb-6">
+                    <div className="flex justify-center mb-8">
+                      <h1 className="text-3xl font-black border-b-2 border-black pb-1 px-4">사출 발주서 (INJECTION ORDER)</h1>
+                    </div>
+                    <div className="flex justify-between items-start">
+                      <div className="space-y-1 text-base font-bold">
+                        <p>파일명: {activeItem.title}</p>
+                        <p>작성일: {activeItem.date}</p>
+                      </div>
+                      <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
+                        <tbody>
+                          <tr>
+                            <td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>
+                            {visibleSlots.map(slot => (
+                              <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>
+                            ))}
+                          </tr>
+                          <tr className="h-16">
+                            {visibleSlots.map(slot => (
+                              <td 
+                                key={slot} 
+                                className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} 
+                                onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}
+                              >
+                                {stamps[slot as keyof PurchaseOrderItem['stamps']] ? (
+                                  <div className="flex flex-col items-center">
+                                    <span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span>
+                                    <span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span>
+                                  </div>
+                                ) : (
+                                  activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null
+                                )}
+                              </td>
+                            ))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    {headerRows.length > 0 && (
+                      <div className="mt-4 border border-black p-2 text-sm font-bold leading-tight">
+                        {headerRows.map((row: string, idx: number) => (<p key={idx} className="mb-1">{row}</p>))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex flex-col items-center mb-1 text-base">
+                      <h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1>
+                      <p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
+                      <p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p>
+                      <div className="w-full h-1 bg-black mt-2"></div>
+                    </div>
+                    <div className="flex justify-between items-end mb-1 relative border-b border-black pb-0">
+                      <div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20 whitespace-nowrap">발 주 서</div>
+                      <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
+                        <tbody>
+                          <tr>
+                            <td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>
+                            {visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}
+                          </tr>
+                          <tr className="h-16">
+                            {visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 border-b border-black pb-0">
+                          <span className="font-bold">수 신 :</span>
+                          <span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span>
+                        </div>
+                        {activeItem.reference && (
+                          <div className="flex items-center gap-2 border-b border-black pb-0">
+                            <span className="font-bold">참 조 :</span>
+                            <span className="font-medium text-slate-700">{activeItem.reference}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-2 border-b border-black pb-0">
+                          <span className="font-bold">연락처 :</span>
+                          <span>{activeItem.telFax || "-"}</span>
+                        </div>
+                        <div className="flex items-center gap-2 border-b border-black pb-0">
+                          <span className="font-bold">작성일자 :</span>
+                          <span>{activeItem.date}</span>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex gap-4 border-b border-black pb-0">
+                          <span className="w-16 font-bold">발 신 :</span> 
+                          <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span>
+                        </div>
+                        <div className="flex gap-4 border-b border-black pb-0">
+                          <span className="w-16 font-bold">담 당 :</span> 
+                          <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>
+                      {isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}
+                    </div>
+                    <p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>
+                  </>
+                )}
+                <table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}>
+                  <thead className="bg-slate-100">
+                    <tr>
+                      {tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeItem.rows.map((row: any, rIdx: number) => {
+                      const hasMold = isPO1Active && !!row.model && row.model.trim() !== '';
+                      const nextRowHasMold = isPO1Active && rIdx < activeItem.rows.length - 1 && !!activeItem.rows[rIdx + 1].model && activeItem.rows[rIdx + 1].model.trim() !== '';
+                      const isLastRow = rIdx === activeItem.rows.length - 1;
+                      const isPO1 = isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP;
 
-  return (<tr key={row.id} className={`${borderTopClass} ${borderBottomClass}`}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice' || cell.f === 'extraAmount') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 relative ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : cell.f === 'extraAmount' ? (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0).toLocaleString() : (<div className="whitespace-pre-wrap relative group/activefile">{row[cell.f]}{cell.f === 'itemName' && row.fileUrl && (<button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></button>)}</div>)}</td>); })}</tr>); })}
+                      return (
+                        <tr key={row.id}>
+                          {tableColsActive.map(cell => {
+                            const merge = merges[`${rIdx}-${cell.cIdx}`];
+                            const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => {
+                              const [mr, mc] = key.split('-').map(Number);
+                              return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc);
+                            });
+                            if (isSkipped) return null;
+
+                            let defaultAlign = 'center';
+                            if (cell.f === 'itemName') defaultAlign = 'left';
+                            if (cell.f === 'amount' || cell.f === 'unitPrice' || cell.f === 'extraAmount') defaultAlign = 'right';
+                            const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign;
+                            const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal';
+                            const isChanged = row.changedFields?.includes(cell.f);
+                            const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders);
+
+                            const tdBorderClass = isPO1 
+                              ? `border-x border-black ${hasMold ? 'border-t-2 border-black' : ''} ${(nextRowHasMold || isLastRow) ? 'border-b-2 border-black' : ''}` 
+                              : 'border border-black';
+
+                            return (
+                              <td 
+                                key={cell.cIdx} 
+                                rowSpan={merge?.rS || 1} 
+                                colSpan={merge?.cS || 1} 
+                                style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} 
+                                className={`${tdBorderClass} p-1 relative ${isChanged ? 'text-red-600' : ''}`}
+                              >
+                                {cell.f === 'amount' ? (
+                                  ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString())
+                                ) : cell.f === 'extraAmount' ? (
+                                  (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0).toLocaleString()
+                                ) : (
+                                  <div className="whitespace-pre-wrap relative group/activefile">
+                                    {row[cell.f]}
+                                    {cell.f === 'itemName' && row.fileUrl && (
+                                      <button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기">
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                      </button>
+                                    )}
+                                  </div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      );
+                    })}
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
                   <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest text-black">합 계</td>
                   <td className="border border-black p-1 text-right pr-2 font-mono">{subtotal.toLocaleString()}</td>
@@ -1909,7 +2078,25 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   )}
                   <td className="border border-black"></td>
                 </tr>
-              </tbody></table><div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>{activeItem.notes?.map((note, idx) => (<div key={idx} className="flex gap-2"><span className="shrink-0 w-6">{idx + 1}.</span><span className={`shrink-0 w-32 tracking-tighter ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.label !== note.label) ? 'text-red-600' : ''}`}>{note.label}</span><span className="shrink-0">:</span><span className={`flex-1 ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.content !== note.content) ? 'text-red-600' : ''}`}>{note.content}</span></div>)) || (<p className="text-slate-300 italic">추가 항목 없음</p>)}</div>
+              </tbody></table>              <div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>
+                {isPO1Active ? (
+                  <div className="whitespace-pre-wrap">{typeof activeItem.notes === 'string' ? activeItem.notes : "추가 항목 없음"}</div>
+                ) : (
+                  Array.isArray(activeItem.notes) ? (
+                    activeItem.notes.map((note: any, idx: number) => (
+                      <div key={idx} className="flex gap-2">
+                        <span className="shrink-0 w-6">{idx + 1}.</span>
+                        <span className={`shrink-0 w-32 tracking-tighter ${activeItem.isResubmitted && originalRejectedItem?.notes && Array.isArray(originalRejectedItem.notes) && (originalRejectedItem.notes[idx]?.label !== note.label) ? 'text-red-600' : ''}`}>{note.label}</span>
+                        <span className="shrink-0">:</span>
+                        <span className={`flex-1 ${activeItem.isResubmitted && originalRejectedItem?.notes && Array.isArray(originalRejectedItem.notes) && (originalRejectedItem.notes[idx]?.content !== note.content) ? 'text-red-600' : ''}`}>{note.content}</span>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-slate-300 italic">추가 항목 없음</p>
+                  )
+                )}
+              </div>
+
               {activeItem.status === PurchaseOrderSubCategory.APPROVED && !stamps.final && (
                 <div className="mt-12 flex justify-center no-print">
                   <button 
