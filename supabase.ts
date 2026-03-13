@@ -241,6 +241,7 @@ let lastPushedData: string = '';
 
 export const pushStateToCloud = async (immediate: boolean = false) => {
   if (!supabase) return;
+  return;
   if (pushTimer) clearTimeout(pushTimer);
   
   const performPush = async () => {
