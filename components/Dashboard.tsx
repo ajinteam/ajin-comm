@@ -69,7 +69,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
 
   const isVisible = (menuName: string) => {
     if (isMaster) return true;
-    return user.allowedMenus?.includes(menuName);
+    if (user.allowedMenus?.includes(menuName)) return true;
+
+    // Check if it's a sub-category and its parent is allowed
+    const orderSubs = Object.values(OrderSubCategory) as string[];
+    const invoiceSubs = Object.values(InvoiceSubCategory) as string[];
+    const purchaseSubs = Object.values(PurchaseOrderSubCategory) as string[];
+    const vietnamSubs = Object.values(VietnamSubCategory) as string[];
+
+    if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
+    if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
+    if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
+    if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
+
+    return false;
   };
 
   const saveNotices = (notices: Announcement[]) => {

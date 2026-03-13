@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState, VnVendorInfo, VnBankVendorInfo } from '../types';
-import { pushStateToCloud, sendJandiNotification, saveSingleDoc, deleteSingleDoc, supabase, saveRecipient, deleteRecipient } from '../supabase';
+import { sendJandiNotification, saveSingleDoc, deleteSingleDoc, supabase, saveRecipient, deleteRecipient } from '../supabase';
 
 interface StorageFile {
   name: string;
@@ -222,7 +222,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     });
 
     setNewVnVendor({ name: '', address: '', taxId: '', tel: '' });
-    pushStateToCloud();
+    
   };
 
   const handleVnVendorSelect = (name: string) => {
@@ -256,7 +256,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     });
 
     setNewVnBankVendor({ beneficiary: '', accountNo: '', bank: '', bankAddr: '' });
-    pushStateToCloud();
+    
   };
 
   const handleVnBankVendorSelect = (beneficiary: string) => {
@@ -711,7 +711,7 @@ td {
       saveSingleDoc('vn_purchase_orders', updatedDoc);
     }
     
-    pushStateToCloud();
+    
   };
 
   const handleStampAction = (item: VietnamOrderItem, type: 'head' | 'ceo') => {
@@ -1404,7 +1404,7 @@ td {
                           setVnVendors(filtered); 
                           localStorage.setItem('ajin_vn_vendors', JSON.stringify(filtered)); 
                           deleteRecipient(`vn-vendor-${v.name}`);
-                          pushStateToCloud(); 
+                          
                         }} className="text-xs font-bold text-red-500 hover:underline">삭제</button>
                       </div>
                     </div>
@@ -1451,7 +1451,7 @@ td {
                           setVnBankVendors(filtered); 
                           localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(filtered)); 
                           deleteRecipient(`vn-bank-${v.beneficiary}`);
-                          pushStateToCloud(); 
+                          
                         }} className="text-xs font-bold text-red-500 hover:underline">삭제</button>
                       </div>
                     </div>

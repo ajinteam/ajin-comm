@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState, MainCategory } from '../types';
-import { pushStateToCloud, saveSingleDoc, deleteSingleDoc } from '../supabase';
+import { saveSingleDoc, deleteSingleDoc } from '../supabase';
 
 interface InvoiceViewProps {
   sub: InvoiceSubCategory;
@@ -212,8 +212,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       saveSingleDoc('invoices', updatedDoc);
     }
     
-    // 하이브리드 유지: 전체 백업 호출
-    pushStateToCloud();
+    
   };
 
   const updateRowField = useCallback((rowId: string, field: keyof InvoiceRow, value: any) => {
@@ -241,7 +240,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       setInvoices(updatedList);
       const currentActive = updatedList.find((i: InvoiceItem) => i.id === activeInvoice.id);
       if (currentActive) setActiveInvoice(currentActive);
-      pushStateToCloud();
+      
     }
   }, [currentUser, activeInvoice]);
 
@@ -276,7 +275,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       const updated = currentFullList.map((inv: InvoiceItem) => inv.id === activeInvoice.id ? { ...inv, borders: newBorders } : inv);
       localStorage.setItem('ajin_invoices', JSON.stringify(updated));
       setInvoices(updated);
-      pushStateToCloud();
+      
     }
   }, [selection, borders, takeSnapshot, activeInvoice]);
 
@@ -313,7 +312,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       setInvoices(updatedList);
       const current = updatedList.find((i: InvoiceItem) => i.id === activeInvoice.id);
       if (current) setActiveInvoice(current);
-      pushStateToCloud();
+     
     } else {
       setFormRows(prev => {
         let newRows = [...prev];
@@ -358,7 +357,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             setInvoices(updated);
             const current = updated.find((i: InvoiceItem) => i.id === activeInvoice.id);
             if (current) setActiveInvoice(current);
-            pushStateToCloud();
+            
           }
           setTimeout(() => (document.querySelector(`[data-row="${nextRowIdx}"][data-col="0"]`) as HTMLTextAreaElement)?.focus(), 50);
         } else {
@@ -399,7 +398,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       const updated = currentFullList.map((inv: InvoiceItem) => inv.id === activeInvoice.id ? { ...inv, merges: newMerges } : inv);
       localStorage.setItem('ajin_invoices', JSON.stringify(updated));
       setInvoices(updated);
-      pushStateToCloud();
+      
     }
     setSelection(null);
   }, [selection, merges, takeSnapshot, activeInvoice]);
@@ -422,7 +421,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       const updated = currentFullList.map((inv: InvoiceItem) => inv.id === activeInvoice.id ? { ...inv, merges: newMerges } : inv);
       localStorage.setItem('ajin_invoices', JSON.stringify(updated));
       setInvoices(updated);
-      pushStateToCloud();
+      
     }
     setSelection(null);
   }, [selection, merges, takeSnapshot, activeInvoice]);
@@ -441,7 +440,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       const updated = currentFullList.map((inv: InvoiceItem) => inv.id === activeInvoice.id ? { ...inv, aligns: newAligns } : inv);
       localStorage.setItem('ajin_invoices', JSON.stringify(updated));
       setInvoices(updated);
-      pushStateToCloud();
+      
     }
   }, [selection, aligns, takeSnapshot, activeInvoice]);
 
@@ -483,7 +482,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       setInvoices(updatedList);
       const nextActive = updatedList.find((i: InvoiceItem) => i.id === activeInvoice.id);
       if (nextActive) setActiveInvoice(nextActive);
-      pushStateToCloud();
+      
     }
     setSelection(null);
   }, [selection, activeInvoice, takeSnapshot, currentUser.initials]);
@@ -534,7 +533,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       setInvoices(updated);
       const current = updated.find((i: InvoiceItem) => i.id === activeInvoice.id);
       if (current) setActiveInvoice(current);
-      pushStateToCloud();
+      
     }
   };
 
@@ -556,7 +555,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       setInvoices(updated);
       const current = updated.find((i: InvoiceItem) => i.id === activeInvoice.id);
       if (current) setActiveInvoice(current);
-      pushStateToCloud();
+      
     }
   };
 
@@ -592,7 +591,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
           if (currentActive) setActiveInvoice(currentActive);
           setModal(null);
         }
-        pushStateToCloud();
+       
       }
     });
   };
@@ -617,7 +616,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
         setInvoices(updated);
         const currentActive = updated.find((i: InvoiceItem) => i.id === activeInvoice?.id);
         if (currentActive) setActiveInvoice(currentActive);
-        pushStateToCloud();
+        
         setModal(null);
       }
     });

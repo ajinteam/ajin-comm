@@ -26,13 +26,10 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
   const allMenus = [
     MainCategory.ORDER,
     MainCategory.INVOICE,
+    MainCategory.NATIONAL_INVOICE,
     MainCategory.PURCHASE,
     MainCategory.VIETNAM,
-    MainCategory.STORAGE,
-    ...Object.values(OrderSubCategory),
-    ...Object.values(InvoiceSubCategory),
-    ...Object.values(PurchaseOrderSubCategory),
-    ...Object.values(VietnamSubCategory)
+    MainCategory.STORAGE
   ];
 
   const handleToggleMenu = (menu: string, isEdit: boolean = false) => {

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
-import { pushStateToCloud, supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
+import { supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 
 interface PurchaseOrderViewProps {
   sub: PurchaseOrderSubCategory;
@@ -526,7 +526,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       await saveSingleDoc('purchase_orders', activeItem);
     }
 
-    pushStateToCloud(); // 기존 전체 백업 (주기가 10초라 안전함)
+    
   };
 
   const handleSaveVendor = () => {
@@ -546,7 +546,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     });
 
     setNewVendor({ name: '', tel: '', remarks: '' });
-    pushStateToCloud();
+  
   };
 
   const handleRecipientSelect = (name: string) => {

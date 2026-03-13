@@ -189,7 +189,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
       // 3. Supabase 개별 저장 (비동기로 실행하여 UI 차단 방지)
       saveSingleDoc('injectionorder', newPO);
-      saveSingleDoc('purchase_orders', newPO);
+      // saveSingleDoc('purchase_orders', newPO);
 
       // 4. 전체 클라우드 동기화
       pushStateToCloud(true);

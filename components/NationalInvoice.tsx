@@ -8,7 +8,7 @@ import {
   NationalInvoiceRow,
   NationalEntity
 } from '../types';
-import { pushStateToCloud, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
+import { saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 
 interface NationalInvoiceProps {
   sub: NationalInvoiceSubCategory;
@@ -114,13 +114,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     setItems(newItems);
     localStorage.setItem('ajin_national_invoices', JSON.stringify(newItems));
     if (updatedDoc) saveSingleDoc('nationalinvoice', updatedDoc);
-    pushStateToCloud();
+    
   };
 
   const saveEntities = (newEntities: NationalEntity[]) => {
     setEntities(newEntities);
     localStorage.setItem('ajin_national_entities', JSON.stringify(newEntities));
-    pushStateToCloud();
+    
   };
 
   const formatNumber = (num: string | number) => {

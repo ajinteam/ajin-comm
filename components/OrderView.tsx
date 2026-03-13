@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { OrderSubCategory, OrderItem, OrderRow, UserAccount, ViewState } from '../types';
 import { GoogleGenAI, Type } from "@google/genai";
-import { pushStateToCloud, sendJandiNotification, saveSingleDoc, deleteSingleDoc } from '../supabase';
+import { sendJandiNotification, saveSingleDoc, deleteSingleDoc } from '../supabase';
 
 interface OrderViewProps {
   sub: OrderSubCategory;
@@ -477,8 +477,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       saveSingleDoc('orders', updatedDoc);
     }
     
-    // 하이브리드 유지: 전체 백업 호출
-    pushStateToCloud();
+    
   };
 
   const handleTranslateToVietnam = async () => {

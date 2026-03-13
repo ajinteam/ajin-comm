@@ -107,7 +107,7 @@ const App: React.FC = () => {
 
   const handleSetView = async (v: ViewState) => {
     setIsSyncing(true);
-    await pushStateToCloud();
+    
     setIsSyncing(false);
     setView(v);
     setIsSidebarOpen(false);
@@ -140,7 +140,7 @@ const App: React.FC = () => {
     setUserAccounts(finalAccounts);
     localStorage.setItem('ajin_accounts', JSON.stringify(finalAccounts));
     setIsSyncing(true);
-    await pushStateToCloud();
+  
     setIsSyncing(false);
   };
 
