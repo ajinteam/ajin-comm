@@ -172,6 +172,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         date: now.toISOString().split('T')[0],
         createdAt: now.toISOString(),
         rows: excelData,
+        headerRows: headerInfoRows.map(row => row.filter(cell => cell != null).join(' ')),
+        notes: footerText.map(line => ({ label: '기타', content: line })),
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }

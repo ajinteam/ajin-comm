@@ -360,6 +360,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   const [injectionSearch, setInjectionSearch] = useState('');
   const [hideInjectionColumn, setHideInjectionColumn] = useState(false);
+  const [po1TitleSuggestions, setPo1TitleSuggestions] = useState<string[]>([]);
+  const [showPo1Suggestions, setShowPo1Suggestions] = useState(false);
 
   const [po1Selection, setPo1Selection] = useState<{ sR: number, sC: number, eR: number, eC: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -676,9 +678,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   const getTotals = (rows: OrderRow[], forcePO1?: boolean) => {
     const subtotal = rows.reduce((acc, row) => acc + calculateAmount(row, forcePO1), 0);
+    const extraSubtotal = (isPO1 || forcePO1) ? rows.reduce((acc, row) => acc + (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0), 0) : 0;
+    
     const vat = Math.floor(subtotal * 0.1);
-    const total = subtotal + vat;
-    return { subtotal, vat, total };
+    const extraVat = Math.floor(extraSubtotal * 0.1);
+    
+    const total = subtotal + vat + extraSubtotal + extraVat;
+    
+    return { subtotal, vat, total, extraSubtotal, extraVat };
   };
 
   const handleLoadInjectionData = () => {
@@ -688,7 +695,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const normalize = (str: string) => (str || '').replace(/[\r\n\s]/g, '').toLowerCase();
     const searchNormalized = normalize(injectionSearch);
     const titleNormalized = normalize(po2Title);
-    const ajinArchivedDocs = items.filter(item => item.recipient === 'AJIN' && item.stamps.final && normalize(item.title || '').includes(titleNormalized));
+    const ajinArchivedDocs = items.filter(item => item.stamps.final && (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서') && normalize(item.title || '').includes(titleNormalized));
     if (ajinArchivedDocs.length === 0) { alert('수신처 AJIN 보관함에서 일치하는 기종의 문서를 찾을 수 없습니다.'); return; }
     const foundRows: OrderRow[] = [];
     const foundMerges: Record<string, { rS: number, cS: number }> = {};
@@ -1151,16 +1158,16 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
             <style>
               @page { 
                 size: A4 portrait; 
-                margin: 5mm; 
+                margin: 10mm; 
               }
               body { 
                 font-family: 'Gulim', sans-serif; 
                 padding: 0; 
                 margin: 0;
                 background: white; 
-                width: 210mm;
+                width: 100%;
               }
-              /* Force basic content to be black for professional printing, but allow internal classes to define font weight/size */
+              /* Force basic content to be black for professional printing */
               * {
                 color: black !important;
                 border-color: black !important;
@@ -1186,21 +1193,39 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               }
               .print-table-row { display: table-row !important; }
               .document-print-content { 
-                width: 210mm !important; 
+                width: 100% !important; 
                 box-shadow: none !important; 
                 border: none !important; 
-                padding: 10mm !important;
+                padding: 0 !important;
                 margin: 0 auto !important;
                 box-sizing: border-box;
               }
-              /* Do not force specific font sizes globally in table to respect internal font-black, font-bold, text-xs classes */
-              .document-print-content h1 {
-                /* font-size: 24px; */
+
+              /* Page numbering footer */
+              .footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                text-align: center;
+                font-size: 10px;
+                padding: 10px 0;
+                display: none;
+              }
+              @media print {
+                .footer { display: block; }
+                @page { margin-bottom: 20mm; }
+              }
+              .page-number:after {
+                content: "Page " counter(page);
               }
             </style>
           </head>
           <body onload="window.print(); window.close();">
             <div class="document-print-content">${printContent}</div>
+            <div class="footer">
+              ${activeItem?.title || ''} - <span class="page-number"></span>
+            </div>
           </body>
         </html>
       `);
@@ -1220,16 +1245,15 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const archivedItems = useMemo(() => items.filter(o => !!o.stamps.final), [items]);
   const archivedVendors = useMemo(() => {
     const vendorsSet = new Set<string>();
-    let hasInjection = false;
     archivedItems.forEach(item => {
-      if (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서') {
-        hasInjection = true;
-      } else if (item.recipient) {
+      if (item.recipient) {
         vendorsSet.add(item.recipient);
       }
     });
     const result = Array.from(vendorsSet).sort();
-    result.unshift('AJ사출발주서');
+    if (!vendorsSet.has('AJ사출발주서')) {
+      result.unshift('AJ사출발주서');
+    }
     return result;
   }, [archivedItems]);
   const getPOTheme = (type: string) => { switch(type) { case PurchaseOrderSubCategory.PO1: case PurchaseOrderSubCategory.PO1_TEMP: return 'amber'; case PurchaseOrderSubCategory.PO2: case PurchaseOrderSubCategory.PO2_TEMP: return 'blue'; case PurchaseOrderSubCategory.PO3: case PurchaseOrderSubCategory.PO3_TEMP: return 'emerald'; default: return 'slate'; } };
@@ -1434,8 +1458,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   if (isWritingAnyPO || !!editingItemId) {
     const { subtotal, vat, total } = getTotals(po2Rows);
     const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
-    const isPO1Now = currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP;
-    const isPO3Now = currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP;
+    const isPO1Now = currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP || currentItemType === '사출발주서';
+    const isPO3Now = currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP || currentItemType === '메탈발주서';
     const emailAddr = isPO1Now ? 'misuk.kim@ajinpre.net' : (isPO3Now ? 'jaesung.lee@ajinpre.net' : 'sangku.lee@ajinpre.net');
     const isEditingRejected = originalRejectedItem?.status === PurchaseOrderSubCategory.REJECTED;
 
@@ -1468,9 +1492,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               }} 
               className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              
              ← 닫기
             </button>
             <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>되돌리기 ({undoStack.length})</button>
@@ -1562,7 +1584,55 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   <div className="flex-1 flex gap-2"><input type="text" value={injectionSearch} onChange={(e) => setInjectionSearch(e.target.value)} placeholder="사출업체명을 입력하세요 (AJIN 보관함 검색 - 줄바꿈 인식)" className="flex-1 outline-none text-sm font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200" onKeyDown={(e) => e.key === 'Enter' && handleLoadInjectionData()}/><button onClick={handleLoadInjectionData} className="px-4 py-1 bg-amber-600 text-white rounded text-xs font-black hover:bg-amber-700 transition-all shadow-sm">데이터 불러오기</button>{hideInjectionColumn && (<button onClick={() => { takeSnapshot(); setHideInjectionColumn(false); }} className="px-4 py-1 bg-slate-200 text-slate-600 rounded text-xs font-black hover:bg-slate-300 transition-all shadow-sm">사출열 보이기</button>)}</div>
                 </div>
               )}
-              <div className="mb-4 flex items-center border-b border-black pb-1"><span className={`font-black text-2xl mr-4 uppercase`}>{isPO3Now || isPO1Now ? '기 종' : '제 목'} :</span><input type="text" value={po2Title} onChange={(e) => { takeSnapshot(); setPo2Title(e.target.value); }} placeholder={`${isPO3Now || isPO1Now ? '기종' : '발주서 제목'}을 입력하십시오 (필수)`} className={`flex-1 outline-none text-2xl font-bold placeholder:text-red-300 ${isFieldChanged(po2Title, originalRejectedItem?.title) ? 'text-red-600' : ''}`} /></div>
+              <div className="mb-4 flex items-center border-b border-black pb-1 relative">
+                <span className={`font-black text-2xl mr-4 uppercase`}>{isPO3Now || isPO1Now ? '기 종' : '제 목'} :</span>
+                <div className="flex-1 relative">
+                  <input 
+                    type="text" 
+                    value={po2Title} 
+                    onChange={(e) => { 
+                      const val = e.target.value;
+                      takeSnapshot(); 
+                      setPo2Title(val); 
+                      if (isPO1Now) {
+                        const matches = Array.from(new Set(items
+                          .filter(item => item.stamps.final && (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서') && (item.title || '').toLowerCase().includes(val.toLowerCase()))
+                          .map(item => item.title || '')
+                        )).slice(0, 10);
+                        setPo1TitleSuggestions(matches);
+                        setShowPo1Suggestions(val.length > 0 && matches.length > 0);
+                      }
+                    }} 
+                    onFocus={() => {
+                      if (isPO1Now && po2Title) {
+                        const matches = Array.from(new Set(items
+                          .filter(item => item.stamps.final && (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서') && (item.title || '').toLowerCase().includes(po2Title.toLowerCase()))
+                          .map(item => item.title || '')
+                        )).slice(0, 10);
+                        setPo1TitleSuggestions(matches);
+                        setShowPo1Suggestions(matches.length > 0);
+                      }
+                    }}
+                    onBlur={() => setTimeout(() => setShowPo1Suggestions(false), 200)}
+                    placeholder={`${isPO3Now || isPO1Now ? '기종' : '발주서 제목'}을 입력하십시오 (필수)`} 
+                    className={`w-full outline-none text-2xl font-bold placeholder:text-red-300 ${isFieldChanged(po2Title, originalRejectedItem?.title) ? 'text-red-600' : ''}`} 
+                  />
+                  {showPo1Suggestions && (
+                    <div className="absolute left-0 right-0 top-full bg-white border border-slate-200 shadow-xl rounded-xl mt-1 z-[100] overflow-hidden">
+                      {po1TitleSuggestions.map((s, i) => (
+                        <button 
+                          key={i} 
+                          type="button"
+                          onClick={() => { setPo2Title(s); setShowPo1Suggestions(false); }}
+                          className="w-full text-left px-4 py-3 hover:bg-slate-50 text-lg font-bold border-b border-slate-50 last:border-0"
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
               {!isPO1Now && <p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>}
               {isPO1Now && (
                 <div className="mb-4 space-y-1 no-print">
@@ -1750,7 +1820,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const isPOForm = activeItem.type === PurchaseOrderSubCategory.PO1 || activeItem.type === PurchaseOrderSubCategory.PO2 || activeItem.type === PurchaseOrderSubCategory.PO3 || activeItem.type === '사출발주서' || activeItem.type === '인쇄발주서' || activeItem.type === '메탈발주서';
     const isPO1Active = activeItem.type === PurchaseOrderSubCategory.PO1 || activeItem.type === '사출발주서';
     const isPO3Active = activeItem.type === PurchaseOrderSubCategory.PO3 || activeItem.type === '메탈발주서';
-    const { subtotal, vat, total } = getTotals(activeItem.rows, isPO1Active);
+    const { subtotal, vat, total, extraSubtotal, extraVat } = getTotals(activeItem.rows, isPO1Active);
     const stamps = activeItem.stamps;
     const emailAddrActive = isPO1Active ? 'misuk.kim@ajinpre.net' : (isPO3Active ? 'jaesung.lee@ajinpre.net' : 'sangku.lee@ajinpre.net');
     const headerRows = activeItem.headerRows || [];
@@ -1761,8 +1831,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const activeHideInjection = activeItem.hideInjectionColumn || false;
     const tableColsActive = (isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP) ? 
       (activeHideInjection ? 
-        [{ f: 'dept', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 12, label: '비고', w: 'w-[10%]' }] :
-        [{ f: 'dept', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 12, label: '비고', w: 'w-[10%]' }]
+        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고', w: 'w-[10%]' }] :
+        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고', w: 'w-[10%]' }]
       ) : ((isPO3Active || activeItem.type === PurchaseOrderSubCategory.PO3_TEMP) ? [{ f: 'dept', cIdx: 0, label: '도 번', w: 'w-[11%]' }, { f: 'itemName', cIdx: 1, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 2, label: '규 격', w: 'w-[13.3%]' }, { f: 'price', cIdx: 3, label: '수 량', w: 'w-[8%]' }, { f: 'unitPrice', cIdx: 4, label: '단 가', w: 'w-[9.6%]' }, { f: 'amount', cIdx: 5, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 6, label: '비 고', w: 'w-[15%]' }] : [{ f: 'itemName', cIdx: 0, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 1, label: '규 격', w: 'w-[20%]' }, { f: 'price', cIdx: 2, label: '수 량', w: 'w-[10%]' }, { f: 'unitPrice', cIdx: 3, label: '단 가', w: 'w-[12%]' }, { f: 'amount', cIdx: 4, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 5, label: '비 고', w: 'w-[15%]' }]);
     
     const upColIdxActive = tableColsActive.findIndex(c => c.f === 'unitPrice');
@@ -1787,25 +1857,56 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     PDF 저장 / 인쇄
   </button>
 </div>        </div>
-        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px] md:min-w-0">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20 whitespace-nowrap">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => (<tr key={row.id}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 relative ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : (<div className="whitespace-pre-wrap relative group/activefile">{row[cell.f]}{cell.f === 'itemName' && row.fileUrl && (<button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></button>)}</div>)}</td>); })}</tr>))}
+        <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto document-print-content"><div className="min-w-[800px] md:min-w-0">{isPOForm ? (<><div className="flex flex-col items-center mb-1 text-base"><h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1><p className="font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p><p className="font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">{emailAddrActive}</span></p><div className="w-full h-1 bg-black mt-2"></div></div><div className="flex justify-between items-end mb-1 relative border-b border-black pb-0"><div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20 whitespace-nowrap">발 주 서</div><table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto"><tbody><tr><td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>{visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}</tr><tr className="h-16">{visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}</tr></tbody></table></div><div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight"><div className="space-y-1"><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">수 신 :</span><span className="font-bold text-blue-800">{activeItem.recipient || "-"} 귀중</span></div>{activeItem.reference && (<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">참 조 :</span><span className="font-medium text-slate-700">{activeItem.reference}</span></div>)}<div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">연락처 :</span><span>{activeItem.telFax || "-"}</span></div><div className="flex items-center gap-2 border-b border-black pb-0"><span className="font-bold">작성일자 :</span><span>{activeItem.date}</span></div></div><div className="space-y-1"><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">발 신 :</span> <span className="font-bold">{activeItem.senderName || "㈜ 아진정공"}</span></div><div className="flex gap-4 border-b border-black pb-0"><span className="w-16 font-bold">담 당 :</span> <span>{activeItem.senderPerson || (activeItem.type === PurchaseOrderSubCategory.PO3 ? "이재성 010-6342-5656" : activeItem.type === PurchaseOrderSubCategory.PO1 ? "김미숙 010-9252-1565" : "이상구 010-6212-6945")}</span></div></div></div><div className={`mb-4 flex items-center border-b border-black pb-1 font-black text-xl underline underline-offset-4 decoration-slate-300 uppercase`}>{isPO3Active || isPO1Active ? '기 종' : '제 목'} : {activeItem.title}</div>{isPO1Active ? (<div className="mb-4">{headerRows.map((row: string, idx: number) => (<p key={idx} className={`mb-1 font-bold text-base leading-tight`}>{row}</p>))}</div>) : (<p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>)}<table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}><thead className="bg-slate-100"><tr>{tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}</tr></thead><tbody>{activeItem.rows.map((row: any, rIdx: number) => {
+  const hasMold = isPO1Active && !!row.model && row.model.trim() !== '';
+  const nextRowHasMold = isPO1Active && rIdx < activeItem.rows.length - 1 && !!activeItem.rows[rIdx + 1].model && activeItem.rows[rIdx + 1].model.trim() !== '';
+  const isLastRow = rIdx === activeItem.rows.length - 1;
+  const borderTopClass = hasMold ? 'border-t-2 border-black' : '';
+  const borderBottomClass = isPO1Active && (nextRowHasMold || isLastRow) ? 'border-b-2 border-black' : '';
+
+  return (<tr key={row.id} className={`${borderTopClass} ${borderBottomClass}`}>{tableColsActive.map(cell => { const merge = merges[`${rIdx}-${cell.cIdx}`]; const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => { const [mr, mc] = key.split('-').map(Number); return rIdx >= mr && rIdx < mr + m.rS && cell.cIdx >= mc && cell.cIdx < mc + m.cS && !(rIdx === mr && cell.cIdx === mc); }); if (isSkipped) return null; let defaultAlign = 'center'; if (cell.f === 'itemName') defaultAlign = 'left'; if (cell.f === 'amount' || cell.f === 'unitPrice' || cell.f === 'extraAmount') defaultAlign = 'right'; const textAlign = aligns[`${rIdx}-${cell.cIdx}`] || defaultAlign; const textWeight = weights[`${rIdx}-${cell.cIdx}`] || 'normal'; const isChanged = row.changedFields?.includes(cell.f); const borderStyles = getCellBorderStyle(rIdx, cell.cIdx, borders); return (<td key={cell.cIdx} rowSpan={merge?.rS || 1} colSpan={merge?.cS || 1} style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} className={`border border-black p-1 relative ${isChanged ? 'text-red-600' : ''}`}>{cell.f === 'amount' ? ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString()) : cell.f === 'extraAmount' ? (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0).toLocaleString() : (<div className="whitespace-pre-wrap relative group/activefile">{row[cell.f]}{cell.f === 'itemName' && row.fileUrl && (<button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기"><svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg></button>)}</div>)}</td>); })}</tr>); })}
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
-                  <td colSpan={upColIdxActive} className="border border-black p-1 text-center tracking-widest text-black">합 계</td>
-                  <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{subtotal.toLocaleString()}</td>
+                  <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest text-black">합 계</td>
+                  <td className="border border-black p-1 text-right pr-2 font-mono">{subtotal.toLocaleString()}</td>
+                  {isPO1Active && (
+                    <>
+                      <td className="border border-black"></td>
+                      <td className="border border-black p-1 text-right pr-2 font-mono">{extraSubtotal.toLocaleString()}</td>
+                    </>
+                  )}
                   <td className="border border-black"></td>
                 </tr>
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
-                  <td colSpan={upColIdxActive} className="border border-black p-1 text-center tracking-widest text-black">부 가 세</td>
-                  <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{vat.toLocaleString()}</td>
+                  <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest text-black">부 가 세</td>
+                  <td className="border border-black p-1 text-right pr-2 font-mono">{vat.toLocaleString()}</td>
+                  {isPO1Active && (
+                    <>
+                      <td className="border border-black"></td>
+                      <td className="border border-black p-1 text-right pr-2 font-mono">{extraVat.toLocaleString()}</td>
+                    </>
+                  )}
                   <td className="border border-black"></td>
                 </tr>
                 <tr className="bg-slate-900 text-white font-black text-xs leading-tight no-print">
-                  <td colSpan={upColIdxActive} className="border border-black p-1 text-center tracking-widest">총 액</td>
-                  <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{total.toLocaleString()}</td>
+                  <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest">총 액</td>
+                  <td className="border border-black p-1 text-right pr-2 font-mono">{(subtotal + vat).toLocaleString()}</td>
+                  {isPO1Active && (
+                    <>
+                      <td className="border border-black"></td>
+                      <td className="border border-black p-1 text-right pr-2 font-mono">{(extraSubtotal + extraVat).toLocaleString()}</td>
+                    </>
+                  )}
                   <td className="border border-black"></td>
                 </tr>
                 <tr className="bg-white text-black font-black text-xs leading-tight hidden print-table-row total-row">
-                  <td colSpan={upColIdxActive} className="border border-black p-1 text-center tracking-widest">총 액</td>
-                  <td colSpan={2} className="border border-black p-1 text-right pr-2 font-mono">{total.toLocaleString()}</td>
+                  <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest">총 액</td>
+                  <td className="border border-black p-1 text-right pr-2 font-mono">{(subtotal + vat).toLocaleString()}</td>
+                  {isPO1Active && (
+                    <>
+                      <td className="border border-black"></td>
+                      <td className="border border-black p-1 text-right pr-2 font-mono">{(extraSubtotal + extraVat).toLocaleString()}</td>
+                    </>
+                  )}
                   <td className="border border-black"></td>
                 </tr>
               </tbody></table><div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>{activeItem.notes?.map((note, idx) => (<div key={idx} className="flex gap-2"><span className="shrink-0 w-6">{idx + 1}.</span><span className={`shrink-0 w-32 tracking-tighter ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.label !== note.label) ? 'text-red-600' : ''}`}>{note.label}</span><span className="shrink-0">:</span><span className={`flex-1 ${activeItem.isResubmitted && originalRejectedItem?.notes && (originalRejectedItem.notes[idx]?.content !== note.content) ? 'text-red-600' : ''}`}>{note.content}</span></div>)) || (<p className="text-slate-300 italic">추가 항목 없음</p>)}</div>
@@ -1849,7 +1950,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     return (
       <div className="space-y-8 py-12 animate-in fade-in zoom-in duration-500">
         <div className="text-center max-w-2xl mx-auto"><h2 className="text-3xl md:text-4xl font-black text-black mb-3 tracking-tight">수신처별 보관함</h2><p className="text-slate-500 font-medium text-lg px-4">보관된 발주서가 있는 수신처 목록입니다.</p></div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 max-w-6xl mx-auto px-4 mt-12">{archivedVendors.length === 0 ? (<div className="col-span-full py-20 text-center text-slate-400 font-bold italic">보관된 내역이 없습니다.</div>) : (archivedVendors.map(vendor => (<button key={vendor} onClick={() => setSelectedArchiveVendor(vendor)} className="group bg-white p-6 rounded-3xl border-2 border-slate-100 hover:border-amber-500 hover:shadow-xl transition-all flex flex-col items-center gap-3 relative"><div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all text-amber-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 012-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg></div><span className="font-black text-black text-sm truncate w-full text-center">{vendor}</span><span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{vendor === 'AJ사출발주서' ? archivedItems.filter(i => i.type === PurchaseOrderSubCategory.PO1 || i.type === '사출발주서').length : archivedItems.filter(i => i.recipient === vendor && i.type !== PurchaseOrderSubCategory.PO1 && i.type !== '사출발주서').length} Documents</span></button>)))}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 max-w-6xl mx-auto px-4 mt-12">{archivedVendors.length === 0 ? (<div className="col-span-full py-20 text-center text-slate-400 font-bold italic">보관된 내역이 없습니다.</div>) : (archivedVendors.map(vendor => (<button key={vendor} onClick={() => setSelectedArchiveVendor(vendor)} className="group bg-white p-6 rounded-3xl border-2 border-slate-100 hover:border-amber-500 hover:shadow-xl transition-all flex flex-col items-center gap-3 relative"><div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all text-amber-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 012-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg></div><span className="font-black text-black text-sm truncate w-full text-center">{vendor}</span><span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{vendor === 'AJ사출발주서' ? archivedItems.filter(i => i.type === PurchaseOrderSubCategory.PO1 || i.type === '사출발주서').length : archivedItems.filter(i => i.recipient === vendor).length} Documents</span></button>)))}</div>
       </div>
     );
   }
@@ -1859,7 +1960,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         if (selectedArchiveVendor === 'AJ사출발주서') {
           return item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서';
         }
-        return item.recipient === selectedArchiveVendor && item.type !== PurchaseOrderSubCategory.PO1 && item.type !== '사출발주서';
+        return item.recipient === selectedArchiveVendor;
       })
     : items.filter(item => item.status === sub && !item.stamps.final);
   const sorted = [...filtered].sort((a, b) => { const timeA = new Date(a.createdAt).getTime(); const timeB = new Date(b.createdAt).getTime(); return sortOrder === 'DESC' ? timeB - timeA : timeA - timeB; });
