@@ -205,7 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         <CategorySection title="발주서 현황" mainCat={MainCategory.PURCHASE}>
           <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} />
           <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} />
-          <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE })} />
+          <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.APPROVED })} />
         </CategorySection>
 
         {/* 베트남 섹션 */}
