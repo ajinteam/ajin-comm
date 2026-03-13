@@ -26,8 +26,20 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
   try {
+    let cloudId = String(doc.id);
+
+    // [수정] id text를 모두 수신처가 이름으로, injectionorder는 파일이름으로
+    if (tableName === 'injectionorder') {
+      cloudId = doc.title || String(doc.id);
+    } else if (tableName !== 'recipients') {
+      const recipientName = doc.recipient || doc.clientName || doc.consigneeName || doc.title;
+      if (recipientName) {
+        cloudId = String(recipientName);
+      }
+    }
+
     const payload: any = {
-      id: String(doc.id),
+      id: cloudId,
       content: doc,
       status: doc.status || '결재대기'
     };
@@ -109,16 +121,48 @@ export const deleteRecipient = async (id: string) => {
 /**
  * 문서 삭제 (개별 테이블에서 삭제)
  */
-export const deleteSingleDoc = async (tableName: string, id: string) => {
+export const deleteSingleDoc = async (tableName: string, id: string, doc?: any) => {
   if (!supabase) return;
   try {
+    let cloudId = id;
+    
+    // 만약 doc이 전달되지 않았다면 로컬스토리지에서 찾아서 cloudId를 유추합니다.
+    if (doc) {
+      if (tableName === 'injectionorder') {
+        cloudId = doc.title || id;
+      } else if (tableName !== 'recipients') {
+        cloudId = doc.recipient || doc.clientName || doc.consigneeName || doc.title || id;
+      }
+    } else {
+      const localKeyMap: Record<string, string> = {
+        'orders': 'ajin_orders',
+        'invoices': 'ajin_invoices',
+        'purchase_orders': 'ajin_purchase_orders',
+        'vn_purchase_orders': 'ajin_vietnam_orders',
+        'nationalinvoice': 'ajin_national_invoices',
+        'injectionorder': 'ajin_injection_orders'
+      };
+      const localKey = localKeyMap[tableName];
+      if (localKey) {
+        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const found = localData.find((d: any) => String(d.id) === String(id));
+        if (found) {
+          if (tableName === 'injectionorder') {
+            cloudId = found.title || id;
+          } else {
+            cloudId = found.recipient || found.clientName || found.consigneeName || found.title || id;
+          }
+        }
+      }
+    }
+
     const { error } = await supabase
       .from(tableName)
       .delete()
-      .eq('id', String(id));
+      .eq('id', String(cloudId));
 
     if (error) throw error;
-    console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${id}`);
+    console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${cloudId}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message || err);
   }

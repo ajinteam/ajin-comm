@@ -33,7 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   });
 
   useEffect(() => {
-    // 공지사항 로드
+    // 공지 / 요청사항 로드
     const savedNotices = localStorage.getItem('ajin_notices');
     if (savedNotices) {
       setAnnouncements(JSON.parse(savedNotices));
@@ -57,7 +57,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       purchase: {
         pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
         rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
-        approved: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.APPROVED).length
+        approved: pOrders.filter((o: any) => !!o.stamps?.final).length
       },
       vietnam: {
         pending: vOrders.filter((o: any) => o.status === VietnamSubCategory.PENDING).length,
@@ -88,7 +88,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const saveNotices = (notices: Announcement[]) => {
     setAnnouncements(notices);
     localStorage.setItem('ajin_notices', JSON.stringify(notices));
-    pushStateToCloud(true); // 공지사항은 즉시 반영
+    pushStateToCloud(true); // 공지 / 요청사항은 즉시 반영
   };
 
   const handleAddNotice = () => {
@@ -205,7 +205,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         <CategorySection title="발주서 현황" mainCat={MainCategory.PURCHASE}>
           <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} />
           <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} />
-          <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.APPROVED })} />
+          <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE })} />
         </CategorySection>
 
         {/* 베트남 섹션 */}
@@ -220,44 +220,42 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         <div className="flex justify-between items-center mb-8">
           <h3 className="text-xl font-black flex items-center gap-3">
             <div className="w-2 h-6 bg-slate-900 rounded-full"></div>
-            공지사항
+            공지 / 요청사항
           </h3>
         </div>
 
-        {isMaster && (
-          <div className="mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200">
-            <p className="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-widest">Notice Administration</p>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <input 
-                type="text" 
-                value={newNotice} 
-                onChange={(e) => setNewNotice(e.target.value)}
-                placeholder="공지 내용을 입력해 주세요."
-                className="flex-1 px-5 py-3 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
-              />
-              <div className="flex gap-2">
+        <div className="mb-8 p-5 bg-slate-50 rounded-2xl border border-slate-200">
+          <p className="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-widest">Notice & Request Administration</p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input 
+              type="text" 
+              value={newNotice} 
+              onChange={(e) => setNewNotice(e.target.value)}
+              placeholder="공지 또는 요청 내용을 입력해 주세요."
+              className="flex-1 px-5 py-3 text-sm rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+            />
+            <div className="flex gap-2">
+              <button 
+                onClick={handleAddNotice}
+                className="flex-1 sm:flex-none px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 transition-all text-sm whitespace-nowrap"
+              >
+                {editingId ? '수정' : '추가'}
+              </button>
+              {editingId && (
                 <button 
-                  onClick={handleAddNotice}
-                  className="flex-1 sm:flex-none px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 transition-all text-sm whitespace-nowrap"
+                  onClick={() => { setEditingId(null); setNewNotice(''); }}
+                  className="flex-1 sm:flex-none px-4 py-3 bg-slate-200 text-slate-600 rounded-xl font-bold text-sm"
                 >
-                  {editingId ? '수정' : '추가'}
+                  취소
                 </button>
-                {editingId && (
-                  <button 
-                    onClick={() => { setEditingId(null); setNewNotice(''); }}
-                    className="flex-1 sm:flex-none px-4 py-3 bg-slate-200 text-slate-600 rounded-xl font-bold text-sm"
-                  >
-                    취소
-                  </button>
-                )}
-              </div>
+              )}
             </div>
           </div>
-        )}
+        </div>
 
         <ul className="space-y-2">
           {announcements.length === 0 ? (
-            <li className="py-12 text-center text-slate-400 font-medium italic">등록된 공지사항이 없습니다.</li>
+            <li className="py-12 text-center text-slate-400 font-medium italic">등록된 공지 / 요청사항이 없습니다.</li>
           ) : (
             announcements.map(n => (
               <li key={n.id} className="group flex flex-col sm:flex-row sm:items-center justify-between py-3.5 px-5 border border-transparent hover:border-slate-100 hover:bg-slate-50 rounded-2xl transition-all gap-3">
@@ -267,12 +265,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0">
                   <span className="text-[11px] text-slate-400 font-mono font-bold">{n.date}</span>
-                  {isMaster && (
-                    <div className="flex gap-4 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => startEdit(n)} className="text-[11px] font-black text-blue-600 hover:underline">수정</button>
-                      <button onClick={() => handleDeleteNotice(n.id)} className="text-[11px] font-black text-red-500 hover:underline">삭제</button>
-                    </div>
-                  )}
+                  <div className="flex gap-4 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => startEdit(n)} className="text-[11px] font-black text-blue-600 hover:underline">수정</button>
+                    <button onClick={() => handleDeleteNotice(n.id)} className="text-[11px] font-black text-red-500 hover:underline">삭제</button>
+                  </div>
                 </div>
               </li>
             ))

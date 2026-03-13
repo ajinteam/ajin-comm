@@ -662,9 +662,10 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
 
   const handleFileDelete = (invoiceId: string) => {
     if (!isMaster) return;
+    const itemToDelete = invoices.find(inv => inv.id === invoiceId);
     const filtered = invoices.filter(inv => inv.id !== invoiceId);
     saveInvoices(filtered); 
-    deleteSingleDoc('invoices', invoiceId);
+    deleteSingleDoc('invoices', invoiceId, itemToDelete);
     setModal(null); setActiveInvoice(null);
     alert('송장 파일이 영구 삭제되었습니다.');
   };

@@ -292,9 +292,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   };
 
   const handleDeleteDocument = (id: string) => {
+    const itemToDelete = items.find(it => it.id === id);
     const updated = items.filter(it => it.id !== id);
     saveItems(updated);
-    deleteSingleDoc('nationalinvoice', id);
+    deleteSingleDoc('nationalinvoice', id, itemToDelete);
     setDeletingId(null);
     alert('삭제되었습니다.');
   };

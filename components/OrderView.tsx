@@ -1167,8 +1167,9 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   const handleFileDelete = (orderId: string) => {
     if (!isMaster) return;
+    const orderToDelete = orders.find(o => o.id === orderId);
     saveOrders(orders.filter(o => o.id !== orderId));
-    deleteSingleDoc('orders', orderId);
+    deleteSingleDoc('orders', orderId, orderToDelete);
     setDeletingFileId(null); setActiveOrder(null);
   };
 

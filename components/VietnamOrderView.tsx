@@ -777,9 +777,10 @@ td {
   };
 
   const handleDeleteDocument = (id: string) => {
+    const itemToDelete = items.find(it => it.id === id);
     const updated = items.filter(it => it.id !== id);
     saveVietnamItems(updated);
-    deleteSingleDoc('vn_purchase_orders', id);
+    deleteSingleDoc('vn_purchase_orders', id, itemToDelete);
     setDeletingId(null);
     alert('삭제되었습니다.');
   };

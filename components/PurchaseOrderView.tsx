@@ -670,7 +670,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     }
     const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
     const effectiveIsPO1 = forcePO1 !== undefined ? forcePO1 : (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP);
-    const qStr = effectiveIsPO1 ? row.orderQty : row.price;
+    const qStr = row.price;
     const q = parseFloat(String(qStr || '0').replace(/,/g, '')) || 0;
     const u = parseFloat(String(row.unitPrice || '0').replace(/,/g, '')) || 0;
     return q * u;
@@ -1135,9 +1135,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       type: 'DELETE_FILE',
       message: '해당 발주서 파일을 영구 삭제하시겠습니까? (복구 불가)',
       onConfirm: () => {
+        const itemToDelete = items.find(i => i.id === id);
         const updated = items.filter(i => i.id !== id);
         saveItems(updated);
-        deleteSingleDoc('purchase_orders', id);
+        deleteSingleDoc('purchase_orders', id, itemToDelete);
         setModal(null);
         alert('발주서가 삭제되었습니다.');
       }
@@ -1970,7 +1971,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                     <p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>
                   </>
                 )}
-                <table className={`w-full border-collapse border-black border-[1px] text-[11px] md:text-[12px]`}>
+                <table className={`w-full border-collapse border-black border-[1px] ${isPO1Active ? 'text-[15px]' : 'text-[11px] md:text-[12px]'}`}>
                   <thead className="bg-slate-100">
                     <tr>
                       {tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}
@@ -2079,7 +2080,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 </tr>
               </tbody></table>              <div className={`mt-8 space-y-1 text-base font-bold text-slate-700 leading-tight`}>
                 {isPO1Active ? (
-                  <div className="whitespace-pre-wrap">{typeof activeItem.notes === 'string' ? activeItem.notes : "추가 항목 없음"}</div>
+                  <div className="whitespace-pre-wrap">
+                    {Array.isArray(activeItem.notes) 
+                      ? activeItem.notes.map((n: any) => n.content).join('\n')
+                      : (typeof activeItem.notes === 'string' ? activeItem.notes : "추가 항목 없음")
+                    }
+                  </div>
                 ) : (
                   Array.isArray(activeItem.notes) ? (
                     activeItem.notes.map((note: any, idx: number) => (

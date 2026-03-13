@@ -275,9 +275,20 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       {/* Header Section */}
       <div className="p-6 bg-white border-b border-slate-200 shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출 발주서 (Injection Order)</h1>
-            <p className="text-sm text-slate-500 font-medium">엑셀 파일을 업로드하여 발주서를 작성하고 승인합니다.</p>
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.CREATE })}
+              className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
+              title="닫기"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출 발주서 (Injection Order)</h1>
+              <p className="text-sm text-slate-500 font-medium">엑셀 파일을 업로드하여 발주서를 작성하고 승인합니다.</p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm">
