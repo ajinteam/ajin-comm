@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// 환경 변수 가져오기 로직 (기존 유지)
+// 환경 변수 가져오기 로직
 const getEnvVar = (name: string): string => {
   try {
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
@@ -21,23 +21,17 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 /**
- * [트래픽 절감 핵심] 특정 문서(발주서, 송장 등) 1건만 분산 저장하는 함수
- * 새로 작성하거나 수정하는 문서는 이 함수를 통해 각각의 새 테이블로 들어갑니다.
+ * 특정 문서 1건만 개별 테이블에 저장하는 함수 (현재 메인 시스템)
  */
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
   try {
-    // [보완] 테이블마다 컬럼 구성이 다를 수 있으므로, 기본 필수 필드만 먼저 구성
     const payload: any = {
-      id: String(doc.id),
+      id: String(doc.id), // 파일명을 id로 쓰고 싶다면 doc.id에 파일명을 담아 호출하세요
       content: doc,
       status: doc.status || '결재대기'
     };
 
-    // category 컬럼이 있는 테이블(purchase_orders 등)을 위해 추가
-    // 만약 테이블에 category 컬럼이 없으면 Supabase 에러가 발생할 수 있으므로
-    // 일단 포함해서 보내되, 에러 발생 시 재시도하는 로직을 고려하거나 
-    // 사용자에게 컬럼 추가를 권장합니다.
     payload.category = category || doc.type || doc.location || '일반';
 
     const { error } = await supabase
@@ -45,7 +39,6 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
       .upsert(payload, { onConflict: 'id' });
 
     if (error) {
-      // 만약 category 컬럼이 없어서 발생하는 에러라면, category를 제외하고 재시도
       const msg = error.message || '';
       if (msg.includes('column "category" of relation') || msg.includes('column "category" does not exist')) {
         console.warn(`[Supabase] ${tableName} 테이블에 'category' 컬럼이 없어 제외하고 저장합니다.`);
@@ -66,7 +59,7 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
 };
 
 /**
- * [수신처/은행/공지/계정 관리] recipients 테이블에 통합 저장하는 함수
+ * 수신처/은행 관리 저장
  */
 export const saveRecipient = async (data: {
   id: string;
@@ -90,12 +83,15 @@ export const saveRecipient = async (data: {
       }, { onConflict: 'id' });
 
     if (error) throw error;
-    console.log(`[Cloud Sync] Recipients 저장 성공: ${data.name} (${data.category})`);
+    console.log(`[Cloud Sync] Recipients 저장 성공: ${data.name}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Error] Recipients:`, err.message || err);
   }
 };
 
+/**
+ * 수신처 삭제
+ */
 export const deleteRecipient = async (id: string) => {
   if (!supabase) return;
   try {
@@ -110,6 +106,9 @@ export const deleteRecipient = async (id: string) => {
   }
 };
 
+/**
+ * 문서 삭제 (개별 테이블에서만 삭제)
+ */
 export const deleteSingleDoc = async (tableName: string, id: string) => {
   if (!supabase) return;
   try {
@@ -121,35 +120,30 @@ export const deleteSingleDoc = async (tableName: string, id: string) => {
     if (error) throw error;
     console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${id}`);
     
-    // 삭제 후 즉시 전체 백업 업데이트 (부활 방지)
-    await pushStateToCloud(true);
+    // pushStateToCloud(true) 호출을 제거하여 백업 테이블 수정을 방지합니다.
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message || err);
   }
 };
 
 /**
- * [안전장치] 클라우드(백업+분산) 데이터와 현재 로컬 데이터를 지능적으로 병합
+ * 클라우드 개별 테이블 데이터와 로컬 데이터를 병합 (백업 테이블 참조 제거)
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
   try {
-    // 1. 각 테이블 데이터를 개별적으로 로드 (하나가 실패해도 나머지는 진행)
     const fetchTable = async (name: string) => {
       try {
         const { data, error } = await supabase.from(name).select('content');
-        if (error) {
-          console.warn(`[Supabase Fetch Warning] ${name}:`, error.message);
-          return [];
-        }
+        if (error) return [];
         return data || [];
       } catch (e) {
         return [];
       }
     };
 
-    const [legacyRes, ordersRes, invoicesRes, pOrdersRes, vnOrdersRes, nationalInvoicesRes, injectionOrdersRes, nationalEntitiesRes] = await Promise.all([
-      supabase.from('ajin-comm-backup').select('dataload').eq('id', 1).maybeSingle(),
+    // 백업 테이블(legacyRes) 호출을 삭제했습니다.
+    const [ordersRes, invoicesRes, pOrdersRes, vnOrdersRes, nationalInvoicesRes, injectionOrdersRes, nationalEntitiesRes] = await Promise.all([
       fetchTable('orders'),
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
@@ -159,20 +153,11 @@ export const pullStateFromCloud = async () => {
       fetchTable('national_entities')
     ]);
 
-    const legacyData = legacyRes.data?.dataload || {};
-    
-    // 2. 병합 함수: [기존 백업 < 클라우드 개별 < 로컬] 순으로 우선순위 부여
-    const merge = (localKey: string, legacyList: any[] = [], newList: any[] = []) => {
+    const merge = (localKey: string, newList: any[] = []) => {
       const localData = JSON.parse(localStorage.getItem(`ajin_${localKey}`) || '[]');
       const cloudItems = newList?.map((item: any) => item.content).filter(Boolean) || [];
       
-      // 우선순위: legacy(가장 낮음) -> cloudItems -> localData(가장 높음)
-      // [주의] 삭제된 데이터가 legacy에서 부활하는 것을 막기 위해, 
-      // 만약 개별 테이블(cloudItems)이나 로컬(localData)에 데이터가 존재한다면 
-      // legacy에만 있는 데이터는 이미 삭제된 것으로 간주할 수도 있으나, 
-      // 하이브리드 운영 중이므로 일단 합치되 중복은 ID 기준으로 제거합니다.
-      const combined = [...(legacyList || []), ...cloudItems, ...localData];
-      
+      const combined = [...cloudItems, ...localData];
       const map = new Map();
       combined.forEach(item => {
         if (item && item.id) map.set(item.id, item);
@@ -181,21 +166,20 @@ export const pullStateFromCloud = async () => {
     };
 
     const finalData = {
-      accounts: legacyData.accounts || JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
-      orders: merge('orders', legacyData.orders, ordersRes),
-      invoices: merge('invoices', legacyData.invoices, invoicesRes),
-      purchase_orders: merge('purchase_orders', legacyData.purchase_orders, pOrdersRes),
-      vietnam_orders: merge('vietnam_orders', legacyData.vietnam_orders, vnOrdersRes),
-      national_invoices: merge('national_invoices', legacyData.national_invoices, nationalInvoicesRes),
-      national_entities: legacyData.national_entities || JSON.parse(localStorage.getItem('ajin_national_entities') || '[]'),
-      injection_orders: merge('injection_orders', legacyData.injection_orders, injectionOrdersRes),
-      vn_vendors: legacyData.vn_vendors || JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
-      vn_bank_vendors: legacyData.vn_bank_vendors || JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
-      notices: legacyData.notices || JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
-      updatedAt: legacyData.updatedAt || new Date().toISOString()
+      accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
+      orders: merge('orders', ordersRes),
+      invoices: merge('invoices', invoicesRes),
+      purchase_orders: merge('purchase_orders', pOrdersRes),
+      vietnam_orders: merge('vietnam_orders', vnOrdersRes),
+      national_invoices: merge('national_invoices', nationalInvoicesRes),
+      national_entities: JSON.parse(localStorage.getItem('ajin_national_entities') || '[]'),
+      injection_orders: merge('injection_orders', injectionOrdersRes),
+      vn_vendors: JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
+      vn_bank_vendors: JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
+      notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
+      updatedAt: new Date().toISOString()
     };
 
-    // 3. 로컬 스토리지 업데이트
     Object.keys(finalData).forEach(key => {
       if (key !== 'updatedAt') {
         localStorage.setItem(`ajin_${key}`, JSON.stringify((finalData as any)[key]));
@@ -203,7 +187,7 @@ export const pullStateFromCloud = async () => {
     });
     localStorage.setItem('ajin_last_local_update', finalData.updatedAt);
 
-    console.log('[Cloud Sync] 데이터 지능적 병합 및 로컬 동기화 완료');
+    console.log('[Cloud Sync] 개별 테이블 기반 데이터 동기화 완료');
     return finalData;
   } catch (err) {
     console.error('[Cloud Sync] Pull error:', err);
@@ -212,7 +196,7 @@ export const pullStateFromCloud = async () => {
 };
 
 /**
- * 잔디 알림 전송 함수 (기존 유지)
+ * 잔디 알림 전송
  */
 export const sendJandiNotification = async (
   target: 'KR' | 'VN' | 'KR_PO',
@@ -227,60 +211,17 @@ export const sendJandiNotification = async (
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target, type, title, recipient, date })
     });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || 'Unknown API error');
-    console.log(`[JANDI SUCCESS] Notification sent: ${target}, ${type}`);
+    if (!response.ok) throw new Error('Jandi API error');
+    console.log(`[JANDI SUCCESS] Notification sent`);
   } catch (err) {
     console.error('[JANDI API CALL ERROR]', err);
   }
 };
 
-// 기존 pushStateToCloud는 당분간 유지하되 호출을 최소화합니다.
-let pushTimer: any = null;
-let lastPushedData: string = '';
-
+/**
+ * 전체 백업 기능 중단 (빈 함수로 유지)
+ */
 export const pushStateToCloud = async (immediate: boolean = false) => {
-  if (!supabase) return;
-  return;
-  if (pushTimer) clearTimeout(pushTimer);
-  
-  const performPush = async () => {
-    try {
-      const dataload = {
-        accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
-        orders: JSON.parse(localStorage.getItem('ajin_orders') || '[]'),
-        invoices: JSON.parse(localStorage.getItem('ajin_invoices') || '[]'),
-        purchase_orders: JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]'),
-        vietnam_orders: JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]'),
-        national_invoices: JSON.parse(localStorage.getItem('ajin_national_invoices') || '[]'),
-        national_entities: JSON.parse(localStorage.getItem('ajin_national_entities') || '[]'),
-        injection_orders: JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]'),
-        vn_vendors: JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
-        vn_bank_vendors: JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
-        notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
-      };
-
-      const currentDataStr = JSON.stringify(dataload);
-      if (!immediate && currentDataStr === lastPushedData) return;
-
-      const updatedAt = new Date().toISOString();
-      const { error } = await supabase
-        .from('ajin-comm-backup')
-        .upsert({ id: 1, dataload: { ...dataload, updatedAt } });
-
-      if (!error) {
-        lastPushedData = currentDataStr;
-        localStorage.setItem('ajin_last_local_update', updatedAt);
-        console.log(`[Cloud Sync] Full backup successful${immediate ? ' (Immediate)' : ''}.`);
-      }
-    } catch (err) {
-      console.error('[Cloud Sync] Push error:', err);
-    }
-  };
-
-  if (immediate) {
-    await performPush();
-  } else {
-    pushTimer = setTimeout(performPush, 10000); // 전체 백업은 10초 주기로 늦춰 트래픽 방어
-  }
+  // ajin-comm-backup 테이블 저장을 영구 중단했습니다.
+  return; 
 };
