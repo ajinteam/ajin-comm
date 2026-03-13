@@ -21,13 +21,13 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   : null;
 
 /**
- * 특정 문서 1건만 개별 테이블에 저장하는 함수 (현재 메인 시스템)
+ * 특정 문서 1건만 개별 테이블에 저장하는 함수
  */
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
   try {
     const payload: any = {
-      id: String(doc.id), // 파일명을 id로 쓰고 싶다면 doc.id에 파일명을 담아 호출하세요
+      id: String(doc.id),
       content: doc,
       status: doc.status || '결재대기'
     };
@@ -59,7 +59,7 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
 };
 
 /**
- * 수신처/은행 관리 저장
+ * 수신처/은행/계정 관리 저장
  */
 export const saveRecipient = async (data: {
   id: string;
@@ -90,7 +90,7 @@ export const saveRecipient = async (data: {
 };
 
 /**
- * 수신처 삭제
+ * 수신처/계정 삭제
  */
 export const deleteRecipient = async (id: string) => {
   if (!supabase) return;
@@ -107,7 +107,7 @@ export const deleteRecipient = async (id: string) => {
 };
 
 /**
- * 문서 삭제 (개별 테이블에서만 삭제)
+ * 문서 삭제 (개별 테이블에서 삭제)
  */
 export const deleteSingleDoc = async (tableName: string, id: string) => {
   if (!supabase) return;
@@ -119,15 +119,13 @@ export const deleteSingleDoc = async (tableName: string, id: string) => {
 
     if (error) throw error;
     console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${id}`);
-    
-    // pushStateToCloud(true) 호출을 제거하여 백업 테이블 수정을 방지합니다.
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message || err);
   }
 };
 
 /**
- * 클라우드 개별 테이블 데이터와 로컬 데이터를 병합 (백업 테이블 참조 제거)
+ * 클라우드 데이터와 로컬 데이터 병합 (계정 동기화 포함)
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
@@ -142,17 +140,37 @@ export const pullStateFromCloud = async () => {
       }
     };
 
-    // 백업 테이블(legacyRes) 호출을 삭제했습니다.
-    const [ordersRes, invoicesRes, pOrdersRes, vnOrdersRes, nationalInvoicesRes, injectionOrdersRes, nationalEntitiesRes] = await Promise.all([
+    // 1. 모든 테이블 데이터 및 계정(recipients) 데이터를 가져옵니다.
+    const [
+      ordersRes, 
+      invoicesRes, 
+      pOrdersRes, 
+      vnOrdersRes, 
+      nationalInvoicesRes, 
+      injectionOrdersRes, 
+      nationalEntitiesRes,
+      accountsRes
+    ] = await Promise.all([
       fetchTable('orders'),
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
       fetchTable('vn_purchase_orders'),
       fetchTable('nationalinvoice'),
       fetchTable('injectionorder'),
-      fetchTable('national_entities')
+      fetchTable('national_entities'),
+      supabase.from('recipients').select('*').eq('category', 'ACCOUNT')
     ]);
 
+    // 2. 클라우드 계정 데이터를 앱 형식으로 변환
+    const cloudAccounts = accountsRes.data?.map(item => ({
+      id: item.id,
+      loginId: item.name,
+      initials: item.tel,
+      allowedMenus: JSON.parse(item.remark || '[]'),
+      createdAt: item.created_at || new Date().toISOString()
+    })) || [];
+
+    // 3. 병합 로직 (ID 기준 중복 제거)
     const merge = (localKey: string, newList: any[] = []) => {
       const localData = JSON.parse(localStorage.getItem(`ajin_${localKey}`) || '[]');
       const cloudItems = newList?.map((item: any) => item.content).filter(Boolean) || [];
@@ -165,8 +183,9 @@ export const pullStateFromCloud = async () => {
       return Array.from(map.values());
     };
 
+    // 4. 최종 데이터 셋 (계정은 클라우드 우선)
     const finalData = {
-      accounts: JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
+      accounts: cloudAccounts.length > 0 ? cloudAccounts : JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
       orders: merge('orders', ordersRes),
       invoices: merge('invoices', invoicesRes),
       purchase_orders: merge('purchase_orders', pOrdersRes),
@@ -180,6 +199,7 @@ export const pullStateFromCloud = async () => {
       updatedAt: new Date().toISOString()
     };
 
+    // 5. 로컬 스토리지에 결과 쓰기
     Object.keys(finalData).forEach(key => {
       if (key !== 'updatedAt') {
         localStorage.setItem(`ajin_${key}`, JSON.stringify((finalData as any)[key]));
@@ -187,7 +207,7 @@ export const pullStateFromCloud = async () => {
     });
     localStorage.setItem('ajin_last_local_update', finalData.updatedAt);
 
-    console.log('[Cloud Sync] 개별 테이블 기반 데이터 동기화 완료');
+    console.log('[Cloud Sync] 계정 포함 개별 테이블 기반 동기화 완료');
     return finalData;
   } catch (err) {
     console.error('[Cloud Sync] Pull error:', err);
@@ -219,9 +239,8 @@ export const sendJandiNotification = async (
 };
 
 /**
- * 전체 백업 기능 중단 (빈 함수로 유지)
+ * 전체 백업 기능 중단 (빈 함수 유지로 에러 방지)
  */
 export const pushStateToCloud = async (immediate: boolean = false) => {
-  // ajin-comm-backup 테이블 저장을 영구 중단했습니다.
   return; 
 };
