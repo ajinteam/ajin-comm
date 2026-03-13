@@ -250,7 +250,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               }
             </style>
           </head>
-          <body onload="window.print();">
+          <body onload="window.print(); window.close();">
             <div class="document-wrapper">${content}</div>
             <div class="footer">
               ${fileName} - <span class="page-number"></span>
@@ -259,6 +259,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         </html>
       `);
       win.document.close();
+      window.close();
     }
   }, [fileName]);
 

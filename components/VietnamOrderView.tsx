@@ -119,6 +119,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
+  const [fileSearchTerm, setFileSearchTerm] = useState('');
 
   // Editing state (from rejection or temporary)
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -132,6 +133,39 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [borders, setBorders] = useState<Record<string, { t?: string, b?: string, l?: string, r?: string }>>({});
   const [activeBorderStyle, setActiveBorderStyle] = useState<string>('solid');
   const [undoStack, setUndoStack] = useState<string[]>([]);
+
+  // Cell Tools Draggable State
+  const [toolPos, setToolPos] = useState({ x: 0, y: 0 });
+  const [isDraggingTool, setIsDraggingTool] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  const handleToolMouseDown = (e: React.MouseEvent) => {
+    setIsDraggingTool(true);
+    dragStartPos.current = {
+      x: e.clientX - toolPos.x,
+      y: e.clientY - toolPos.y
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingTool) return;
+      setToolPos({
+        x: e.clientX - dragStartPos.current.x,
+        y: e.clientY - dragStartPos.current.y
+      });
+    };
+    const handleMouseUp = () => setIsDraggingTool(false);
+
+    if (isDraggingTool) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingTool]);
 
   const createEmptyRow = () => ({
     id: Math.random().toString(36).substr(2, 9),
@@ -591,11 +625,12 @@ td {
           .document-wrapper { padding: 25mm 10mm 10mm 10mm;}
           .info-row { border-bottom: none !important; }
         </style>
-        </head><body onload="window.print();">
+        </head><body onload="window.print(); window.close();">
           <div class="document-wrapper">${content}</div>
         </body></html>
       `);
       win.document.close();
+      window.close();
     }
   };
 
@@ -708,9 +743,9 @@ td {
         // 최종 승인 완료 시 작성자에게 알림
         sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId, item.date);
     } else {
-        // 법인장 승인 후, 대표(K-YEUN)에게 결재 요청
+        // 법인장 승인 후, 대표(DAVID)에게 결재 요청
         if (type === 'head' && (isPay || isMetal)) {
-            sendJandiNotification('VN', 'REQUEST', item.title, 'K-YEUN', item.date);
+            sendJandiNotification('VN', 'REQUEST', item.title, 'DAVID', item.date);
         }
     }
 
@@ -1117,10 +1152,10 @@ td {
                                                     {cell.f === 'itemName' && row.fileUrl && (
                                                       <button 
                                                         onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
-                                                        className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print"
+                                                        className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
                                                         title="도면 파일 보기"
                                                       >
-                                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                       </button>
                                                     )}
                                                 </div>
@@ -1161,10 +1196,10 @@ td {
                                                       {cell.f === 'itemName' && row.fileUrl && (
                                                         <button 
                                                           onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
-                                                          className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print"
+                                                          className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
                                                           title="도면 파일 보기"
                                                         >
-                                                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                                          <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                         </button>
                                                       )}
                                                     </div>
@@ -1314,7 +1349,7 @@ td {
                     setUndoStack([]); 
                     const prevStatus = items.find(it => it.id === editingId)?.status || VietnamSubCategory.ORDER;
                     setView({ type: 'VIETNAM', sub: prevStatus }); 
-                }} className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm shadow-sm">← 목록으로</button>
+                }} className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm shadow-sm">← 닫기</button>
             )}
             <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs shadow-xl transition-all ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-black' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Undo ({undoStack.length})</button>
             {editingId && (
@@ -1428,7 +1463,16 @@ td {
         )}
 
         {selection && (
-          <div className="fixed bottom-10 landscape:bottom-2 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 landscape:p-1.5 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
+          <div 
+            style={{ transform: `translate(calc(-50% + ${toolPos.x}px), ${toolPos.y}px)` }}
+            className="fixed bottom-10 landscape:bottom-2 left-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 landscape:p-1.5 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5"
+          >
+            <span 
+              onMouseDown={handleToolMouseDown}
+              className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100 hidden landscape:block cursor-move select-none active:text-blue-600 transition-colors"
+            >
+              Cell Tools
+            </span>
             <button onClick={handleMerge} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold shadow-sm transition-all whitespace-nowrap">셀 병합</button>
             <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold shadow-sm transition-all whitespace-nowrap">병합 해제</button>
             <div className="flex bg-slate-100 p-1 rounded-lg">
@@ -1482,7 +1526,7 @@ td {
         </div>
 
         {viewMode === 'ICON' ? (
-            <div className="grid grid-cols-1 landscape:grid-cols-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <div className="grid grid-cols-2 landscape:grid-cols-6 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-6">
                 {paginatedItems.length === 0 ? (<div className="col-span-full py-24 text-center text-slate-400 bg-white rounded-3xl border-4 border-dashed border-slate-100 text-lg font-medium italic">데이터가 없습니다.</div>) : (
                     paginatedItems.map(item => (
                         <div key={item.id} className="relative group">
@@ -1688,13 +1732,14 @@ td {
                   type="text" 
                   placeholder="파일명 검색..." 
                   className="w-full px-5 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  value={fileSearchTerm}
+                  onChange={(e) => setFileSearchTerm(e.target.value)}
                 />
               </div>
 
               <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
                 <div className="grid grid-cols-1 gap-2">
-                  {files.filter(f => f.name.toLowerCase().includes(searchTerm.toLowerCase())).map(file => {
+                  {files.filter(f => f.name.toLowerCase().includes(fileSearchTerm.toLowerCase())).map(file => {
                     const displayFileName = file.name.split('_').slice(1).join('_') || file.name;
                     return (
                       <button 

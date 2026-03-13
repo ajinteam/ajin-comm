@@ -362,6 +362,39 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const [borders, setBorders] = useState<Record<string, { t?: string, b?: string, l?: string, r?: string }>>({});
   const [activeBorderStyle, setActiveBorderStyle] = useState<string>('solid');
 
+  // Cell Tools Draggable State
+  const [toolPos, setToolPos] = useState({ x: 0, y: 0 });
+  const [isDraggingTool, setIsDraggingTool] = useState(false);
+  const dragStartPos = useRef({ x: 0, y: 0 });
+
+  const handleToolMouseDown = (e: React.MouseEvent) => {
+    setIsDraggingTool(true);
+    dragStartPos.current = {
+      x: e.clientX - toolPos.x,
+      y: e.clientY - toolPos.y
+    };
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingTool) return;
+      setToolPos({
+        x: e.clientX - dragStartPos.current.x,
+        y: e.clientY - dragStartPos.current.y
+      });
+    };
+    const handleMouseUp = () => setIsDraggingTool(false);
+
+    if (isDraggingTool) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDraggingTool]);
+
   const takeSnapshot = useCallback(() => {
     const data = JSON.stringify({
       rows: (editingOrderId || sub === OrderSubCategory.CREATE) ? formRows : (activeOrder ? activeOrder.rows : formRows),
@@ -1209,8 +1242,9 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const filename = `${activeOrder?.title || '주문서'}_${activeOrder?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body onload="window.print();"><div>${printContent}</div></body></html>`);
+      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
       printWindow.document.close();
+      window.close();
     } else alert('팝업이 차단되었습니다.');
   };
 
@@ -1288,8 +1322,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             }} 
             className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-            닫기
+           
+            ← 닫기
           </button>
           <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl font-black text-sm shadow-xl transition-all active:scale-95 ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>되돌리기 ({undoStack.length})</button>
           {editingOrderId && <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-black animate-pulse border border-red-200">반송 건 수정 중</span>}
@@ -1299,8 +1333,16 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         </div>
       </div>
       {selection && (
-        <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
-          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100">Cell Tools (F4: Merge)</span>
+        <div 
+          style={{ transform: `translate(calc(-50% + ${toolPos.x}px), ${toolPos.y}px)` }}
+          className="fixed bottom-10 left-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5"
+        >
+          <span 
+            onMouseDown={handleToolMouseDown}
+            className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100 cursor-move select-none active:text-blue-600 transition-colors"
+          >
+            Cell Tools (F4: Merge)
+          </span>
           <button onClick={handleMerge} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">셀 병합</button>
           <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 shadow-sm transition-all whitespace-nowrap">병합 해제</button>
           <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
@@ -1480,13 +1522,21 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
           <div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>
         ) : (
           <div className="flex gap-2">
-            <button onClick={() => setActiveOrder(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 목록으로</button>
+            <button onClick={() => setActiveOrder(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 닫기</button>
             <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs shadow-xl transition-all ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Undo ({undoStack.length})</button>
           </div>
         )}
         {selection && !isPreviewing && !activeOrder?.stamps.final && (
-          <div className="fixed bottom-10 landscape:bottom-2 left-1/2 -translate-x-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 landscape:p-1.5 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100 hidden landscape:block">Cell Tools</span>
+          <div 
+            style={{ transform: `translate(calc(-50% + ${toolPos.x}px), ${toolPos.y}px)` }}
+            className="fixed bottom-10 landscape:bottom-2 left-1/2 z-[100] no-print bg-white/90 backdrop-blur shadow-2xl border border-slate-200 p-3 landscape:p-1.5 rounded-2xl flex items-center gap-3 animate-in slide-in-from-bottom-5"
+          >
+            <span 
+              onMouseDown={handleToolMouseDown}
+              className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-2 border-r border-slate-100 hidden landscape:block cursor-move select-none active:text-blue-600 transition-colors"
+            >
+              Cell Tools
+            </span>
             <button onClick={handleMerge} className="px-3 py-1.5 bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 shadow-sm transition-all whitespace-nowrap">셀 병합</button>
             <button onClick={handleUnmerge} className="px-3 py-1.5 bg-slate-100 text-slate-600 rounded-lg text-xs font-bold hover:bg-slate-200 shadow-sm transition-all whitespace-nowrap">병합 해제</button>
             <div className="h-6 w-[1px] bg-slate-200 mx-1"></div>
@@ -1513,7 +1563,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         <div className="flex flex-wrap gap-2 md:gap-3 w-full md:w-auto">
           {isPreviewing ? (
             <>
-              <button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">닫기</button>
+              <button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">← 닫기</button>
               <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">저장 / 인쇄</button>
             </>
           ) : (

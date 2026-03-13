@@ -578,7 +578,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <div class="cell" style="grid-column: 1 / span 2; grid-row: 3 / span 3;">
                         <span class="label">CONSIGNEE</span>
                         <div class="content-bold">${formData.consigneeName || ''}</div>
-                        <div class="content-normal">${formData.consigneeAddress || ''}</div>
+                        <div class="content-normal" style="line-height: 1.2;">${formData.consigneeAddress || ''}</div>
+                        <div style="margin-top: 2px; line-height: 1.1;">
+                          ${formData.consigneeTaxId ? `<div class="content-normal">TAX ID: ${formData.consigneeTaxId}</div>` : ''}
+                          ${formData.consigneeTel ? `<div class="content-normal">TEL: ${formData.consigneeTel}</div>` : ''}
+                          ${formData.consigneeAttn ? `<div class="content-normal">ATTN: <span style="font-weight: 900;">${formData.consigneeAttn}</span></div>` : ''}
+                        </div>
                       </div>
                       
                       <div class="cell" style="grid-column: 3 / span 2;">
@@ -676,6 +681,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         </html>
       `);
       win.document.close();
+      window.close();
     }
   }, [formData, formatNumber]);
 
@@ -923,10 +929,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             onClick={() => setView({ type: 'NATIONAL_INVOICE', sub: formData.status || NationalInvoiceSubCategory.TEMPORARY })}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-            </svg>
-            닫기
+            
+            ← 닫기
           </button>
           <div className="flex items-center gap-4">
             <select 
@@ -1078,8 +1082,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 placeholder="COMPANY NAME"
               />
               <textarea className="invoice-textarea" value={formData.consigneeAddress || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeAddress: e.target.value }))} placeholder="ADDRESS & CONTACT" />
-              <div className="mt-2">
-                {/* Tax ID, TEL, ATTN removed from editor as requested. They remain in formData and print view. */}
+              <div className="mt-1 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-slate-400 w-12">TAX ID:</span>
+                  <input className="invoice-input font-bold" value={formData.consigneeTaxId || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeTaxId: e.target.value }))} placeholder="TAX ID" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-slate-400 w-12">TEL:</span>
+                  <input className="invoice-input font-bold" value={formData.consigneeTel || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeTel: e.target.value }))} placeholder="TEL" />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-slate-400 w-12">ATTN:</span>
+                  <input className="invoice-input font-black" value={formData.consigneeAttn || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeAttn: e.target.value }))} placeholder="ATTN" />
+                </div>
               </div>
             </div>
 
@@ -1523,6 +1538,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         <div>
                           <p className="text-sm font-black text-slate-800">{ent.name}</p>
                           <p className="text-[10px] text-slate-400 truncate max-w-[300px]">{ent.content}</p>
+                          {ent.type === 'CONSIGNEE' && (
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {ent.taxId && <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold">TAX ID: {ent.taxId}</span>}
+                              {ent.tel && <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold">TEL: {ent.tel}</span>}
+                              {ent.attn && <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold">ATTN: {ent.attn}</span>}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
