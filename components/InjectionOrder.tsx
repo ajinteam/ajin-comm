@@ -172,9 +172,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         id: `po-${Date.now()}`,
         code: `PO-${Date.now()}`,
         title: fileName || 'Injection Order',
-        type: PurchaseOrderSubCategory.PO1,
+        type: PurchaseOrderSubCategory.PO1, // 사출발주서 타입으로 지정 (PurchaseOrderView와 호환)
         status: PurchaseOrderSubCategory.PENDING,
-        authorId: currentUser.initials,
+        authorId: currentUser.initials, // 이니셜로 저장하여 다른 뷰와 일치시킴
         date: now.toISOString().split('T')[0],
         createdAt: now.toISOString(),
         rows: excelData,
@@ -185,17 +185,20 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         }
       };
 
-      // [최적화] 1. Local Storage 업데이트 (목록 이동 시 즉시 반영용)
-      const updateLocal = (key: string) => {
-        const existing = JSON.parse(localStorage.getItem(key) || '[]');
-        localStorage.setItem(key, JSON.stringify([newPO, ...existing]));
-      };
+      // 1. Local Storage 저장
+      const existingPOs = JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]');
+      localStorage.setItem('ajin_purchase_orders', JSON.stringify([newPO, ...existingPOs]));
       
-      updateLocal('ajin_purchase_orders');
-      updateLocal('ajin_injection_orders');
+      // 2. Injection Orders 전용 로컬 저장
+      const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      localStorage.setItem('ajin_injection_orders', JSON.stringify([newPO, ...existingInjections]));
 
-      // [최적화] 2. Supabase 개별 저장 (전체 백업 대신 이 건만 전송)
+      // 3. Supabase 개별 저장 (비동기로 실행하여 UI 차단 방지)
       saveSingleDoc('injectionorder', newPO);
+      // saveSingleDoc('purchase_orders', newPO);
+
+      // 4. 전체 클라우드 동기화
+      pushStateToCloud(true);
       
       // JANDI 알림: 사출발주서 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${fileName || 'Injection Order'}`, 'H-CHUN', now.toISOString().split('T')[0]);

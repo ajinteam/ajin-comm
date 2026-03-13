@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 
-// 1. 환경 변수 설정
+// 환경 변수 가져오기 로직
 const getEnvVar = (name: string): string => {
   try {
     if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
@@ -20,67 +20,67 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
-// 2. 트래픽 최적화용 디바운스 관리 객체
-const debounceMap: Record<string, any> = {};
-
 /**
- * 특정 문서 1건을 개별 테이블에 저장 (트래픽 최적화 버전)
+ * 특정 문서 1건만 개별 테이블에 저장하는 함수
  */
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
+  try {
+    let cloudId = String(doc.id);
 
-  // 테이블명과 문서 ID를 조합해 고유 키 생성
-  const debounceKey = `${tableName}_${doc.id}`;
-  
-  // 2초 이내에 동일한 문서 저장 요청이 오면 이전 대기열 취소
-  if (debounceMap[debounceKey]) clearTimeout(debounceMap[debounceKey]);
-
-  debounceMap[debounceKey] = setTimeout(async () => {
-    try {
-      let cloudId = String(doc.id);
-
-      // ID 결정 로직 (기존 로직 유지)
-      if (tableName === 'injectionorder') {
-        cloudId = doc.title || String(doc.id);
-      } else if (tableName !== 'recipients') {
-        const recipientName = doc.recipient || doc.clientName || doc.consigneeName || doc.title;
-        if (recipientName) cloudId = String(recipientName);
+    // [수정] id text를 모두 수신처가 이름으로, injectionorder는 파일이름으로
+    if (tableName === 'injectionorder') {
+      cloudId = doc.title || String(doc.id);
+    } else if (tableName !== 'recipients') {
+      const recipientName = doc.recipient || doc.clientName || doc.consigneeName || doc.title;
+      if (recipientName) {
+        cloudId = String(recipientName);
       }
-
-      const payload: any = {
-        id: cloudId,
-        content: doc,
-        status: doc.status || '결재대기',
-        category: category || doc.type || doc.location || '일반'
-      };
-
-      const { error } = await supabase
-        .from(tableName)
-        .upsert(payload, { onConflict: 'id' });
-
-      if (error) {
-        // category 컬럼 누락 에러 처리
-        if (error.message.includes('category')) {
-          delete payload.category;
-          const { error: retryError } = await supabase
-            .from(tableName)
-            .upsert(payload, { onConflict: 'id' });
-          if (retryError) throw retryError;
-        } else {
-          throw error;
-        }
-      }
-      console.log(`[Cloud Sync Success] ${tableName}: ${cloudId}`);
-    } catch (err: any) {
-      console.error(`[Cloud Sync Error] ${tableName}:`, err.message || err);
     }
-  }, 2000); // 2초 디바운스 대기 시간
+
+    const payload: any = {
+      id: cloudId,
+      content: doc,
+      status: doc.status || '결재대기'
+    };
+
+    payload.category = category || doc.type || doc.location || '일반';
+
+    const { error } = await supabase
+      .from(tableName)
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) {
+      const msg = error.message || '';
+      if (msg.includes('column "category" of relation') || msg.includes('column "category" does not exist')) {
+        console.warn(`[Supabase] ${tableName} 테이블에 'category' 컬럼이 없어 제외하고 저장합니다.`);
+        delete payload.category;
+        const { error: retryError } = await supabase
+          .from(tableName)
+          .upsert(payload, { onConflict: 'id' });
+        
+        if (retryError) throw retryError;
+      } else {
+        throw error;
+      }
+    }
+    console.log(`[Cloud Sync] ${tableName} 저장 성공: ${doc.id}`);
+  } catch (err: any) {
+    console.error(`[Cloud Sync Error] ${tableName}:`, err.message || err);
+  }
 };
 
 /**
  * 수신처/은행/계정 관리 저장
  */
-export const saveRecipient = async (data: any) => {
+export const saveRecipient = async (data: {
+  id: string;
+  name: string;
+  tel?: string;
+  fax?: string;
+  remark?: string;
+  category: string;
+}) => {
   if (!supabase) return;
   try {
     const { error } = await supabase
@@ -97,18 +97,65 @@ export const saveRecipient = async (data: any) => {
     if (error) throw error;
     console.log(`[Cloud Sync] Recipients 저장 성공: ${data.name}`);
   } catch (err: any) {
-    console.error(`[Cloud Sync Error] Recipients:`, err.message);
+    console.error(`[Cloud Sync Error] Recipients:`, err.message || err);
   }
 };
 
 /**
- * 데이터 삭제
+ * 수신처/계정 삭제
+ */
+export const deleteRecipient = async (id: string) => {
+  if (!supabase) return;
+  try {
+    const { error } = await supabase
+      .from('recipients')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    console.log(`[Cloud Sync] Recipients 삭제 성공: ${id}`);
+  } catch (err: any) {
+    console.error(`[Cloud Sync Delete Error] Recipients:`, err.message || err);
+  }
+};
+
+/**
+ * 문서 삭제 (개별 테이블에서 삭제)
  */
 export const deleteSingleDoc = async (tableName: string, id: string, doc?: any) => {
   if (!supabase) return;
   try {
     let cloudId = id;
-    // (삭제용 cloudId 유추 로직은 기존 코드와 동일하여 생략 가능하지만 유지하는 것이 안전합니다)
+    
+    // 만약 doc이 전달되지 않았다면 로컬스토리지에서 찾아서 cloudId를 유추합니다.
+    if (doc) {
+      if (tableName === 'injectionorder') {
+        cloudId = doc.title || id;
+      } else if (tableName !== 'recipients') {
+        cloudId = doc.recipient || doc.clientName || doc.consigneeName || doc.title || id;
+      }
+    } else {
+      const localKeyMap: Record<string, string> = {
+        'orders': 'ajin_orders',
+        'invoices': 'ajin_invoices',
+        'purchase_orders': 'ajin_purchase_orders',
+        'vn_purchase_orders': 'ajin_vietnam_orders',
+        'nationalinvoice': 'ajin_national_invoices',
+        'injectionorder': 'ajin_injection_orders'
+      };
+      const localKey = localKeyMap[tableName];
+      if (localKey) {
+        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+        const found = localData.find((d: any) => String(d.id) === String(id));
+        if (found) {
+          if (tableName === 'injectionorder') {
+            cloudId = found.title || id;
+          } else {
+            cloudId = found.recipient || found.clientName || found.consigneeName || found.title || id;
+          }
+        }
+      }
+    }
+
     const { error } = await supabase
       .from(tableName)
       .delete()
@@ -117,82 +164,127 @@ export const deleteSingleDoc = async (tableName: string, id: string, doc?: any) 
     if (error) throw error;
     console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${cloudId}`);
   } catch (err: any) {
-    console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message);
+    console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message || err);
   }
 };
 
 /**
- * 클라우드 데이터 가져오기 (Pull)
+ * 클라우드 데이터와 로컬 데이터 병합 (계정 동기화 포함)
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
   try {
-    // 필요한 데이터만 최소한으로 Select (id와 content 위주)
     const fetchTable = async (name: string) => {
-      const { data, error } = await supabase.from(name).select('content');
-      return error ? [] : (data || []);
+      try {
+        const { data, error } = await supabase.from(name).select('content');
+        if (error) return [];
+        return data || [];
+      } catch (e) {
+        return [];
+      }
     };
 
-    const [orders, invoices, pOrders, vnOrders, nationalInvoices, injectionOrders, accountsRes] = await Promise.all([
+    // 1. 모든 테이블 데이터 및 계정(recipients) 데이터를 가져옵니다.
+    const [
+      ordersRes, 
+      invoicesRes, 
+      pOrdersRes, 
+      vnOrdersRes, 
+      nationalInvoicesRes, 
+      injectionOrdersRes, 
+      nationalEntitiesRes,
+      accountsRes
+    ] = await Promise.all([
       fetchTable('orders'),
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
       fetchTable('vn_purchase_orders'),
       fetchTable('nationalinvoice'),
       fetchTable('injectionorder'),
+      fetchTable('national_entities'),
       supabase.from('recipients').select('*').eq('category', 'ACCOUNT')
     ]);
 
-    // 로컬 스토리지와 병합 로직 (Map 기반 중복 제거)
-    const merge = (localKey: string, cloudList: any[]) => {
+    // 2. 클라우드 계정 데이터를 앱 형식으로 변환
+    const cloudAccounts = accountsRes.data?.map(item => ({
+      id: item.id,
+      loginId: item.name,
+      initials: item.tel,
+      allowedMenus: JSON.parse(item.remark || '[]'),
+      createdAt: item.created_at || new Date().toISOString()
+    })) || [];
+
+    // 3. 병합 로직 (ID 기준 중복 제거)
+    const merge = (localKey: string, newList: any[] = []) => {
       const localData = JSON.parse(localStorage.getItem(`ajin_${localKey}`) || '[]');
-      const cloudData = cloudList.map(i => i.content).filter(Boolean);
+      const cloudItems = newList?.map((item: any) => item.content).filter(Boolean) || [];
+      
+      const combined = [...cloudItems, ...localData];
       const map = new Map();
-      [...localData, ...cloudData].forEach(item => {
-        if (item?.id) map.set(String(item.id), item);
+      combined.forEach(item => {
+        if (item && item.id) map.set(item.id, item);
       });
       return Array.from(map.values());
     };
 
+    // 4. 최종 데이터 셋 (계정은 클라우드 우선)
     const finalData = {
-      orders: merge('orders', orders),
-      invoices: merge('invoices', invoices),
-      purchase_orders: merge('purchase_orders', pOrders),
-      vietnam_orders: merge('vietnam_orders', vnOrders),
-      national_invoices: merge('national_invoices', nationalInvoices),
-      injection_orders: merge('injection_orders', injectionOrders),
-      accounts: accountsRes.data || [],
+      accounts: cloudAccounts.length > 0 ? cloudAccounts : JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
+      orders: merge('orders', ordersRes),
+      invoices: merge('invoices', invoicesRes),
+      purchase_orders: merge('purchase_orders', pOrdersRes),
+      vietnam_orders: merge('vietnam_orders', vnOrdersRes),
+      national_invoices: merge('national_invoices', nationalInvoicesRes),
+      national_entities: JSON.parse(localStorage.getItem('ajin_national_entities') || '[]'),
+      injection_orders: merge('injection_orders', injectionOrdersRes),
+      vn_vendors: JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]'),
+      vn_bank_vendors: JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]'),
+      notices: JSON.parse(localStorage.getItem('ajin_notices') || '[]'),
       updatedAt: new Date().toISOString()
     };
 
-    // 로컬 스토리지 일괄 저장
-    Object.entries(finalData).forEach(([key, val]) => {
-      if (key !== 'updatedAt') localStorage.setItem(`ajin_${key}`, JSON.stringify(val));
+    // 5. 로컬 스토리지에 결과 쓰기
+    Object.keys(finalData).forEach(key => {
+      if (key !== 'updatedAt') {
+        localStorage.setItem(`ajin_${key}`, JSON.stringify((finalData as any)[key]));
+      }
     });
-    
+    localStorage.setItem('ajin_last_local_update', finalData.updatedAt);
+
+    console.log('[Cloud Sync] 계정 포함 개별 테이블 기반 동기화 완료');
     return finalData;
   } catch (err) {
-    console.error('[Cloud Sync Pull Error]', err);
+    console.error('[Cloud Sync] Pull error:', err);
     return null;
   }
 };
 
 /**
- * 잔디 알림
+ * 잔디 알림 전송
  */
-export const sendJandiNotification = async (target: string, type: string, title: string, recipient: string, date: string) => {
+export const sendJandiNotification = async (
+  target: 'KR' | 'VN' | 'KR_PO',
+  type: 'REQUEST' | 'COMPLETE' | 'REJECT',
+  title: string,
+  recipient: string,
+  date: string
+) => {
   try {
-    await fetch('/api/jandi', {
+    const response = await fetch('/api/jandi', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ target, type, title, recipient, date })
     });
+    if (!response.ok) throw new Error('Jandi API error');
+    console.log(`[JANDI SUCCESS] Notification sent`);
   } catch (err) {
-    console.error('[JANDI ERROR]', err);
+    console.error('[JANDI API CALL ERROR]', err);
   }
 };
 
 /**
- * 전체 백업 기능 (트래픽 방지를 위해 사용 중단)
+ * 전체 백업 기능 중단 (빈 함수 유지로 에러 방지)
  */
-export const pushStateToCloud = async () => { return; };
+export const pushStateToCloud = async (immediate: boolean = false) => {
+  return; 
+};
