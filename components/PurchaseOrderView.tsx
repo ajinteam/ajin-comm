@@ -1235,7 +1235,6 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         </html>
       `);
       printWindow.document.close();
-      window.close();
     }
   };
 

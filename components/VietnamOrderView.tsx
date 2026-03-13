@@ -630,7 +630,6 @@ td {
         </body></html>
       `);
       win.document.close();
-      window.close();
     }
   };
 

@@ -23,6 +23,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     ceo: { approved: false },
   });
 
+  const formatNum = (val: any) => {
+    if (val === undefined || val === null || val === '') return '';
+    const str = String(val).replace(/,/g, '').trim();
+    if (str === '') return '';
+    const num = parseFloat(str);
+    if (isNaN(num)) return val;
+    return num.toLocaleString();
+  };
+
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -95,19 +104,20 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             if (row[idxMold] || row[idxDn]) {
               tableRows.push({
                 id: crypto.randomUUID ? crypto.randomUUID() : `injection-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                model: String(row[idxMold] || ''),
-                dept: String(row[idxDn] || ''),
+                dept: String(row[idxMold] || ''),
+                model: String(row[idxDn] || ''),
                 itemName: String(row[idxPartName] || ''),
                 s: String(row[idxS] || ''),
                 cty: String(row[idxCty] || ''),
                 qty: String(row[idxQty] || ''),
+                price: String(row[idxQty] || ''), // PurchaseOrderView expects QTY in 'price' field for PO1
                 material: String(row[idxMaterial] || ''),
                 vendor: String(row[idxVendor] || ''),
                 injectionVendor: String(row[idxInjectionVendor] || ''),
                 orderQty: String(row[idxOrderQty] || ''),
                 unitPrice: String(row[idxUnitPrice] || ''),
-                price: String(row[idxPrice] || ''),
-                remarks: String(row[idxRemarksRSP] || ''), // Keep remarks for compatibility if needed
+                amount: String(row[idxPrice] || ''), // PurchaseOrderView expects Total in 'amount' field for PO1
+                remarks: String(row[idxRemarksRSP] || ''),
                 extra: String(row[idxExtra] || ''),
                 extraAmount: String(row[idxExtraAmount] || ''),
                 remarksRSP: String(row[idxRemarksRSP] || ''),
@@ -115,8 +125,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             }
           }
 
+          // Move extra information to footer
+          const extraFooterLines = tableRows
+            .filter(r => (r.extra && r.extra.trim() !== '') || (r.extraAmount && r.extraAmount.trim() !== '0' && r.extraAmount.trim() !== ''))
+            .map(r => `[${r.itemName}] 추가: ${r.extra || '-'}, 추가금액: ${formatNum(r.extraAmount) || '0'}`);
+
           setExcelData(tableRows);
-          setFooterText(footerRows);
+          setFooterText([...footerRows, ...extraFooterLines]);
         } else {
           alert('엑셀 파일에서 헤더(MOLD, DN 등)를 찾을 수 없습니다.');
         }
@@ -126,7 +141,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   }, []);
 
   const totals = useMemo(() => {
-    const priceSubtotal = excelData.reduce((acc, row) => acc + (parseFloat(String(row.price || '0').replace(/,/g, '')) || 0), 0);
+    const priceSubtotal = excelData.reduce((acc, row) => acc + (parseFloat(String(row.amount || '0').replace(/,/g, '')) || 0), 0);
     const extraSubtotal = excelData.reduce((acc, row) => acc + (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0), 0);
     
     const priceVat = Math.floor(priceSubtotal * 0.1);
@@ -140,15 +155,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       extra: { subtotal: extraSubtotal, vat: extraVat, total: extraTotal }
     };
   }, [excelData]);
-
-  const formatNum = (val: any) => {
-    if (val === undefined || val === null || val === '') return '';
-    const str = String(val).replace(/,/g, '').trim();
-    if (str === '') return '';
-    const num = parseFloat(str);
-    if (isNaN(num)) return val;
-    return num.toLocaleString();
-  };
 
   const handleComplete = useCallback(async () => {
     if (excelData.length === 0) {
@@ -261,7 +267,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         </html>
       `);
       win.document.close();
-      window.close();
     }
   }, [fileName]);
 
@@ -371,7 +376,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
                       <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
                       <th className="w-[3%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
-                      <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                      <th className="w-[25%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
                       <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
                       <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
                       <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
@@ -380,15 +385,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
                       <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
                       <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
-                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
-                      <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
-                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                      <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
                     </tr>
                   </thead>
                   <tbody className="text-black">
                     {excelData.map((row, index) => {
-                      const hasMold = !!row.model && row.model.trim() !== '';
-                      const nextRowHasMold = index < excelData.length - 1 && !!excelData[index + 1].model && excelData[index + 1].model.trim() !== '';
+                      const hasMold = !!row.dept && row.dept.trim() !== '';
+                      const nextRowHasMold = index < excelData.length - 1 && !!excelData[index + 1].dept && excelData[index + 1].dept.trim() !== '';
                       const isLastRow = index === excelData.length - 1;
                       
                       const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
@@ -398,20 +401,18 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                       return (
                         <tr key={row.id || index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
-                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.dept}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.model}</td>
                           <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
                           <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
                           <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.price)}</td>
                           <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
                           <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
                           <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
                           <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
                           <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
-                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.amount)}</td>
                           <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
                         </tr>
                       );
@@ -420,22 +421,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <tr className="bg-slate-50/30 font-bold text-black border-t-2 border-slate-400">
                       <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
                       <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.subtotal.toLocaleString()}</td>
-                      <td className="px-0 py-3 border-r border-slate-100"></td>
-                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.subtotal.toLocaleString()}</td>
                       <td className="px-1 py-3"></td>
                     </tr>
                     <tr className="bg-slate-50/30 font-bold text-black">
                       <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
                       <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.vat.toLocaleString()}</td>
-                      <td className="px-0 py-3 border-r border-slate-100"></td>
-                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.vat.toLocaleString()}</td>
                       <td className="px-1 py-3"></td>
                     </tr>
                     <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
                       <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
                       <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.price.total.toLocaleString()}</td>
-                      <td className="px-0 py-3 border-r border-slate-100"></td>
-                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.extra.total.toLocaleString()}</td>
                       <td className="px-1 py-3"></td>
                     </tr>
                   </tbody>
@@ -506,7 +501,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
                         <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
                         <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
-                        <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
+                        <th className="w-[150px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
                         <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
                         <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
                         <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
@@ -515,15 +510,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
                         <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
                         <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
-                        <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
-                        <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
-                        <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                        <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
                       </tr>
                     </thead>
                     <tbody className="text-black">
                       {excelData.map((row, idx) => {
-                        const hasMold = !!row.model && row.model.trim() !== '';
-                        const nextRowHasMold = idx < excelData.length - 1 && !!excelData[idx + 1].model && excelData[idx + 1].model.trim() !== '';
+                        const hasMold = !!row.dept && row.dept.trim() !== '';
+                        const nextRowHasMold = idx < excelData.length - 1 && !!excelData[idx + 1].dept && excelData[idx + 1].dept.trim() !== '';
                         const isLastRow = idx === excelData.length - 1;
                         
                         const borderTopClass = hasMold ? 'border-t-bold' : '';
@@ -533,20 +526,18 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                         return (
                           <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
-                            <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
-                            <td className="px-1 py-1 text-[8px]">{row.dept}</td>
+                            <td className="px-1 py-1 text-[8px] font-bold">{row.dept}</td>
+                            <td className="px-1 py-1 text-[8px]">{row.model}</td>
                             <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
                             <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
                             <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.price)}</td>
                             <td className="px-1 py-1 text-[8px]">{row.material}</td>
                             <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
                             <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
                             <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
                             <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
-                            <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
-                            <td className="px-1 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
-                            <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
+                            <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.amount)}</td>
                             <td className="px-1 py-1 text-[8px] italic">{row.remarksRSP}</td>
                           </tr>
                         );
@@ -555,22 +546,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <tr className="border-t-bold">
                         <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
                         <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.price.subtotal.toLocaleString()}</td>
-                        <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.extra.subtotal.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                       <tr className="border-t-thin border-b-thin">
                         <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
                         <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.price.vat.toLocaleString()}</td>
-                        <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.extra.vat.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                       <tr className="bg-slate-50 border-b-bold">
                         <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
                         <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{totals.price.total.toLocaleString()}</td>
-                        <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{totals.extra.total.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                     </tbody>

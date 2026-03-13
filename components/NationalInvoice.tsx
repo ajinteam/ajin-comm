@@ -681,7 +681,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         </html>
       `);
       win.document.close();
-      window.close();
     }
   }, [formData, formatNumber]);
 
