@@ -52,13 +52,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         approved: orders.filter((o: any) => o.status === OrderSubCategory.APPROVED).length
       },
       invoice: {
-        completed: invoices.filter((inv: any) => inv.status === InvoiceSubCategory.COMPLETED || !inv.isTemporary).length
-      },
+        completed: invoices.filter((inv: any) => 
+      inv.status === '결재대기' && 
+      (!inv.type || inv.type === '일반' || inv.type === InvoiceSubCategory.COMPLETED)
+    ).length
+  },
       purchase: {
         pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
         rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
-        approved: pOrders.filter((o: any) => !!o.stamps?.final).length
-      },
+        approved: pOrders.filter((o: any) => 
+    o.status === PurchaseOrderSubCategory.APPROVED && 
+    (!o.type || o.type === '일반' || o.type === PurchaseOrderSubCategory.APPROVED)
+  ).length
+},
       vietnam: {
         pending: vOrders.filter((o: any) => o.status === VietnamSubCategory.PENDING).length,
         rejected: vOrders.filter((o: any) => o.status === VietnamSubCategory.REJECTED).length,
