@@ -1823,9 +1823,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   if (activeItem) {
     const isPOForm = activeItem.type === PurchaseOrderSubCategory.PO1 || activeItem.type === PurchaseOrderSubCategory.PO2 || activeItem.type === PurchaseOrderSubCategory.PO3 || activeItem.type === '사출발주서' || activeItem.type === '인쇄발주서' || activeItem.type === '메탈발주서';
+    const isInjectionExcel = activeItem.code === 'INJECTION';
     const isPO1Active = activeItem.type === PurchaseOrderSubCategory.PO1 || activeItem.type === '사출발주서';
     const isPO3Active = activeItem.type === PurchaseOrderSubCategory.PO3 || activeItem.type === '메탈발주서';
-    const { subtotal, vat, total, extraSubtotal, extraVat } = getTotals(activeItem.rows, isPO1Active);
+    const { subtotal, vat, total, extraSubtotal, extraVat } = getTotals(activeItem.rows, isPO1Active && !isInjectionExcel);
     const stamps = activeItem.stamps;
     const emailAddrActive = isPO1Active ? 'misuk.kim@ajinpre.net' : (isPO3Active ? 'jaesung.lee@ajinpre.net' : 'sangku.lee@ajinpre.net');
     const headerRows = activeItem.headerRows || [];
@@ -1834,10 +1835,21 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const weights = activeItem.weights || {};
     const borders = activeItem.borders || {};
     const activeHideInjection = activeItem.hideInjectionColumn || false;
-    const tableColsActive = (isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP) ? 
+    const tableColsActive = isInjectionExcel ? [
+      { f: 'no', label: 'NO', w: 'w-[40px]', cIdx: 0 },
+      { f: 'dept', label: 'MOLD', w: 'w-[12%]', cIdx: 1 },
+      { f: 'model', label: 'D/N', w: 'w-[12%]', cIdx: 2 },
+      { f: 'itemName', label: '품명(DESCRIPTION)', w: 'flex-1', cIdx: 3 },
+      { f: 'material', label: '규격(SPECIFICATION)', w: 'w-[15%]', cIdx: 4 },
+      { f: 'qty', label: '수량(QTY)', w: 'w-[8%]', cIdx: 5 },
+      { f: 's', label: '단위(UNIT)', w: 'w-[6%]', cIdx: 6 },
+      { f: 'unitPrice', label: '단가(UNIT PRICE)', w: 'w-[10%]', cIdx: 7 },
+      { f: 'amount', label: '금액(AMOUNT)', w: 'w-[12%]', cIdx: 8 },
+      { f: 'remarks', label: '비고(REMARK)', w: 'w-[15%]', cIdx: 9 }
+    ] : (isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP) ? 
       (activeHideInjection ? 
-        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'CTY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'QTY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고 R.S/P', w: 'w-[10%]' }] :
-        [{ f: 'model', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'dept', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'CTY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'QTY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' }, { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고 R.S/P', w: 'w-[10%]' }]
+        [{ f: 'dept', cIdx: 0, label: '부서', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: '기종', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'CTY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'QTY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고 R.S/P', w: 'w-[10%]' }] :
+        [{ f: 'dept', cIdx: 0, label: '부서', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: '기종', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'CTY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'QTY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 14, label: '비고 R.S/P', w: 'w-[10%]' }]
       ) : ((isPO3Active || activeItem.type === PurchaseOrderSubCategory.PO3_TEMP) ? [{ f: 'dept', cIdx: 0, label: '도 번', w: 'w-[11%]' }, { f: 'itemName', cIdx: 1, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 2, label: '규 격', w: 'w-[13.3%]' }, { f: 'price', cIdx: 3, label: '수 량', w: 'w-[8%]' }, { f: 'unitPrice', cIdx: 4, label: '단 가', w: 'w-[9.6%]' }, { f: 'amount', cIdx: 5, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 6, label: '비 고', w: 'w-[15%]' }] : [{ f: 'itemName', cIdx: 0, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 1, label: '규 격', w: 'w-[20%]' }, { f: 'price', cIdx: 2, label: '수 량', w: 'w-[10%]' }, { f: 'unitPrice', cIdx: 3, label: '단 가', w: 'w-[12%]' }, { f: 'amount', cIdx: 4, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 5, label: '비 고', w: 'w-[15%]' }]);
     
     const upColIdxActive = tableColsActive.findIndex(c => c.f === 'unitPrice');
@@ -1866,52 +1878,87 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           <div className="min-w-[800px] md:min-w-0">
             {isPOForm ? (
               <>
-                {isPO1Active ? (
+                {isInjectionExcel ? (
                   <div className="mb-6">
                     <div className="flex justify-center mb-8">
-                      <h1 className="text-3xl font-black border-b-2 border-black pb-1 px-4">사출 발주서 (INJECTION ORDER)</h1>
+                      <h1 className="text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
                     </div>
                     <div className="flex justify-between items-start">
-                      <div className="space-y-1 text-base font-bold">
+                      <div className="space-y-1 text-sm font-bold">
                         <p>파일명: {activeItem.title}</p>
                         <p>작성일: {activeItem.date}</p>
                       </div>
-                      <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
-                        <tbody>
-                          <tr>
-                            <td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>
-                            {visibleSlots.map(slot => (
-                              <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>
-                            ))}
-                          </tr>
-                          <tr className="h-16">
-                            {visibleSlots.map(slot => (
-                              <td 
-                                key={slot} 
-                                className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} 
+                      <div className="flex border border-black divide-x divide-black">
+                        {visibleSlots.map((slot, idx) => {
+                          const label = getStampLabel(slot);
+                          return (
+                            <div key={idx} className="w-16 h-20 flex flex-col">
+                              <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
+                              <div 
+                                className={`flex-1 flex flex-col items-center justify-center leading-tight ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`}
                                 onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}
                               >
                                 {stamps[slot as keyof PurchaseOrderItem['stamps']] ? (
-                                  <div className="flex flex-col items-center">
-                                    <span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span>
-                                    <span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span>
-                                  </div>
+                                  <>
+                                    <span className={`font-black text-[10px] ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span>
+                                    <span className="text-[6px] text-slate-500 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span>
+                                  </>
                                 ) : (
                                   activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null
                                 )}
-                              </td>
-                            ))}
-                          </tr>
-                        </tbody>
-                      </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                     {headerRows.length > 0 && (
-                      <div className="mt-4 border border-black p-2 text-sm font-bold leading-tight">
-                        {headerRows.map((row: string, idx: number) => (<p key={idx} className="mb-1">{row}</p>))}
+                      <div className="mt-4 border border-black p-2 text-[9px] font-medium leading-tight bg-slate-50/30">
+                        {headerRows.map((row: string, idx: number) => (<p key={idx} className="mb-0.5">{row}</p>))}
                       </div>
                     )}
                   </div>
-                ) : (
+                ) : isPO1Active ? (
+                  <div className="mb-6">
+                        <div className="flex justify-center mb-8">
+                          <h1 className="text-xl font-black underline mb-8">사출 발주서</h1>
+                        </div>
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1 text-sm font-bold">
+                            <p>파일명: {activeItem.title}</p>
+                            <p>작성일: {activeItem.date}</p>
+                          </div>
+                          <div className="flex border border-black divide-x divide-black">
+                            {visibleSlots.map((slot, idx) => {
+                              const label = getStampLabel(slot);
+                              return (
+                                <div key={idx} className="w-16 h-20 flex flex-col">
+                                  <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
+                                  <div 
+                                    className={`flex-1 flex flex-col items-center justify-center leading-tight ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`}
+                                    onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}
+                                  >
+                                    {stamps[slot as keyof PurchaseOrderItem['stamps']] ? (
+                                      <>
+                                        <span className={`font-black text-[10px] ${slot==='writer'?'text-blue-700':slot==='ceo'?'text-red-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span>
+                                        <span className="text-[6px] text-slate-500 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span>
+                                      </>
+                                    ) : (
+                                      activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {headerRows.length > 0 && (
+                          <div className="mt-4 border border-black p-2 text-[9px] font-medium leading-tight bg-slate-50/30">
+                            {headerRows.map((row: string, idx: number) => (<p key={idx} className="mb-0.5">{row}</p>))}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
                   <>
                     <div className="flex flex-col items-center mb-1 text-base">
                       <h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1>
@@ -2014,8 +2061,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                 style={{ ...borderStyles, textAlign: textAlign as any, fontWeight: textWeight }} 
                                 className={`${tdBorderClass} p-1 relative ${isChanged ? 'text-red-600' : ''}`}
                               >
-                                {cell.f === 'amount' ? (
-                                  ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active).toLocaleString())
+                                {cell.f === 'no' ? (
+                                  rIdx + 1
+                                ) : cell.f === 'amount' ? (
+                                  ((row.unitPrice === '0' || row.unitPrice === 0) ? (row.amount || '0') : calculateAmount(row, isPO1Active && !isInjectionExcel).toLocaleString())
                                 ) : cell.f === 'extraAmount' ? (
                                   (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0).toLocaleString()
                                 ) : (
@@ -2037,7 +2086,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
                   <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest text-black">합 계</td>
                   <td className="border border-black p-1 text-right pr-2 font-mono">{subtotal.toLocaleString()}</td>
-                  {isPO1Active && (
+                  {isPO1Active && !isInjectionExcel && (
                     <>
                       <td className="border border-black"></td>
                       <td className="border border-black p-1 text-right pr-2 font-mono">{extraSubtotal.toLocaleString()}</td>
@@ -2048,7 +2097,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 <tr className="bg-slate-50 font-black text-xs leading-tight">
                   <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest text-black">부 가 세</td>
                   <td className="border border-black p-1 text-right pr-2 font-mono">{vat.toLocaleString()}</td>
-                  {isPO1Active && (
+                  {isPO1Active && !isInjectionExcel && (
                     <>
                       <td className="border border-black"></td>
                       <td className="border border-black p-1 text-right pr-2 font-mono">{extraVat.toLocaleString()}</td>
@@ -2059,7 +2108,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 <tr className="bg-slate-900 text-white font-black text-xs leading-tight no-print">
                   <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest">총 액</td>
                   <td className="border border-black p-1 text-right pr-2 font-mono">{(subtotal + vat).toLocaleString()}</td>
-                  {isPO1Active && (
+                  {isPO1Active && !isInjectionExcel && (
                     <>
                       <td className="border border-black"></td>
                       <td className="border border-black p-1 text-right pr-2 font-mono">{(extraSubtotal + extraVat).toLocaleString()}</td>
@@ -2070,7 +2119,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 <tr className="bg-white text-black font-black text-xs leading-tight hidden print-table-row total-row">
                   <td colSpan={tableColsActive.findIndex(c => c.f === 'amount')} className="border border-black p-1 text-center tracking-widest">총 액</td>
                   <td className="border border-black p-1 text-right pr-2 font-mono">{(subtotal + vat).toLocaleString()}</td>
-                  {isPO1Active && (
+                  {isPO1Active && !isInjectionExcel && (
                     <>
                       <td className="border border-black"></td>
                       <td className="border border-black p-1 text-right pr-2 font-mono">{(extraSubtotal + extraVat).toLocaleString()}</td>

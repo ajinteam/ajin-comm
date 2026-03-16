@@ -5,7 +5,8 @@ export enum MainCategory {
   PURCHASE = '발주서',
   VIETNAM = 'VN베트남',
   STORAGE = '파일관리',
-  NATIONAL_INVOICE = '국제인보이스'
+  NATIONAL_INVOICE = '국제인보이스',
+  INJECTION = '사출발주서'
 }
 
 export enum OrderSubCategory {
@@ -287,6 +288,16 @@ export enum NationalInvoiceSubCategory {
   COMPLETED = '인보이스완료'
 }
 
+export enum InjectionSubCategory {
+  CREATE = 'Injection 발주서',
+  LOAD = 'Injec 불러오기',
+  TEMPORARY = 'Injec 임시',
+  PENDING = 'Injec 결재대기',
+  REJECTED = 'Injec 반송',
+  APPROVED = 'Injec 결재완료',
+  RECIPIENTS = 'Injec 수신처'
+}
+
 export interface NationalInvoiceRow {
   id: string;
   type: 'ITEM' | 'HEADER' | 'TOTAL';
@@ -379,6 +390,7 @@ export type ViewState =
   | { type: 'ORDER', sub: OrderSubCategory }
   | { type: 'INVOICE', sub: InvoiceSubCategory }
   | { type: 'PURCHASE', sub: PurchaseOrderSubCategory }
+  | { type: 'INJECTION', sub: InjectionSubCategory }
   | { type: 'VIETNAM', sub: VietnamSubCategory }
   | { type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory, editId?: string }
   | { type: 'STORAGE' }

@@ -6,7 +6,9 @@ import {
   ViewState,
   PurchaseOrderSubCategory,
   VietnamSubCategory,
-  NationalInvoiceSubCategory
+  NationalInvoiceSubCategory,
+  InjectionSubCategory,
+  MainCategory
 } from './types';
 import Sidebar from './components/Sidebar';
 import Header from './components/Header';

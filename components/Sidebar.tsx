@@ -6,6 +6,7 @@ import {
   PurchaseOrderSubCategory,
   VietnamSubCategory,
   NationalInvoiceSubCategory,
+  InjectionSubCategory,
   ViewState,
   UserAccount,
   MainCategory
@@ -22,6 +23,7 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, onClose }) => {
   const isMaster = user.loginId === 'AJ5200';
   const [isPOWritingExpanded, setIsPOWritingExpanded] = useState(false);
+  const [isInjectionWritingExpanded, setIsInjectionWritingExpanded] = useState(false);
   const [isVNWritingExpanded, setIsVNWritingExpanded] = useState(false);
   const [isVNCompletedExpanded, setIsVNCompletedExpanded] = useState(false);
 
@@ -33,12 +35,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     const orderSubs = Object.values(OrderSubCategory) as string[];
     const invoiceSubs = Object.values(InvoiceSubCategory) as string[];
     const purchaseSubs = Object.values(PurchaseOrderSubCategory) as string[];
+    const injectionSubs = Object.values(InjectionSubCategory) as string[];
     const vietnamSubs = Object.values(VietnamSubCategory) as string[];
     const nationalSubs = Object.values(NationalInvoiceSubCategory) as string[];
 
     if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
     if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
     if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
+    if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION)) return true;
     if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
     if (nationalSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.NATIONAL_INVOICE)) return true;
     
@@ -48,7 +52,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     return false;
   };
 
-  const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'VIETNAM' | 'NATIONAL_INVOICE', isNested: boolean = false) => {
+  const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'INJECTION' | 'VIETNAM' | 'NATIONAL_INVOICE', isNested: boolean = false) => {
     if (!isVisible(sub)) return null;
 
     const isActive = (currentView.type === type && (currentView as any).sub === sub);
@@ -57,15 +61,17 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (type === 'INVOICE') activeBg = 'bg-emerald-600';
     if (type === 'NATIONAL_INVOICE') activeBg = 'bg-cyan-600';
     if (type === 'PURCHASE') activeBg = 'bg-amber-600';
+    if (type === 'INJECTION') activeBg = 'bg-blue-700';
     if (type === 'VIETNAM') activeBg = 'bg-indigo-600';
 
-    const isExpandable = (sub === PurchaseOrderSubCategory.CREATE || sub === VietnamSubCategory.CREATE_ROOT || sub === VietnamSubCategory.COMPLETED_ROOT);
+    const isExpandable = (sub === PurchaseOrderSubCategory.CREATE || sub === InjectionSubCategory.CREATE || sub === VietnamSubCategory.CREATE_ROOT || sub === VietnamSubCategory.COMPLETED_ROOT);
 
     return (
       <button
         key={sub}
         onClick={() => {
           if (sub === PurchaseOrderSubCategory.CREATE) setIsPOWritingExpanded(!isPOWritingExpanded);
+          if (sub === InjectionSubCategory.CREATE) setIsInjectionWritingExpanded(!isInjectionWritingExpanded);
           if (sub === VietnamSubCategory.CREATE_ROOT) setIsVNWritingExpanded(!isVNWritingExpanded);
           if (sub === VietnamSubCategory.COMPLETED_ROOT) setIsVNCompletedExpanded(!isVNCompletedExpanded);
 
@@ -89,6 +95,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             xmlns="http://www.w3.org/2000/svg" 
             className={`h-3 w-3 transition-transform duration-300 ${
               (sub === PurchaseOrderSubCategory.CREATE && isPOWritingExpanded) || 
+              (sub === InjectionSubCategory.CREATE && isInjectionWritingExpanded) ||
               (sub === VietnamSubCategory.CREATE_ROOT && isVNWritingExpanded) ||
               (sub === VietnamSubCategory.COMPLETED_ROOT && isVNCompletedExpanded) ? 'rotate-180' : ''
             }`} 
@@ -200,6 +207,30 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             </div>
           )}
 
+          {isVisible(MainCategory.INJECTION) && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">사출발주서</h2>
+              </div>
+              <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                {renderSubMenu(InjectionSubCategory.CREATE, 'INJECTION')}
+                {isInjectionWritingExpanded && (
+                  <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                    {renderSubMenu(InjectionSubCategory.LOAD, 'INJECTION', true)}
+                    {renderSubMenu(InjectionSubCategory.TEMPORARY, 'INJECTION', true)}
+                  </div>
+                )}
+                {renderSubMenu(InjectionSubCategory.PENDING, 'INJECTION')}
+                {renderSubMenu(InjectionSubCategory.REJECTED, 'INJECTION')}
+                {renderSubMenu(InjectionSubCategory.APPROVED, 'INJECTION')}
+                {renderSubMenu(InjectionSubCategory.RECIPIENTS, 'INJECTION')}
+              </div>
+            </div>
+          )}
+
           {isVisible(MainCategory.PURCHASE) && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
@@ -209,7 +240,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">발주서</h2>
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(PurchaseOrderSubCategory.INJECTION_ORDER, 'PURCHASE')}
                 {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
                 {isPOWritingExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">

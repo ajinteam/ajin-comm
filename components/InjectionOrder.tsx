@@ -170,7 +170,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       
       const newPO: PurchaseOrderItem = {
         id: `po-${Date.now()}`,
-        code: `PO-${Date.now()}`,
+        code: 'INJECTION',
         title: fileName || 'Injection Order',
         type: PurchaseOrderSubCategory.PO1,
         status: PurchaseOrderSubCategory.PENDING,
@@ -195,7 +195,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       updateLocal('ajin_injection_orders');
 
       // [최적화] 2. Supabase 개별 저장 (전체 백업 대신 이 건만 전송)
-      saveSingleDoc('injectionorder', newPO);
+      saveSingleDoc('purchase_orders', newPO);
       
       // JANDI 알림: 사출발주서 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${fileName || 'Injection Order'}`, 'H-CHUN', now.toISOString().split('T')[0]);
