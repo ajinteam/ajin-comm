@@ -88,7 +88,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const saveNotices = (notices: Announcement[]) => {
     setAnnouncements(notices);
     localStorage.setItem('ajin_notices', JSON.stringify(notices));
-    pushStateToCloud(true); // 공지 / 요청사항은 즉시 반영
+    pushStateToCloud(); // 공지 / 요청사항은 즉시 반영
   };
 
   const handleAddNotice = () => {

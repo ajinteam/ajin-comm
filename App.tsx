@@ -74,22 +74,6 @@ const App: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (!supabase) return;
-
-    const channel = supabase
-      .channel('db-changes')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'ajin-comm-backup' },
-        async () => {
-          setIsSyncing(true);
-          await pullStateFromCloud();
-          setDataVersion(v => v + 1);
-          setIsSyncing(false);
-        }
-      )
-      .subscribe();
-
     const handleSync = async () => {
       if (!currentUser) return;
       setIsSyncing(true);
@@ -100,7 +84,6 @@ const App: React.FC = () => {
 
     window.addEventListener('focus', handleSync);
     return () => {
-      supabase.removeChannel(channel);
       window.removeEventListener('focus', handleSync);
     };
   }, [currentUser]);
