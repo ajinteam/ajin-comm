@@ -63,7 +63,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (type === 'INJECTION_ORDER_MAIN') activeBg = 'bg-orange-600';
     if (type === 'VIETNAM') activeBg = 'bg-indigo-600';
 
-    const isExpandable = (sub === PurchaseOrderSubCategory.CREATE || sub === VietnamSubCategory.CREATE_ROOT || sub === VietnamSubCategory.COMPLETED_ROOT);
+    const isExpandable = (sub === PurchaseOrderSubCategory.CREATE || sub === VietnamSubCategory.CREATE_ROOT || sub === VietnamSubCategory.COMPLETED_ROOT || sub === InjectionOrderSubCategory.DESTINATION_ROOT);
 
     return (
       <button
@@ -156,7 +156,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {renderSubMenu(InjectionOrderSubCategory.PENDING, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.REJECTED, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.APPROVED, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.DESTINATION, 'INJECTION_ORDER_MAIN')}
+                {renderSubMenu(InjectionOrderSubCategory.DESTINATION_ROOT, 'INJECTION_ORDER_MAIN')}
+                {currentView.type === 'INJECTION_ORDER_MAIN' && currentView.sub === InjectionOrderSubCategory.DESTINATION_ROOT && (
+                  <div className="ml-4 border-l border-slate-800/30">
+                    {renderSubMenu(InjectionOrderSubCategory.DESTINATION, 'INJECTION_ORDER_MAIN', true)}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -233,7 +238,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">발주서</h2>
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(PurchaseOrderSubCategory.INJECTION_ORDER, 'PURCHASE')}
                 {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
                 {isPOWritingExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">

@@ -1116,18 +1116,22 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   const handleFinalArchive = (order: PurchaseOrderItem) => {
+    const isInjection = order.code === 'INJECTION';
     const updatedStamps = { ...order.stamps, final: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
     let updatedDoc: PurchaseOrderItem | undefined;
     const updatedOrders = items.map(o => {
       if (o.id === order.id) {
-        updatedDoc = { ...o, stamps: updatedStamps };
+        updatedDoc = { 
+          ...o, 
+          stamps: updatedStamps,
+          recipient: isInjection ? 'AJ사출발주' : o.recipient 
+        };
         return updatedDoc;
       }
       return o;
     });
-    const isInjection = order.code === 'INJECTION';
     saveItems(updatedOrders, updatedDoc); 
-    alert('최종 보관 처리가 완료되어 수신처 보관함으로 이동되었습니다.'); 
+    alert(`최종 보관 처리가 완료되어 ${isInjection ? 'AJ사출발주' : '수신처 보관함'}으로 이동되었습니다.`); 
     setActiveItem(null); 
     if (isInjection) {
       setView({ type: 'INJECTION', sub: InjectionOrderSubCategory.DESTINATION });
@@ -1495,7 +1499,23 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
     const getColumns = () => {
       if (isPO1Now) {
-        const baseCols = [{ f: 'dept', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, { f: 'model', cIdx: 1, label: 'DN', w: 'w-[6%]' }, { f: 's', cIdx: 2, label: 'S', w: 'w-6' }, { f: 'itemName', cIdx: 3, label: 'PART NAME', w: 'flex-1' }, { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, { f: 'material', cIdx: 6, label: 'MATERIAL', w: 'w-[10%]' }, { f: 'vendor', cIdx: 7, label: '금형업체', w: 'w-[5%]' }, { f: 'injectionVendor', cIdx: 8, label: '사출업체', w: 'w-[5%]' }, { f: 'orderQty', cIdx: 9, label: '주문수량', w: 'w-[5.3%]' }, { f: 'unitPrice', cIdx: 10, label: '단가', w: 'w-[5%]' }, { f: 'amount', cIdx: 11, label: '금액', w: 'w-[8%]' }, { f: 'remarks', cIdx: 12, label: '비고', w: 'w-[10%]' }];
+        const baseCols = [
+          { f: 'dept', cIdx: 0, label: 'MOLD', w: 'w-[6%]' }, 
+          { f: 'model', cIdx: 1, label: 'DN', w: 'w-[6%]' }, 
+          { f: 'itemName', cIdx: 2, label: 'PART NAME', w: 'flex-1' },
+          { f: 's', cIdx: 3, label: 'S', w: 'w-6' }, 
+          { f: 'cty', cIdx: 4, label: 'C\'TY', w: 'w-8' }, 
+          { f: 'price', cIdx: 5, label: 'Q\'TY', w: 'w-8' }, 
+          { f: 'unitPrice', cIdx: 6, label: '단가', w: 'w-[5%]' }, 
+          { f: 'amount', cIdx: 7, label: '금액', w: 'w-[8%]' },
+          { f: 'material', cIdx: 8, label: 'MATERIAL', w: 'w-[10%]' }, 
+          { f: 'vendor', cIdx: 9, label: '금형업체', w: 'w-[5%]' }, 
+          { f: 'injectionVendor', cIdx: 10, label: '사출업체', w: 'w-[5%]' }, 
+          { f: 'orderQty', cIdx: 11, label: '주문수량', w: 'w-[5.3%]' }, 
+          { f: 'extra', cIdx: 12, label: '추가', w: 'w-[5%]' },
+          { f: 'extraAmount', cIdx: 13, label: '추가금액', w: 'w-[7%]' },
+          { f: 'remarks', cIdx: 14, label: '비고', w: 'w-[10%]' }
+        ];
         return hideInjectionColumn ? baseCols.filter(c => c.f !== 'injectionVendor') : baseCols;
       }
       if (isPO3Now) return [{ f: 'dept', cIdx: 0, label: '도 번', w: 'w-[11%]' }, { f: 'itemName', cIdx: 1, label: '품 명', w: 'flex-1' }, { f: 'model', cIdx: 2, label: '규 격', w: 'w-[13.3%]' }, { f: 'price', cIdx: 3, label: '수 량', w: 'w-[8%]' }, { f: 'unitPrice', cIdx: 4, label: '단 가', w: 'w-[9.6%]' }, { f: 'amount', cIdx: 5, label: '금 액', w: 'w-[15%]' }, { f: 'remarks', cIdx: 6, label: '비 고', w: 'w-[15%]' }];
@@ -2043,10 +2063,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                     <p className={`mb-2 font-bold text-lg leading-tight`}>아래와 같이 주문 합니다.</p>
                   </>
                 )}
-                <table className={`w-full border-collapse border-black border-[1px] ${isPO1Active ? 'text-[15px]' : 'text-[11px] md:text-[12px]'}`}>
+                <table className={`w-full border-collapse border-black border-[1px] ${isInjectionExcel ? 'text-[8px]' : isPO1Active ? 'text-[15px]' : 'text-[11px] md:text-[12px]'}`}>
                   <thead className="bg-slate-100">
                     <tr>
-                      {tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black`}>{col.label}</th>)}
+                      {tableColsActive.map(col => <th key={col.f} className={`border border-black p-1 ${col.w} text-center text-black font-black`}>{col.label}</th>)}
                     </tr>
                   </thead>
                   <tbody>
@@ -2055,9 +2075,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                       const nextRowHasMold = isPO1Active && rIdx < activeItem.rows.length - 1 && !!activeItem.rows[rIdx + 1].model && activeItem.rows[rIdx + 1].model.trim() !== '';
                       const isLastRow = rIdx === activeItem.rows.length - 1;
                       const isPO1 = isPO1Active || activeItem.type === PurchaseOrderSubCategory.PO1_TEMP;
+                      
+                      // Grouping logic for Injection Excel
+                      const isNewMold = isInjectionExcel && (rIdx === 0 || row.dept !== activeItem.rows[rIdx - 1].dept);
 
                       return (
-                        <tr key={row.id}>
+                        <tr key={row.id} className={isNewMold && rIdx !== 0 ? 'border-t-2 border-black' : ''}>
                           {tableColsActive.map(cell => {
                             const merge = merges[`${rIdx}-${cell.cIdx}`];
                             const isSkipped = Object.entries(merges).some(([key, m]: [string, any]) => {

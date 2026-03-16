@@ -1,17 +1,9 @@
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { 
-  InjectionOrderSubCategory, 
-  UserAccount, 
-  ViewState, 
-  PurchaseOrderItem,
-  OrderRow,
-  PurchaseOrderSubCategory
-} from '../types';
-import { pushStateToCloud, saveSingleDoc, supabase, sendJandiNotification } from '../supabase';
+import { pushStateToCloud, saveSingleDoc, supabase, sendJandiNotification, deleteSingleDoc } from '../supabase';
+import { OrderRow, UserAccount, ViewState, InjectionOrderSubCategory, StampInfo } from '../types';
 
-interface InjectionOrderMainProps {
+interface InjectionOrderViewProps {
   sub: InjectionOrderSubCategory;
   currentUser: UserAccount;
   userAccounts: UserAccount[];
@@ -19,38 +11,23 @@ interface InjectionOrderMainProps {
   dataVersion: number;
 }
 
-// --- Create View Component (Logic from previous InjectionOrder.tsx) ---
-const InjectionOrderCreateView: React.FC<{
-  currentUser: UserAccount;
-  setView: (v: ViewState) => void;
-  fileName: string;
-  setFileName: (n: string) => void;
-  excelData: OrderRow[];
-  setExcelData: (d: OrderRow[]) => void;
-  headerInfoRows: any[][];
-  setHeaderInfoRows: (r: any[][]) => void;
-  footerText: string[];
-  setFooterText: (t: string[]) => void;
-}> = ({ 
-  currentUser, 
-  setView, 
-  fileName, 
-  setFileName, 
-  excelData, 
-  setExcelData, 
-  headerInfoRows, 
-  setHeaderInfoRows, 
-  footerText, 
-  setFooterText 
-}) => {
-  const formatNum = (val: any) => {
-    if (val === undefined || val === null || val === '') return '';
-    const str = String(val).replace(/,/g, '').trim();
-    if (str === '') return '';
-    const num = parseFloat(str);
-    if (isNaN(num)) return val;
-    return num.toLocaleString();
-  };
+const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUser, userAccounts, setView, dataVersion }) => {
+  const [items, setItems] = useState<any[]>([]);
+  const [activeItem, setActiveItem] = useState<any | null>(null);
+  const [excelData, setExcelData] = useState<OrderRow[]>([]);
+  const [headerInfoRows, setHeaderInfoRows] = useState<any[][]>([]);
+  const [footerText, setFooterText] = useState<string[]>([]);
+  const [fileName, setFileName] = useState<string>('');
+  
+  // Load items from local storage
+  useEffect(() => {
+    const saved = localStorage.getItem('ajin_injection_orders');
+    if (saved) {
+      const allItems = JSON.parse(saved);
+      const filtered = allItems.filter((item: any) => item.status === sub);
+      setItems(filtered);
+    }
+  }, [sub, dataVersion]);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -65,9 +42,11 @@ const InjectionOrderCreateView: React.FC<{
         const worksheet = workbook.Sheets[sheetName];
         const json: any[][] = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
+        // Capture rows 3-5 (indices 2, 3, 4)
         const infoRows = json.slice(2, 5).filter(row => row && row.length > 0);
         setHeaderInfoRows(infoRows);
 
+        // Find the header row (the one containing 'MOLD' or 'DN')
         let headerIndex = -1;
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
@@ -78,8 +57,11 @@ const InjectionOrderCreateView: React.FC<{
         }
 
         if (headerIndex !== -1 && json.length > headerIndex + 1) {
-          const headers: any[] = json[headerIndex].map(h => String(h || '').replace(/\s/g, ''));
-          const findIndex = (patterns: string[]) => headers.findIndex(h => patterns.some(p => h.includes(p)));
+          const headers: any[] = json[headerIndex].map(h => String(h || '').replace(/\s/g, '')); // Remove whitespace and newlines for matching
+          
+          const findIndex = (patterns: string[]) => {
+            return headers.findIndex(h => patterns.some(p => h.includes(p)));
+          };
 
           const idxMold = findIndex(['MOLD']);
           const idxDn = findIndex(['DN']);
@@ -105,105 +87,275 @@ const InjectionOrderCreateView: React.FC<{
           for (let i = 0; i < rawRows.length; i++) {
             const row = rawRows[i];
             if (!row || row.length === 0) continue;
+
             const rowStr = row.join(' ').toLowerCase();
-            if (rowStr.includes('old mold')) foundOldMold = true;
+            if (rowStr.includes('old mold')) {
+              foundOldMold = true;
+            }
+
             if (foundOldMold) {
               footerRows.push(row.filter(cell => cell != null).join(' '));
               continue;
             }
+
             if (row[idxMold] || row[idxDn]) {
               tableRows.push({
                 id: crypto.randomUUID ? crypto.randomUUID() : `injection-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                dept: String(row[idxMold] || ''),
-                model: String(row[idxDn] || ''),
+                model: String(row[idxMold] || ''),
+                dept: String(row[idxDn] || ''),
                 itemName: String(row[idxPartName] || ''),
                 s: String(row[idxS] || ''),
                 cty: String(row[idxCty] || ''),
                 qty: String(row[idxQty] || ''),
-                price: String(row[idxQty] || ''),
                 material: String(row[idxMaterial] || ''),
                 vendor: String(row[idxVendor] || ''),
                 injectionVendor: String(row[idxInjectionVendor] || ''),
                 orderQty: String(row[idxOrderQty] || ''),
                 unitPrice: String(row[idxUnitPrice] || ''),
-                amount: String(row[idxPrice] || ''),
-                remarks: String(row[idxRemarksRSP] || ''),
+                price: String(row[idxPrice] || ''),
+                remarks: String(row[idxRemarksRSP] || ''), // Keep remarks for compatibility if needed
                 extra: String(row[idxExtra] || ''),
                 extraAmount: String(row[idxExtraAmount] || ''),
                 remarksRSP: String(row[idxRemarksRSP] || ''),
               });
             }
           }
-          const extraFooterLines = tableRows
-            .filter(r => (r.extra && r.extra.trim() !== '') || (r.extraAmount && r.extraAmount.trim() !== '0' && r.extraAmount.trim() !== ''))
-            .map(r => `[${r.itemName}] 추가: ${r.extra || '-'}, 추가금액: ${formatNum(r.extraAmount) || '0'}`);
 
           setExcelData(tableRows);
-          setFooterText([...footerRows, ...extraFooterLines]);
+          setFooterText(footerRows);
         } else {
           alert('엑셀 파일에서 헤더(MOLD, DN 등)를 찾을 수 없습니다.');
         }
       };
       reader.readAsArrayBuffer(file);
     }
-  }, [setFileName, setHeaderInfoRows, setExcelData, setFooterText]);
+  }, []);
 
   const totals = useMemo(() => {
-    const priceSubtotal = excelData.reduce((acc, row) => acc + (parseFloat(String(row.amount || '0').replace(/,/g, '')) || 0), 0);
+    const priceSubtotal = excelData.reduce((acc, row) => acc + (parseFloat(String(row.price || '0').replace(/,/g, '')) || 0), 0);
     const extraSubtotal = excelData.reduce((acc, row) => acc + (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0), 0);
+    
     const priceVat = Math.floor(priceSubtotal * 0.1);
     const extraVat = Math.floor(extraSubtotal * 0.1);
+    
     const priceTotal = priceSubtotal + priceVat;
     const extraTotal = extraSubtotal + extraVat;
+    
     return { 
       price: { subtotal: priceSubtotal, vat: priceVat, total: priceTotal },
       extra: { subtotal: extraSubtotal, vat: extraVat, total: extraTotal }
     };
   }, [excelData]);
 
+  const formatNum = (val: any) => {
+    if (val === undefined || val === null || val === '') return '';
+    const str = String(val).replace(/,/g, '').trim();
+    if (str === '') return '';
+    const num = parseFloat(str);
+    if (isNaN(num)) return val;
+    return num.toLocaleString();
+  };
+
+  const handleApprove = async (role: string) => {
+    if (!activeItem) return;
+    if (!window.confirm(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인하시겠습니까?`)) return;
+
+    try {
+      const now = new Date();
+      const timestamp = now.toLocaleString();
+      
+      const updatedItem = {
+        ...activeItem,
+        stamps: {
+          ...activeItem.stamps,
+          [role]: { userId: currentUser.initials, timestamp }
+        }
+      };
+
+      // Update Local Storage
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      // Update Supabase
+      await saveSingleDoc('Injection_Order', updatedItem);
+      
+      // JANDI Notification
+      let nextRecipient = '';
+      if (role === 'design') nextRecipient = 'DIRECTOR';
+      else if (role === 'director') nextRecipient = 'CEO';
+      
+      if (nextRecipient) {
+        sendJandiNotification('KR_PO', 'APPROVE', `[사출] ${activeItem.title}`, nextRecipient, now.toISOString().split('T')[0]);
+      }
+
+      alert('승인되었습니다.');
+      setActiveItem(null); // Close window after approval
+      pushStateToCloud();
+    } catch (err) {
+      console.error('Error approving:', err);
+      alert('승인 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleFinalConfirm = async () => {
+    if (!activeItem) return;
+    if (!window.confirm('최종 확인하여 결재완료로 이동하시겠습니까?')) return;
+
+    try {
+      const now = new Date();
+      const timestamp = now.toLocaleString();
+      
+      const updatedItem = {
+        ...activeItem,
+        status: InjectionOrderSubCategory.APPROVED,
+        stamps: {
+          ...activeItem.stamps,
+          final: { userId: currentUser.initials, timestamp }
+        }
+      };
+
+      // Update Local Storage
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      // Update Supabase
+      await saveSingleDoc('Injection_Order', updatedItem);
+      
+      alert('최종 확인되었습니다. 사출 결재완료 목록으로 이동합니다.');
+      setActiveItem(null);
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
+      pushStateToCloud();
+    } catch (err) {
+      console.error('Error confirming:', err);
+      alert('확인 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleMoveToDestination = async () => {
+    if (!activeItem) return;
+    if (!window.confirm('AJ사출발주 방으로 이동하시겠습니까?')) return;
+
+    try {
+      const now = new Date();
+      const updatedItem = {
+        ...activeItem,
+        status: InjectionOrderSubCategory.DESTINATION,
+      };
+
+      // Update Local Storage
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      // Update Supabase
+      await saveSingleDoc('Injection_Order', updatedItem);
+      
+      alert('AJ사출발주 방으로 이동되었습니다.');
+      setActiveItem(null);
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.DESTINATION });
+      pushStateToCloud();
+    } catch (err) {
+      console.error('Error moving to destination:', err);
+      alert('이동 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleReject = async () => {
+    if (!activeItem) return;
+    const reason = window.prompt('반송 사유를 입력해 주세요:');
+    if (reason === null) return;
+
+    try {
+      const now = new Date();
+      const timestamp = now.toLocaleString();
+      
+      const updatedItem = {
+        ...activeItem,
+        status: InjectionOrderSubCategory.REJECTED,
+        rejectReason: reason,
+        rejectLog: { userId: currentUser.initials, timestamp }
+      };
+
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      await saveSingleDoc('Injection_Order', updatedItem);
+      
+      alert('반송되었습니다.');
+      setActiveItem(null);
+      pushStateToCloud();
+    } catch (err) {
+      console.error('Error rejecting:', err);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('정말로 삭제하시겠습니까?')) return;
+    try {
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.filter((item: any) => item.id !== id);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+      
+      await deleteSingleDoc('Injection_Order', id);
+      setItems(prev => prev.filter(item => item.id !== id));
+      alert('삭제되었습니다.');
+    } catch (err) {
+      console.error('Error deleting:', err);
+    }
+  };
+
   const handleComplete = useCallback(async () => {
     if (excelData.length === 0) {
       alert('업로드된 데이터가 없습니다.');
       return;
     }
+
     if (!window.confirm('작성완료 하시겠습니까? 사출 결재대기로 이동됩니다.')) return;
 
     try {
       const now = new Date();
       const timestamp = now.toLocaleString();
-      const newPO: PurchaseOrderItem = {
+      
+      const newPO: any = {
         id: `po-${Date.now()}`,
-        code: 'INJECTION',
+        code: `PO-${Date.now()}`,
         title: fileName || 'Injection Order',
-        type: PurchaseOrderSubCategory.PO1 as any,
-        status: InjectionOrderSubCategory.PENDING as any,
+        type: 'INJECTION', 
+        status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
         date: now.toISOString().split('T')[0],
         createdAt: now.toISOString(),
         rows: excelData,
-        headerRows: headerInfoRows.map(row => row.filter(cell => cell != null).join(' ')),
-        notes: footerText.map(line => ({ label: '기타', content: line })),
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
       };
 
-      const updateLocal = (key: string) => {
-        const existing = JSON.parse(localStorage.getItem(key) || '[]');
-        localStorage.setItem(key, JSON.stringify([newPO, ...existing]));
-      };
-      updateLocal('ajin_purchase_orders');
-      updateLocal('ajin_injection_orders');
+      // 1. Injection Orders 전용 로컬 저장
+      const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      localStorage.setItem('ajin_injection_orders', JSON.stringify([newPO, ...existingInjections]));
+
+      // 2. Supabase 저장
       saveSingleDoc('Injection_Order', newPO);
+
+      // 3. 전체 클라우드 동기화
+      pushStateToCloud();
+      
+      // JANDI 알림
       sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${fileName || 'Injection Order'}`, 'H-CHUN', now.toISOString().split('T')[0]);
 
       alert('작성완료 되었습니다. 사출 결재대기 목록에서 확인하실 수 있습니다.');
+      
+      // 이동 처리
       setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.PENDING });
     } catch (err) {
       console.error('Error completing injection order:', err);
       alert('저장 중 오류가 발생했습니다.');
     }
-  }, [excelData, fileName, currentUser, setView, headerInfoRows, footerText]);
+  }, [excelData, fileName, currentUser, setView]);
 
   const handlePrint = useCallback(() => {
     const content = document.querySelector('.injection-order-print')?.innerHTML;
@@ -219,29 +371,323 @@ const InjectionOrderCreateView: React.FC<{
               @page { size: A4 portrait; margin: 10mm; }
               body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
+              .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
               th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
               td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
+              .document-wrapper { padding: 0; box-sizing: border-box; }
+              .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
               .border-t-bold { border-top: 1.5px solid black !important; }
               .border-b-bold { border-bottom: 1.5px solid black !important; }
+              .border-t-thin { border-top: 0.5px solid black !important; }
+              .border-b-thin { border-bottom: 0.5px solid black !important; }
+              
+              /* Page numbering footer */
+              .footer {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                text-align: center;
+                font-size: 8px;
+                padding: 5px 0;
+                display: none;
+              }
+              @media print {
+                .footer { display: block; }
+                @page { margin-bottom: 20mm; }
+              }
+              .page-number:after {
+                content: "Page " counter(page);
+              }
             </style>
           </head>
           <body onload="window.print(); window.close();">
-            <div class="p-4">${content}</div>
+            <div class="document-wrapper">${content}</div>
+            <div class="footer">
+              ${fileName} - <span class="page-number"></span>
+            </div>
           </body>
         </html>
       `);
       win.document.close();
+      window.close();
     }
   }, [fileName]);
 
+  const renderDetail = (item: any) => {
+    const data = item.rows || [];
+    const stamps = item.stamps || {};
+    
+    const itemTotals = data.reduce((acc: any, row: any) => {
+      const p = parseFloat(String(row.price || '0').replace(/,/g, '')) || 0;
+      const e = parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0;
+      return { price: acc.price + p, extra: acc.extra + e };
+    }, { price: 0, extra: 0 });
+
+    const pVat = Math.floor(itemTotals.price * 0.1);
+    const eVat = Math.floor(itemTotals.extra * 0.1);
+
+    return (
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-white">
+        <div className="flex justify-between items-start">
+          <button onClick={() => setActiveItem(null)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-bold text-sm flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            목록으로
+          </button>
+          
+          <div className="flex gap-2">
+            {sub === InjectionOrderSubCategory.PENDING && (
+              <>
+                {!stamps.design && (
+                  <button onClick={() => handleApprove('design')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm">설계 승인</button>
+                )}
+                {stamps.design && !stamps.director && (
+                  <button onClick={() => handleApprove('director')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-sm">이사 승인</button>
+                )}
+                {stamps.director && !stamps.ceo && (
+                  <button onClick={() => handleApprove('ceo')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm">대표 승인</button>
+                )}
+                {stamps.ceo && (
+                  <button onClick={handleFinalConfirm} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20 animate-pulse">최종 확인 (결재완료 이동)</button>
+                )}
+                <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm">반송</button>
+              </>
+            )}
+            {sub === InjectionOrderSubCategory.APPROVED && (
+              <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20">완료 (AJ사출발주 이동)</button>
+            )}
+            <button onClick={() => {
+              const content = document.querySelector('.injection-order-print-detail')?.innerHTML;
+              if (!content) return;
+              const win = window.open('', '_blank');
+              if (win) {
+                win.document.write(`
+                  <html>
+                    <head>
+                      <title>Injection_Order_${item.title}</title>
+                      <script src="https://cdn.tailwindcss.com"></script>
+                      <style>
+                        @page { size: A4 portrait; margin: 10mm; }
+                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+                        * { color: black !important; border-color: black !important; print-color-adjust: exact; }
+                        table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
+                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
+                        td { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
+                        .border-t-bold { border-top: 1.5px solid black !important; }
+                        .border-b-bold { border-bottom: 1.5px solid black !important; }
+                      </style>
+                    </head>
+                    <body onload="window.print(); window.close();">
+                      <div class="p-4">${content}</div>
+                    </body>
+                  </html>
+                `);
+                win.document.close();
+              }
+            }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+              </svg>
+              인쇄
+            </button>
+          </div>
+        </div>
+
+        <div className="injection-order-print-detail space-y-6">
+          <div className="flex flex-col items-center">
+            <h1 className="text-2xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
+            
+            <div className="w-full flex justify-between items-start mb-6">
+              <div className="text-sm font-bold space-y-1">
+                <p>파일명: {item.title}</p>
+                <p>작성일: {item.date}</p>
+                {item.rejectReason && (
+                  <p className="text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">반송사유: {item.rejectReason}</p>
+                )}
+              </div>
+              
+              <div className="flex border border-black divide-x divide-black">
+                {['writer', 'design', 'director', 'ceo'].map((slot) => {
+                  const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
+                  const stamp = stamps[slot];
+                  return (
+                    <div key={slot} className="w-20 h-24 flex flex-col">
+                      <div className="h-7 border-b border-black flex items-center justify-center text-[10px] font-black bg-slate-50">{label}</div>
+                      <div className="flex-1 flex flex-col items-center justify-center leading-tight p-1 text-center">
+                        {stamp ? (
+                          <>
+                            <span className="font-black text-[12px] text-blue-700">{stamp.userId}</span>
+                            <span className="text-[7px] text-slate-500 mt-1">{stamp.timestamp}</span>
+                          </>
+                        ) : (
+                          <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <table className="w-full border-collapse border border-black text-[10px]">
+              <thead>
+                <tr className="bg-slate-50">
+                  <th className="w-[10%] border border-black p-1">MOLD</th>
+                  <th className="w-[8%] border border-black p-1">DN</th>
+                  <th className="w-[4%] border border-black p-1">S</th>
+                  <th className="w-[20%] border border-black p-1">PART NAME</th>
+                  <th className="w-[5%] border border-black p-1">CTY</th>
+                  <th className="w-[5%] border border-black p-1">QTY</th>
+                  <th className="w-[12%] border border-black p-1">MATERIAL</th>
+                  <th className="w-[7%] border border-black p-1">금형업체</th>
+                  <th className="w-[7%] border border-black p-1">사출업체</th>
+                  <th className="w-[7%] border border-black p-1">주문수량</th>
+                  <th className="w-[10%] border border-black p-1">단가</th>
+                  <th className="w-[10%] border border-black p-1">금액</th>
+                  <th className="w-[5%] border border-black p-1">추가</th>
+                  <th className="w-[10%] border border-black p-1">추가금액</th>
+                  <th className="w-[10%] border border-black p-1">비고</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row: any, idx: number) => (
+                  <tr key={idx}>
+                    <td className="border border-black p-1 font-bold">{row.model}</td>
+                    <td className="border border-black p-1">{row.dept}</td>
+                    <td className="border border-black p-1 text-center">{row.s}</td>
+                    <td className="border border-black p-1 font-medium">{row.itemName}</td>
+                    <td className="border border-black p-1 text-center">{row.cty}</td>
+                    <td className="border border-black p-1 text-center">{formatNum(row.qty)}</td>
+                    <td className="border border-black p-1">{row.material}</td>
+                    <td className="border border-black p-1 text-center">{row.vendor}</td>
+                    <td className="border border-black p-1 text-center">{row.injectionVendor}</td>
+                    <td className="border border-black p-1 text-center">{formatNum(row.orderQty)}</td>
+                    <td className="border border-black p-1 text-right">{row.unitPrice ? `@ ${formatNum(row.unitPrice)}` : ''}</td>
+                    <td className="border border-black p-1 text-right font-bold">{formatNum(row.price)}</td>
+                    <td className="border border-black p-1 text-center">{formatNum(row.extra)}</td>
+                    <td className="border border-black p-1 text-right">{formatNum(row.extraAmount)}</td>
+                    <td className="border border-black p-1 italic text-slate-500">{row.remarksRSP}</td>
+                  </tr>
+                ))}
+                <tr className="border-t-2 border-black font-bold">
+                  <td colSpan={11} className="border border-black p-1 text-right">합계 (Subtotal)</td>
+                  <td className="border border-black p-1 text-right">{itemTotals.price.toLocaleString()}</td>
+                  <td className="border border-black p-1"></td>
+                  <td className="border border-black p-1 text-right">{itemTotals.extra.toLocaleString()}</td>
+                  <td className="border border-black p-1"></td>
+                </tr>
+                <tr className="font-bold">
+                  <td colSpan={11} className="border border-black p-1 text-right">부가세 (VAT 10%)</td>
+                  <td className="border border-black p-1 text-right">{pVat.toLocaleString()}</td>
+                  <td className="border border-black p-1"></td>
+                  <td className="border border-black p-1 text-right">{eVat.toLocaleString()}</td>
+                  <td className="border border-black p-1"></td>
+                </tr>
+                <tr className="bg-slate-50 font-black">
+                  <td colSpan={11} className="border border-black p-1 text-right">총액 (Grand Total)</td>
+                  <td className="border border-black p-1 text-right text-blue-700">{(itemTotals.price + pVat).toLocaleString()}</td>
+                  <td className="border border-black p-1"></td>
+                  <td className="border border-black p-1 text-right text-blue-700">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                  <td className="border border-black p-1"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderList = () => {
+    return (
+      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{sub} 목록</h2>
+          <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-500 shadow-sm">
+            {items.length} 건
+          </span>
+        </div>
+        
+        {items.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
+            <p className="text-slate-400 font-bold">해당하는 문서가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {items.map((item) => (
+              <div key={item.id} onClick={() => setActiveItem(item)} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group relative">
+                <div className="flex justify-between items-start mb-3">
+                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                    </svg>
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.date}</span>
+                    <span className={`mt-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                      item.status === InjectionOrderSubCategory.APPROVED ? 'bg-emerald-50 text-emerald-600' :
+                      item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' :
+                      'bg-blue-50 text-blue-600'
+                    }`}>
+                      {item.status}
+                    </span>
+                  </div>
+                </div>
+                <h3 className="text-sm font-black text-slate-900 mb-1 truncate">{item.title}</h3>
+                <p className="text-xs text-slate-500 font-bold mb-4">작성자: {item.authorId}</p>
+                
+                <div className="flex items-center gap-1 mt-auto pt-4 border-t border-slate-50">
+                  {['writer', 'design', 'director', 'ceo'].map(slot => (
+                    <div key={slot} className={`w-3 h-3 rounded-full ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} title={slot} />
+                  ))}
+                </div>
+
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="absolute bottom-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (sub === InjectionOrderSubCategory.DESTINATION_ROOT) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 shadow-sm p-12 text-center">
+        <div className="w-20 h-20 bg-white rounded-3xl border border-slate-200 flex items-center justify-center mb-6 shadow-sm">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+          </svg>
+        </div>
+        <h2 className="text-xl font-black text-slate-900 mb-2">사출 수신처</h2>
+        <p className="text-slate-500 font-medium">하위 카테고리를 선택하여 문서를 확인하세요.</p>
+      </div>
+    );
+  }
+
+  if (sub !== InjectionOrderSubCategory.CREATE) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+        {activeItem ? renderDetail(activeItem) : renderList()}
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+      {/* Header Section */}
       <div className="p-6 bg-white border-b border-slate-200 shrink-0">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출 발주서 작성</h1>
-            <p className="text-sm text-slate-500 font-medium">엑셀 파일을 업로드하여 발주서를 작성합니다.</p>
+            <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출 발주서 (Injection Order)</h1>
+            <p className="text-sm text-slate-500 font-medium">엑셀 파일을 업로드하여 발주서를 작성하고 승인합니다.</p>
           </div>
           <div className="flex items-center gap-3">
             <label className="flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm">
@@ -254,242 +700,327 @@ const InjectionOrderCreateView: React.FC<{
             {excelData.length > 0 && (
               <>
                 <button onClick={handleComplete} className="px-5 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm flex items-center shadow-lg shadow-emerald-500/20">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
                   작성완료
                 </button>
                 <button onClick={handlePrint} className="px-5 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm flex items-center shadow-sm">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                  </svg>
                   인쇄 / PDF
                 </button>
               </>
             )}
           </div>
         </div>
+        {fileName && (
+          <div className="mt-3 inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+            </svg>
+            {fileName}
+          </div>
+        )}
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+      {/* Main Content - Scrollable */}
+      <div className="flex-1 overflow-hidden flex flex-col">
         {excelData.length > 0 ? (
-          <>
+          <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            {/* Approval Section */}
             <div className="flex justify-end">
               <table className="border-collapse border-slate-300 border-[1px] text-center text-[11px] w-auto bg-white shadow-sm rounded-lg overflow-hidden">
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['담 당', '설 계', '이 사', '대 표'].map(label => (
-                      <td key={label} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">{label}</td>
+                    {['writer', 'design', 'director', 'ceo'].map(slot => (
+                      <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
+                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
+                      </td>
                     ))}
                   </tr>
                   <tr className="h-16">
-                    <td className="border border-slate-300 p-1 align-middle min-w-[80px]">
-                      <div className="flex flex-col items-center">
-                        <span className="font-black text-blue-600 text-sm">{currentUser.initials}</span>
-                        <span className="text-[9px] text-slate-400 font-bold mt-1">{new Date().toLocaleString()}</span>
-                      </div>
-                    </td>
-                    <td className="border border-slate-300 p-1 align-middle min-w-[80px]"></td>
-                    <td className="border border-slate-300 p-1 align-middle min-w-[80px]"></td>
-                    <td className="border border-slate-300 p-1 align-middle min-w-[80px]"></td>
+                    {['writer', 'design', 'director', 'ceo'].map(slot => (
+                      <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
+                        {slot === 'writer' ? (
+                          <div className="flex flex-col items-center">
+                            <span className="font-black text-blue-600 text-sm">{currentUser.initials}</span>
+                            <span className="text-[9px] text-slate-400 font-bold mt-1">{new Date().toLocaleString()}</span>
+                          </div>
+                        ) : null}
+                      </td>
+                    ))}
                   </tr>
                 </tbody>
               </table>
             </div>
 
+            {/* Excel Rows 3-5 Info (UI View) */}
+            {headerInfoRows.length > 0 && (
+              <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm max-w-4xl overflow-hidden">
+                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">업로드 파일 정보 (3~5행)</h2>
+                <div className="space-y-1.5">
+                  {headerInfoRows.map((row, idx) => (
+                    <div key={idx} className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-bold text-slate-700 border-b border-slate-50 last:border-0 pb-1.5 last:pb-0">
+                      {row.map((cell, cIdx) => (
+                        <span key={cIdx} className="inline-block">{String(cell || '')}</span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Data Table Section */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
+                <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {excelData.length} ITEMS</span>
+              </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
                     <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
-                      <th className="px-1 py-3 text-[13px] font-black border-r border-slate-200">MOLD</th>
-                      <th className="px-1 py-3 text-[13px] font-black border-r border-slate-200">DN</th>
-                      <th className="px-1 py-3 text-[13px] font-black border-r border-slate-200">PART NAME</th>
-                      <th className="px-1 py-3 text-[13px] font-black border-r border-slate-200 text-center">QTY</th>
-                      <th className="px-1 py-3 text-[13px] font-black border-r border-slate-200 text-center">단가</th>
-                      <th className="px-1 py-3 text-[13px] font-black border-r border-slate-200 text-center">금액</th>
-                      <th className="px-1 py-3 text-[13px] font-black">비고</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                      <th className="w-[3%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
+                      <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                      <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
+                      <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
+                      <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
+                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
+                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
+                      <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
+                      <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                      <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
+                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
+                      <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {excelData.map((row, index) => (
-                      <tr key={index} className="border-b border-slate-100">
-                        <td className="px-1 py-2 text-[14px] font-bold border-r border-slate-100">{row.dept}</td>
-                        <td className="px-1 py-2 text-[14px] border-r border-slate-100">{row.model}</td>
-                        <td className="px-1 py-2 text-[14px] border-r border-slate-100">{row.itemName}</td>
-                        <td className="px-1 py-2 text-[14px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
-                        <td className="px-1 py-2 text-[14px] border-r border-slate-100 text-right">{formatNum(row.unitPrice)}</td>
-                        <td className="px-1 py-2 text-[14px] font-bold border-r border-slate-100 text-right">{formatNum(row.amount)}</td>
-                        <td className="px-1 py-2 text-[14px]">{row.remarksRSP}</td>
-                      </tr>
-                    ))}
+                  <tbody className="text-black">
+                    {excelData.map((row, index) => {
+                      const hasMold = !!row.model && row.model.trim() !== '';
+                      const nextRowHasMold = index < excelData.length - 1 && !!excelData[index + 1].model && excelData[index + 1].model.trim() !== '';
+                      const isLastRow = index === excelData.length - 1;
+                      
+                      const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
+                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
+
+                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+
+                      return (
+                        <tr key={row.id || index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
+                          <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                        </tr>
+                      );
+                    })}
+                    {/* Summary Rows */}
+                    <tr className="bg-slate-50/30 font-bold text-black border-t-2 border-slate-400">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.subtotal.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.subtotal.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                    <tr className="bg-slate-50/30 font-bold text-black">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.vat.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.vat.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                    <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
+                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.price.total.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.extra.total.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
             </div>
-          </>
-        ) : (
-          <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-            <p>엑셀 파일을 업로드해 주세요.</p>
-          </div>
-        )}
-      </div>
 
-      {/* Hidden Print Content */}
-      <div className="hidden">
-        <div className="injection-order-print">
-          <h1 className="text-center text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
-          <table className="w-full border-collapse border border-black">
-            <thead>
-              <tr>
-                <th className="border border-black p-1 text-[8px]">MOLD</th>
-                <th className="border border-black p-1 text-[8px]">DN</th>
-                <th className="border border-black p-1 text-[8px]">PART NAME</th>
-                <th className="border border-black p-1 text-[8px]">QTY</th>
-                <th className="border border-black p-1 text-[8px]">단가</th>
-                <th className="border border-black p-1 text-[8px]">금액</th>
-              </tr>
-            </thead>
-            <tbody>
-              {excelData.map((row, idx) => (
-                <tr key={idx}>
-                  <td className="border border-black p-1 text-[8px]">{row.dept}</td>
-                  <td className="border border-black p-1 text-[8px]">{row.model}</td>
-                  <td className="border border-black p-1 text-[8px]">{row.itemName}</td>
-                  <td className="border border-black p-1 text-[8px] text-center">{formatNum(row.qty)}</td>
-                  <td className="border border-black p-1 text-[8px] text-right">{formatNum(row.unitPrice)}</td>
-                  <td className="border border-black p-1 text-[8px] text-right">{formatNum(row.amount)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// --- Main Component ---
-const Injection_Order: React.FC<InjectionOrderMainProps> = ({ 
-  sub, 
-  currentUser, 
-  userAccounts, 
-  setView, 
-  dataVersion 
-}) => {
-  const [orders, setOrders] = useState<PurchaseOrderItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  
-  // Creation state
-  const [fileName, setFileName] = useState<string>('');
-  const [excelData, setExcelData] = useState<OrderRow[]>([]);
-  const [headerInfoRows, setHeaderInfoRows] = useState<any[][]>([]);
-  const [footerText, setFooterText] = useState<string[]>([]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('ajin_purchase_orders');
-    if (saved) {
-      const allOrders: PurchaseOrderItem[] = JSON.parse(saved);
-      const injectionOrders = allOrders.filter(o => o.code === 'INJECTION');
-      setOrders(injectionOrders);
-    }
-  }, [dataVersion, sub]);
-
-  const filteredOrders = orders.filter(order => {
-    const matchesSearch = order.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                         order.recipient?.toLowerCase().includes(searchTerm.toLowerCase());
-    if (!matchesSearch) return false;
-
-    if (sub === InjectionOrderSubCategory.PENDING) return order.status === InjectionOrderSubCategory.PENDING;
-    if (sub === InjectionOrderSubCategory.REJECTED) return order.status === InjectionOrderSubCategory.REJECTED;
-    if (sub === InjectionOrderSubCategory.APPROVED) return order.status === InjectionOrderSubCategory.APPROVED;
-    if (sub === InjectionOrderSubCategory.TEMPORARY) return order.status.includes('임시저장');
-    if (sub === InjectionOrderSubCategory.DESTINATION) return !!order.stamps.final;
-    return true;
-  });
-
-  const handleRowClick = (order: PurchaseOrderItem) => {
-    setView({ type: 'PURCHASE', sub: order.status as any });
-  };
-
-  return (
-    <div className="h-full flex flex-col bg-slate-50 overflow-hidden">
-      {sub === InjectionOrderSubCategory.CREATE ? (
-        <InjectionOrderCreateView 
-          currentUser={currentUser}
-          setView={setView}
-          fileName={fileName}
-          setFileName={setFileName}
-          excelData={excelData}
-          setExcelData={setExcelData}
-          headerInfoRows={headerInfoRows}
-          setHeaderInfoRows={setHeaderInfoRows}
-          footerText={footerText}
-          setFooterText={setFooterText}
-        />
-      ) : (
-        <>
-          <div className="p-6 bg-white border-b border-slate-200 shrink-0">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">{sub}</h1>
-                <p className="text-sm text-slate-500 font-medium">사출발주서 관리 시스템</p>
+            {/* Footer Text Section */}
+            {footerText.length > 0 && (
+              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">추가 정보 (Footer Text)</h2>
+                <div className="space-y-1">
+                  {footerText.map((line, idx) => (
+                    <p key={idx} className="text-[15px] text-slate-600 font-medium">{line}</p>
+                  ))}
+                </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="검색어 입력..." 
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl text-sm focus:ring-2 focus:ring-orange-500 w-64 font-medium"
-                  />
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
+            )}
+
+            {/* Hidden Print Content (VN Style) */}
+            <div className="hidden">
+              <div className="injection-order-print">
+                <div className="flex flex-col items-center">
+                  <h1 className="text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
+                  
+                  <div className="w-full flex justify-between items-start mb-8">
+                    <div className="text-sm font-bold">
+                      <p>파일명: {fileName}</p>
+                      <p>작성일: {new Date().toLocaleDateString()}</p>
+                    </div>
+                    
+                    <div className="flex border border-black divide-x divide-black">
+                      {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
+                        const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
+                        return (
+                          <div key={idx} className="w-16 h-20 flex flex-col">
+                            <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
+                            <div className="flex-1 flex flex-col items-center justify-center leading-tight">
+                              {slot === 'writer' && (
+                                <>
+                                  <span className="font-black text-[10px] text-blue-700">{currentUser.initials}</span>
+                                  <span className="text-[6px] text-slate-500 mt-0.5">{new Date().toLocaleString()}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Excel Rows 3-5 Info */}
+                  {headerInfoRows.length > 0 && (
+                    <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+                      {headerInfoRows.map((row, idx) => (
+                        <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                          {row.map((cell, cIdx) => (
+                            <span key={cIdx}>{String(cell || '')}</span>
+                          ))}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <table className="w-full border-collapse border border-black">
+                    <thead>
+                      <tr className="bg-slate-50 text-black">
+                        <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
+                        <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
+                        <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
+                        <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
+                        <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
+                        <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
+                        <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
+                        <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
+                        <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
+                        <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
+                        <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
+                        <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
+                        <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
+                        <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
+                        <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-black">
+                      {excelData.map((row, idx) => {
+                        const hasMold = !!row.model && row.model.trim() !== '';
+                        const nextRowHasMold = idx < excelData.length - 1 && !!excelData[idx + 1].model && excelData[idx + 1].model.trim() !== '';
+                        const isLastRow = idx === excelData.length - 1;
+                        
+                        const borderTopClass = hasMold ? 'border-t-bold' : '';
+                        const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-bold' : '';
+
+                        const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+
+                        return (
+                          <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
+                            <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
+                            <td className="px-1 py-1 text-[8px]">{row.dept}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
+                            <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
+                            <td className="px-1 py-1 text-[8px]">{row.material}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
+                            <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
+                            <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
+                            <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
+                            <td className="px-1 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
+                            <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
+                            <td className="px-1 py-1 text-[8px] italic">{row.remarksRSP}</td>
+                          </tr>
+                        );
+                      })}
+                      {/* Summary Rows for Print */}
+                      <tr className="border-t-bold">
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
+                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.price.subtotal.toLocaleString()}</td>
+                        <td className="border border-black px-0 py-1"></td>
+                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.extra.subtotal.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1"></td>
+                      </tr>
+                      <tr className="border-t-thin border-b-thin">
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
+                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.price.vat.toLocaleString()}</td>
+                        <td className="border border-black px-0 py-1"></td>
+                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.extra.vat.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1"></td>
+                      </tr>
+                      <tr className="bg-slate-50 border-b-bold">
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
+                        <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{totals.price.total.toLocaleString()}</td>
+                        <td className="border border-black px-0 py-1"></td>
+                        <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{totals.extra.total.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1"></td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  {/* Footer Text for Print */}
+                  {footerText.length > 0 && (
+                    <div className="w-full mt-4 text-[8px] space-y-1">
+                      {footerText.map((line, idx) => (
+                        <p key={idx} className="font-medium">{line}</p>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </div>
-          
-          <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
-            {filteredOrders.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredOrders.map(order => (
-                  <button 
-                    key={order.id}
-                    onClick={() => handleRowClick(order)}
-                    className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-orange-500 transition-all text-left group"
-                  >
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="px-2 py-1 bg-orange-50 text-orange-600 text-[10px] font-black rounded-md uppercase tracking-wider border border-orange-100">
-                        {order.type}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 font-bold">{order.date}</span>
-                    </div>
-                    <h3 className="text-lg font-black text-slate-900 mb-1 group-hover:text-orange-600 transition-colors line-clamp-1">{order.title}</h3>
-                    <p className="text-xs text-slate-500 font-bold mb-4 flex items-center gap-1">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                      </svg>
-                      {order.authorId}
-                    </p>
-                    <div className="flex justify-between items-center pt-3 border-t border-slate-50">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{order.recipient || '수신처 미지정'}</span>
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center group-hover:bg-orange-500 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-400 group-hover:text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
-                        </svg>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400 italic py-20">
-                <p>표시할 데이터가 없습니다.</p>
-              </div>
-            )}
+        ) : (
+          <div className="flex-1 flex flex-col items-center justify-center p-12 text-center bg-slate-50/50">
+            <div className="w-24 h-24 bg-white rounded-[2rem] border-2 border-slate-100 flex items-center justify-center mb-6 shadow-sm">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-black text-slate-900 mb-2">데이터가 없습니다.</h3>
+            <p className="text-slate-500 font-medium max-w-xs mx-auto mb-8">엑셀 파일을 업로드하여 발주서 작성을 시작하십시오.</p>
+            <label className="inline-flex items-center px-8 py-3 bg-slate-900 text-white rounded-2xl cursor-pointer hover:bg-black transition-all shadow-xl shadow-slate-900/10 font-black text-sm uppercase tracking-widest">
+              파일 선택하기
+              <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" />
+            </label>
           </div>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 };
 
-export default Injection_Order;
+export default InjectionOrderView;

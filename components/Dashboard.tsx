@@ -46,8 +46,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const invoices = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
     const pOrders = JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]');
     const vOrders = JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]');
-
-    const injectionOrders = pOrders.filter((o: any) => o.code === 'INJECTION');
+    const injectionOrders = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
 
     setCounts({
       order: {
