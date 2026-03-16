@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
+import { PurchaseOrderSubCategory, InjectionSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
 import { supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 
 interface PurchaseOrderViewProps {
-  sub: PurchaseOrderSubCategory;
+  sub: PurchaseOrderSubCategory | InjectionSubCategory;
   currentUser: UserAccount;
   setView: (v: ViewState) => void;
   dataVersion: number;
@@ -89,6 +89,9 @@ const getCellBorderStyle = (r: number, c: number, borderData: any) => {
 };
 
 const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser, setView, dataVersion }) => {
+  const isInjectionView = useMemo(() => Object.values(InjectionSubCategory).includes(sub as any), [sub]);
+  const currentViewType = isInjectionView ? 'INJECTION' : 'PURCHASE';
+
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
   const [activeItem, setActiveItem] = useState<PurchaseOrderItem | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -756,20 +759,23 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       return;
     }
     
-    let targetStatus: PurchaseOrderSubCategory;
+    let targetStatus: any;
+    const isInjection = isInjectionView || (editingItemId && items.find(i => i.id === editingItemId)?.code === 'INJECTION');
     const currentType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
 
     // 수정: currentType이 _TEMP일 수도 있으므로 포함하여 체크합니다.
     if (isTemp) {
-      if (currentType === PurchaseOrderSubCategory.PO1 || currentType === PurchaseOrderSubCategory.PO1_TEMP) targetStatus = PurchaseOrderSubCategory.PO1_TEMP;
+      if (isInjection) targetStatus = InjectionSubCategory.TEMPORARY;
+      else if (currentType === PurchaseOrderSubCategory.PO1 || currentType === PurchaseOrderSubCategory.PO1_TEMP) targetStatus = PurchaseOrderSubCategory.PO1_TEMP;
       else if (currentType === PurchaseOrderSubCategory.PO3 || currentType === PurchaseOrderSubCategory.PO3_TEMP) targetStatus = PurchaseOrderSubCategory.PO3_TEMP;
       else targetStatus = PurchaseOrderSubCategory.PO2_TEMP;
     } else {
-      targetStatus = PurchaseOrderSubCategory.PENDING;
+      targetStatus = isInjection ? InjectionSubCategory.PENDING : PurchaseOrderSubCategory.PENDING;
     }
 
     // 새 아이템의 type을 기본 타입(PO1, PO2, PO3)으로 고정하기 위한 매핑
-    const baseType = ((currentType || '').includes('사출')) ? PurchaseOrderSubCategory.PO1 
+    const baseType = isInjection ? PurchaseOrderSubCategory.PO1
+                  : ((currentType || '').includes('사출')) ? PurchaseOrderSubCategory.PO1 
                   : ((currentType || '').includes('메탈')) ? PurchaseOrderSubCategory.PO3 
                   : PurchaseOrderSubCategory.PO2;
 
@@ -780,6 +786,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           const isFromTemp = (item.status || '').includes('임시저장');
           updatedDoc = {
             ...item, title: po2Title, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, date: po2Date,
+            code: isInjection ? 'INJECTION' : item.code,
             rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()).map(r => {
               if (isFromTemp) return { ...r, changedFields: [] };
               return r;
@@ -803,7 +810,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       setEditingItemId(null); setOriginalRejectedItem(null);
     } else {
       const newItem: PurchaseOrderItem = {
-        id: `${baseType}-${Date.now()}`, code: '', title: po2Title, type: baseType as string, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, authorId: currentUser.initials, date: po2Date, createdAt: new Date().toISOString(),
+        id: `${baseType}-${Date.now()}`, code: isInjection ? 'INJECTION' : '', title: po2Title, type: baseType as string, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, authorId: currentUser.initials, date: po2Date, createdAt: new Date().toISOString(),
         rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()),
         notes: po2Notes, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, hideInjectionColumn: hideInjectionColumn
       };
@@ -816,7 +823,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       
       alert(isTemp ? "임시 저장되었습니다." : "작성이 완료되어 설계 결재요청 되었습니다.");
     }
-    setView({ type: 'PURCHASE', sub: targetStatus });
+    setView({ type: currentViewType, sub: targetStatus });
     setPo2Title(''); setPo2Recipient(''); setPo2TelFax(''); setPo2Reference(''); setPo2Rows([]); setPo1HeaderRows([]); setPo1Merges({}); setPo1Aligns({}); setPo1Weights({}); setPo1Borders({}); setUndoStack([]); setHideInjectionColumn(false);
   };
 
@@ -1010,10 +1017,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         }
         const newTitle = `${baseTitle} (${nextCount})`;
         
+        const isInjection = item.code === 'INJECTION';
+        
         updatedDoc = { 
           ...item, 
           title: newTitle,
-          status: PurchaseOrderSubCategory.REJECTED, 
+          status: (isInjection ? InjectionSubCategory.REJECTED : PurchaseOrderSubCategory.REJECTED) as any, 
           rejectReason: rejectReasonText, 
           rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } 
         };
@@ -1031,7 +1040,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     setIsRejectModalOpen(false); 
     setItemToReject(null); 
     setActiveItem(null); 
-    setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED });
+    setView({ type: currentViewType, sub: (isInjection ? InjectionSubCategory.REJECTED : PurchaseOrderSubCategory.REJECTED) as any });
   };
 
   /**
@@ -1052,7 +1061,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         // Completion logic based on dynamic path
         const slots = getApprovalSlots(item.type, item.recipient || '');
         const isComplete = slots.every(slot => !!newStamps[slot as keyof PurchaseOrderItem['stamps']]);
-        const nextStatus = isComplete ? PurchaseOrderSubCategory.APPROVED : item.status;
+        const isInjection = item.code === 'INJECTION';
+        const nextStatus = isComplete 
+          ? (isInjection ? InjectionSubCategory.APPROVED : PurchaseOrderSubCategory.APPROVED) 
+          : item.status;
 
         // JANDI 알림 시나리오 - [수신처] 제목 형식
         const notifyTitle = `[${item.recipient || '-'}] ${item.title}`;
@@ -1112,10 +1124,15 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       }
       return o;
     });
+    const isInjection = order.code === 'INJECTION';
     saveItems(updatedOrders, updatedDoc); 
     alert('최종 보관 처리가 완료되어 수신처 보관함으로 이동되었습니다.'); 
     setActiveItem(null); 
-    setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE });
+    if (isInjection) {
+      setView({ type: 'INJECTION', sub: InjectionSubCategory.ARCHIVE });
+    } else {
+      setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE });
+    }
   };
 
   const handleCopyOrder = (item: PurchaseOrderItem) => {
@@ -1126,7 +1143,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       senderPerson: item.senderPerson || (item.type === PurchaseOrderSubCategory.PO3 ? '이재성 010-6342-5656' : item.type === PurchaseOrderSubCategory.PO1 ? '김미숙 010-9252-1565' : '이상구 010-6212-6945'),
       rows: copiedRows, notes: item.notes || [], headerRows: item.headerRows || [], merges: item.merges || {}, aligns: item.aligns || {}, weights: item.weights || {}, borders: item.borders || {}, hideInjectionColumn: item.hideInjectionColumn || false
     };
-    localStorage.setItem('ajin_po_copy_buffer', JSON.stringify(copyData)); setView({ type: 'PURCHASE', sub: item.type as PurchaseOrderSubCategory }); setActiveItem(null); alert('발주서 내역이 신규 작성폼으로 복사되었습니다.');
+    localStorage.setItem('ajin_po_copy_buffer', JSON.stringify(copyData)); setView({ type: isInjectionView ? 'INJECTION' : 'PURCHASE', sub: (isInjectionView ? InjectionSubCategory.CREATE : item.type) as any }); setActiveItem(null); alert('발주서 내역이 신규 작성폼으로 복사되었습니다.');
   };
 
   const handleDeleteItemFromList = useCallback((id: string) => {
@@ -1247,7 +1264,13 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     setPo2Notes(item.notes || []); setPo1HeaderRows(item.headerRows || []); setPo1Merges(item.merges || {}); setPo1Aligns(item.aligns || {}); setPo1Weights(item.weights || {}); setPo1Borders(item.borders || {}); setHideInjectionColumn(item.hideInjectionColumn || false); setActiveItem(null);
   };
 
-  const archivedItems = useMemo(() => items.filter(o => !!o.stamps.final), [items]);
+  const archivedItems = useMemo(() => {
+    const base = items.filter(o => !!o.stamps.final);
+    if (sub === InjectionSubCategory.ARCHIVE) {
+      return base.filter(o => o.code === 'INJECTION');
+    }
+    return base.filter(o => o.code !== 'INJECTION');
+  }, [items, sub]);
   const archivedVendors = useMemo(() => {
     const vendorsSet = new Set<string>();
     archivedItems.forEach(item => {
@@ -1256,11 +1279,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       }
     });
     const result = Array.from(vendorsSet).sort();
-    if (!vendorsSet.has('AJ사출발주서')) {
+    if (sub === PurchaseOrderSubCategory.ARCHIVE && !vendorsSet.has('AJ사출발주서')) {
       result.unshift('AJ사출발주서');
     }
     return result;
-  }, [archivedItems]);
+  }, [archivedItems, sub]);
   const getPOTheme = (type: string) => { switch(type) { case PurchaseOrderSubCategory.PO1: case PurchaseOrderSubCategory.PO1_TEMP: return 'amber'; case PurchaseOrderSubCategory.PO2: case PurchaseOrderSubCategory.PO2_TEMP: return 'blue'; case PurchaseOrderSubCategory.PO3: case PurchaseOrderSubCategory.PO3_TEMP: return 'emerald'; default: return 'slate'; } };
 
   // New: Handle file link selection
@@ -1446,7 +1469,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           {poTypes.map((po) => {
             const themeClasses = { amber: 'border-amber-100 hover:border-amber-500 bg-amber-50 text-amber-600 group-hover:bg-amber-500', blue: 'border-blue-100 hover:border-blue-500 bg-blue-50 text-blue-600 group-hover:bg-blue-500', emerald: 'border-emerald-100 hover:border-emerald-500 bg-emerald-50 text-emerald-600 group-hover:bg-emerald-500' }[po.theme as 'amber' | 'blue' | 'emerald'];
             return (
-              <button key={po.id} onClick={() => setView({ type: 'PURCHASE', sub: po.id })} className="group bg-white p-10 rounded-[2.5rem] border-2 border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden">
+              <button key={po.id} onClick={() => setView({ type: currentViewType, sub: po.id })} className="group bg-white p-10 rounded-[2.5rem] border-2 border-slate-100 hover:shadow-2xl transition-all duration-300 flex flex-col items-center text-center relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity"><span className="text-8xl font-black text-black select-none">{po.icon}</span></div>
                 <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-6 transition-all shadow-inner ${themeClasses} group-hover:text-white`}><span className="text-2xl font-black">PO</span></div>
                 <h3 className={`text-2xl font-black text-black transition-colors mb-2 group-hover:text-${po.theme}-600`}>{po.id}</h3>
@@ -1490,9 +1513,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 if (editingItemId) {
                   setEditingItemId(null);
                   setOriginalRejectedItem(null);
-                  setView({ type: 'PURCHASE', sub: originalRejectedItem?.status || PurchaseOrderSubCategory.PENDING });
+                  setView({ type: currentViewType, sub: originalRejectedItem?.status || (isInjectionView ? InjectionSubCategory.PENDING : PurchaseOrderSubCategory.PENDING) });
                 } else {
-                  setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.CREATE });
+                  setView({ type: currentViewType, sub: isInjectionView ? InjectionSubCategory.CREATE : PurchaseOrderSubCategory.CREATE });
                 }
               }} 
               className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
@@ -2187,7 +2210,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       </div>);
   }
 
-  if (sub === PurchaseOrderSubCategory.ARCHIVE && !selectedArchiveVendor) {
+  const isArchiveView = sub === PurchaseOrderSubCategory.ARCHIVE || sub === InjectionSubCategory.ARCHIVE;
+
+  if (isArchiveView && !selectedArchiveVendor) {
     return (
       <div className="space-y-8 py-12 animate-in fade-in zoom-in duration-500">
         <div className="text-center max-w-2xl mx-auto"><h2 className="text-3xl md:text-4xl font-black text-black mb-3 tracking-tight">수신처별 보관함</h2><p className="text-slate-500 font-medium text-lg px-4">보관된 발주서가 있는 수신처 목록입니다.</p></div>
@@ -2196,14 +2221,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     );
   }
 
-  const filtered = sub === PurchaseOrderSubCategory.ARCHIVE 
+  const filtered = isArchiveView 
     ? archivedItems.filter(item => {
         if (selectedArchiveVendor === 'AJ사출발주서') {
           return item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서';
         }
         return item.recipient === selectedArchiveVendor;
       })
-    : items.filter(item => item.status === sub && !item.stamps.final);
+    : items.filter(item => (item.status as any) === sub && !item.stamps.final);
   const sorted = [...filtered].sort((a, b) => { const timeA = new Date(a.createdAt).getTime(); const timeB = new Date(b.createdAt).getTime(); return sortOrder === 'DESC' ? timeB - timeA : timeA - timeB; });
   const searchFiltered = sorted.filter(item => (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.recipient && item.recipient.toLowerCase().includes(searchTerm.toLowerCase())));
   const totalPages = Math.ceil(searchFiltered.length / itemsPerPage);
@@ -2224,7 +2249,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   return (
     <div className="space-y-6 text-left pb-12 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div className="flex items-center gap-4">{sub === PurchaseOrderSubCategory.ARCHIVE && selectedArchiveVendor && (<button onClick={() => setSelectedArchiveVendor(null)} className="p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 text-slate-600 transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button>)}<div><h2 className="text-2xl md:text-3xl font-black text-black">{sub === PurchaseOrderSubCategory.ARCHIVE ? (selectedArchiveVendor ? `${selectedArchiveVendor} 보관함` : sub) : sub}</h2><div className="flex items-center gap-4 mt-1"><p className="text-slate-500 text-sm">총 {searchFiltered.length}건의 항목</p><div className="h-4 w-[1px] bg-slate-200" /><div className="flex bg-slate-100 p-1 rounded-lg no-print"><button onClick={() => setViewMode('ICON')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>아이콘</button><button onClick={() => setViewMode('LIST')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'LIST' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>리스트</button></div><div className="flex bg-slate-100 p-1 rounded-lg no-print"><button onClick={() => setSortOrder('DESC')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${sortOrder === 'DESC' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>최신순</button><button onClick={() => setSortOrder('ASC')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${sortOrder === 'ASC' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>과거순</button></div></div></div></div>
+        <div className="flex items-center gap-4">{isArchiveView && selectedArchiveVendor && (<button onClick={() => setSelectedArchiveVendor(null)} className="p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 text-slate-600 transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button>)}<div><h2 className="text-2xl md:text-3xl font-black text-black">{isArchiveView ? (selectedArchiveVendor ? `${selectedArchiveVendor} 보관함` : sub) : sub}</h2><div className="flex items-center gap-4 mt-1"><p className="text-slate-500 text-sm">총 {searchFiltered.length}건의 항목</p><div className="h-4 w-[1px] bg-slate-200" /><div className="flex bg-slate-100 p-1 rounded-lg no-print"><button onClick={() => setViewMode('ICON')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>아이콘</button><button onClick={() => setViewMode('LIST')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'LIST' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>리스트</button></div><div className="flex bg-slate-100 p-1 rounded-lg no-print"><button onClick={() => setSortOrder('DESC')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${sortOrder === 'DESC' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>최신순</button><button onClick={() => setSortOrder('ASC')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${sortOrder === 'ASC' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>과거순</button></div></div></div></div>
         <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto"><div className="relative flex-1 sm:w-64"><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={`${isPO2 ? '제목' : '기종'} 또는 수신처 검색...`} className="w-full px-5 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-amber-500 outline-none text-sm font-medium bg-white shadow-sm"/></div></div>
       </div>
       {viewMode === 'ICON' ? (

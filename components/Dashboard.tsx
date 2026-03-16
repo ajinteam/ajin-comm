@@ -6,6 +6,7 @@ import {
   InvoiceSubCategory, 
   PurchaseOrderSubCategory, 
   VietnamSubCategory,
+  InjectionOrderSubCategory,
   ViewState, 
   Announcement,
   MainCategory 
@@ -46,6 +47,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const pOrders = JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]');
     const vOrders = JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]');
 
+    const injectionOrders = pOrders.filter((o: any) => o.type === PurchaseOrderSubCategory.PO1 || o.type === '사출발주서');
+
     setCounts({
       order: {
         pending: orders.filter((o: any) => o.status === OrderSubCategory.PENDING).length,
@@ -59,18 +62,17 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     ).length
   },
       purchase: {
-        pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING && o.type !== '사출발주서').length,
-        rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED && o.type !== '사출발주서').length,
+        pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
+        rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
         approved: pOrders.filter((o: any) => 
     o.status === PurchaseOrderSubCategory.APPROVED && 
-    o.type !== '사출발주서' &&
     (!o.type || o.type === '일반' || o.type === PurchaseOrderSubCategory.APPROVED)
   ).length
 },
       injection: {
-        pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING && o.type === '사출발주서').length,
-        rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED && o.type === '사출발주서').length,
-        approved: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.APPROVED && o.type === '사출발주서').length
+        pending: injectionOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
+        rejected: injectionOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
+        approved: injectionOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.APPROVED).length
       },
       vietnam: {
         pending: vOrders.filter((o: any) => o.status === VietnamSubCategory.PENDING).length,
@@ -88,13 +90,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const orderSubs = Object.values(OrderSubCategory) as string[];
     const invoiceSubs = Object.values(InvoiceSubCategory) as string[];
     const purchaseSubs = Object.values(PurchaseOrderSubCategory) as string[];
-    const injectionSubs = Object.values(InjectionSubCategory) as string[];
     const vietnamSubs = Object.values(VietnamSubCategory) as string[];
+    const injectionSubs = Object.values(InjectionOrderSubCategory) as string[];
 
     if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
     if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
     if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
-    if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION)) return true;
+    if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
     if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
 
     return false;
@@ -204,6 +206,13 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       </div>
 
       <div className="space-y-6 md:space-y-12">
+        {/* 사출발주서 섹션 */}
+        <CategorySection title="사출발주서 현황" mainCat={MainCategory.INJECTION_ORDER_MAIN}>
+          <StatCard title="사출 결재대기" count={counts.injection.pending} colorClass="orange" statusLabel={InjectionOrderSubCategory.PENDING} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.PENDING })} />
+          <StatCard title="사출 결재반송" count={counts.injection.rejected} colorClass="rose" statusLabel={InjectionOrderSubCategory.REJECTED} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.REJECTED })} />
+          <StatCard title="사출 결재완료" count={counts.injection.approved} colorClass="amber" statusLabel={InjectionOrderSubCategory.APPROVED} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED })} />
+        </CategorySection>
+
         {/* 주문서 섹션 */}
         <CategorySection title="주문서 현황" mainCat={MainCategory.ORDER}>
           <StatCard title="결재대기" count={counts.order.pending} colorClass="blue" statusLabel={OrderSubCategory.PENDING} onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.PENDING })} />
@@ -221,13 +230,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           <StatCard title="PO 결재대기" count={counts.purchase.pending} colorClass="amber" statusLabel={PurchaseOrderSubCategory.PENDING} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })} />
           <StatCard title="PO 결재반송" count={counts.purchase.rejected} colorClass="orange" statusLabel={PurchaseOrderSubCategory.REJECTED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.REJECTED })} />
           <StatCard title="PO 결재완료" count={counts.purchase.approved} colorClass="yellow" statusLabel={PurchaseOrderSubCategory.APPROVED} onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.APPROVED })} />
-        </CategorySection>
-
-        {/* 사출발주서 섹션 */}
-        <CategorySection title="사출발주서 현황" mainCat={MainCategory.INJECTION}>
-          <StatCard title="Injec 결재대기" count={counts.injection.pending} colorClass="blue" statusLabel={InjectionSubCategory.PENDING} onClick={() => setView({ type: 'INJECTION', sub: InjectionSubCategory.PENDING })} />
-          <StatCard title="Injec 반송" count={counts.injection.rejected} colorClass="red" statusLabel={InjectionSubCategory.REJECTED} onClick={() => setView({ type: 'INJECTION', sub: InjectionSubCategory.REJECTED })} />
-          <StatCard title="Injec 결재완료" count={counts.injection.approved} colorClass="indigo" statusLabel={InjectionSubCategory.APPROVED} onClick={() => setView({ type: 'INJECTION', sub: InjectionSubCategory.APPROVED })} />
         </CategorySection>
 
         {/* 베트남 섹션 */}

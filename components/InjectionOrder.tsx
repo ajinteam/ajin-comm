@@ -170,7 +170,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       
       const newPO: PurchaseOrderItem = {
         id: `po-${Date.now()}`,
-        code: 'INJECTION',
+        code: `PO-${Date.now()}`,
         title: fileName || 'Injection Order',
         type: PurchaseOrderSubCategory.PO1,
         status: PurchaseOrderSubCategory.PENDING,
@@ -195,7 +195,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       updateLocal('ajin_injection_orders');
 
       // [최적화] 2. Supabase 개별 저장 (전체 백업 대신 이 건만 전송)
-      saveSingleDoc('purchase_orders', newPO);
+      saveSingleDoc('injectionorder', newPO);
       
       // JANDI 알림: 사출발주서 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
       sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${fileName || 'Injection Order'}`, 'H-CHUN', now.toISOString().split('T')[0]);
@@ -203,7 +203,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       alert('작성완료 되었습니다. PO 결재대기 목록에서 확인하실 수 있습니다.');
       
       // 이동 처리
-      setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING });
+      // If we are in Injection Order Main, go back to its pending list
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: '사출 결재대기' as any });
     } catch (err) {
       console.error('Error completing injection order:', err);
       alert('저장 중 오류가 발생했습니다.');
@@ -274,7 +275,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <button 
-              onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.CREATE })}
+              onClick={() => setView({ type: 'DASHBOARD' })}
               className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
               title="닫기"
             >
