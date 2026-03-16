@@ -541,10 +541,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             {/* Excel Rows 3-5 Info (UI View) */}
             {headerInfo.length > 0 && (
               <div className="w-full bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
-                <h2 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 no-print">업로드 파일 정보 (3~5행)</h2>
+                <h2 className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-3 no-print">업로드 파일 정보 (3~5행)</h2>
                 <div className="space-y-1.5">
                   {headerInfo.map((row: any[], idx: number) => (
-                    <div key={idx} className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-bold text-slate-700 border-b border-slate-50 last:border-0 pb-1.5 last:pb-0">
+                    <div key={idx} className="flex flex-wrap gap-x-6 gap-y-1 text-[9px] font-bold text-slate-700 border-b border-slate-50 last:border-0 pb-1.5 last:pb-0">
                       {row.map((cell, cIdx) => (
                         <span key={cIdx} className="inline-block">{String(cell || '')}</span>
                       ))}
@@ -565,7 +565,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <thead>
                     <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
                       <th className="w-[55px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
-                      <th className="w-[40px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                      <th className="w-[50px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
                       <th className="w-[15px] px-0 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
                       <th className="w-[120px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
                       <th className="w-[25px] px-0 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
@@ -574,7 +574,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <th className="w-[35px] px-0 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
                       <th className="w-[35px] px-0 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
                       <th className="w-[40px] px-0 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
-                      <th className="w-[50px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                      <th className="w-[40px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
                       <th className="w-[65px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
                       <th className="w-[25px] px-0 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
                       <th className="w-[65px] px-1 py-3 text-[9px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
@@ -587,8 +587,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       const nextRowHasMold = index < data.length - 1 && !!data[index + 1].model && data[index + 1].model.trim() !== '';
                       const isLastRow = index === data.length - 1;
                       
-                      const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
-                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
+                      const borderTopClass = hasMold ? 'border-t border-black' : 'border-t-0';
+                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b border-black' : 'border-b-0';
 
                       const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
 
