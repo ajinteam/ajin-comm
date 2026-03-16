@@ -169,8 +169,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     const userInit = currentUser.initials.toUpperCase();
     const targetInit = allowedInitials[role];
 
-    if (userInit !== targetInit) {
-      alert(`해당 직위(${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'}) 승인 권한이 없습니다. (필요: ${targetInit})`);
+    if (userInit !== targetInit && userInit !== 'MASTER') {
+      alert(`해당 직위(${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
       return;
     }
 
@@ -399,8 +399,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 10mm; }
-              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+              @page { size: A4 portrait; margin: 10mm 10mm 20mm 10mm; }
+              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; counter-reset: page; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -416,7 +416,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               /* Page numbering footer */
               .footer {
                 position: fixed;
-                bottom: 0;
+                bottom: 5mm;
                 left: 0;
                 right: 0;
                 text-align: center;
@@ -426,10 +426,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               }
               @media print {
                 .footer { display: block; }
-                @page { margin-bottom: 20mm; }
               }
               .page-number:after {
-                content: "Page " counter(page);
+                content: counter(page) " / " counter(pages);
               }
             </style>
           </head>
@@ -468,7 +467,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
             </svg>
-            목록으로
+            닫기
           </button>
           
           <div className="flex gap-2">
@@ -494,8 +493,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 10mm; }
-                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+                        @page { size: A4 portrait; margin: 10mm 10mm 20mm 10mm; }
+                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; counter-reset: page; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
                         table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -511,7 +510,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         /* Page numbering footer */
                         .footer {
                           position: fixed;
-                          bottom: 0;
+                          bottom: 5mm;
                           left: 0;
                           right: 0;
                           text-align: center;
@@ -521,10 +520,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         }
                         @media print {
                           .footer { display: block; }
-                          @page { margin-bottom: 20mm; }
                         }
                         .page-number:after {
-                          content: "Page " counter(page);
+                          content: counter(page) " / " counter(pages);
                         }
                       </style>
                     </head>
