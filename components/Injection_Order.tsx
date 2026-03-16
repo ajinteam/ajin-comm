@@ -329,6 +329,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         date: now.toISOString().split('T')[0],
         createdAt: now.toISOString(),
         rows: excelData,
+        headerInfoRows,
+        footerText,
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
@@ -411,13 +413,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         </html>
       `);
       win.document.close();
-      window.close();
+  
     }
   }, [fileName]);
 
   const renderDetail = (item: any) => {
     const data = item.rows || [];
     const stamps = item.stamps || {};
+    const headerInfo = item.headerInfoRows || [];
+    const footer = item.footerText || [];
     
     const itemTotals = data.reduce((acc: any, row: any) => {
       const p = parseFloat(String(row.price || '0').replace(/,/g, '')) || 0;
@@ -429,9 +433,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     const eVat = Math.floor(itemTotals.extra * 0.1);
 
     return (
-      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-white">
-        <div className="flex justify-between items-start">
-          <button onClick={() => setActiveItem(null)} className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-bold text-sm flex items-center">
+      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-slate-50">
+        <div className="flex justify-between items-start no-print">
+          <button onClick={() => setActiveItem(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center shadow-sm">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
               <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
             </svg>
@@ -442,18 +446,18 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             {sub === InjectionOrderSubCategory.PENDING && (
               <>
                 {!stamps.design && (
-                  <button onClick={() => handleApprove('design')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm">설계 승인</button>
+                  <button onClick={() => handleApprove('design')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm shadow-lg shadow-blue-500/20">설계 승인</button>
                 )}
                 {stamps.design && !stamps.director && (
-                  <button onClick={() => handleApprove('director')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-sm">이사 승인</button>
+                  <button onClick={() => handleApprove('director')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-sm shadow-lg shadow-indigo-500/20">이사 승인</button>
                 )}
                 {stamps.director && !stamps.ceo && (
-                  <button onClick={() => handleApprove('ceo')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm">대표 승인</button>
+                  <button onClick={() => handleApprove('ceo')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm shadow-lg shadow-purple-500/20">대표 승인</button>
                 )}
                 {stamps.ceo && (
                   <button onClick={handleFinalConfirm} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20 animate-pulse">최종 확인 (결재완료 이동)</button>
                 )}
-                <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm">반송</button>
+                <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20">반송</button>
               </>
             )}
             {sub === InjectionOrderSubCategory.APPROVED && (
@@ -478,6 +482,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         td { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
                         .border-t-bold { border-top: 1.5px solid black !important; }
                         .border-b-bold { border-bottom: 1.5px solid black !important; }
+                        .no-print { display: none !important; }
                       </style>
                     </head>
                     <body onload="window.print(); window.close();">
@@ -496,7 +501,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           </div>
         </div>
 
-        <div className="injection-order-print-detail space-y-6">
+        <div className="injection-order-print-detail space-y-8">
+          {/* Header & Approval Section */}
           <div className="flex flex-col items-center">
             <h1 className="text-2xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
             
@@ -505,11 +511,11 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <p>파일명: {item.title}</p>
                 <p>작성일: {item.date}</p>
                 {item.rejectReason && (
-                  <p className="text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">반송사유: {item.rejectReason}</p>
+                  <p className="text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100 no-print">반송사유: {item.rejectReason}</p>
                 )}
               </div>
               
-              <div className="flex border border-black divide-x divide-black">
+              <div className="flex border border-black divide-x divide-black bg-white shadow-sm">
                 {['writer', 'design', 'director', 'ceo'].map((slot) => {
                   const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
                   const stamp = stamps[slot];
@@ -532,69 +538,118 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               </div>
             </div>
 
-            <table className="w-full border-collapse border border-black text-[10px]">
-              <thead>
-                <tr className="bg-slate-50">
-                  <th className="w-[10%] border border-black p-1">MOLD</th>
-                  <th className="w-[8%] border border-black p-1">DN</th>
-                  <th className="w-[4%] border border-black p-1">S</th>
-                  <th className="w-[20%] border border-black p-1">PART NAME</th>
-                  <th className="w-[5%] border border-black p-1">CTY</th>
-                  <th className="w-[5%] border border-black p-1">QTY</th>
-                  <th className="w-[12%] border border-black p-1">MATERIAL</th>
-                  <th className="w-[7%] border border-black p-1">금형업체</th>
-                  <th className="w-[7%] border border-black p-1">사출업체</th>
-                  <th className="w-[7%] border border-black p-1">주문수량</th>
-                  <th className="w-[10%] border border-black p-1">단가</th>
-                  <th className="w-[10%] border border-black p-1">금액</th>
-                  <th className="w-[5%] border border-black p-1">추가</th>
-                  <th className="w-[10%] border border-black p-1">추가금액</th>
-                  <th className="w-[10%] border border-black p-1">비고</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((row: any, idx: number) => (
-                  <tr key={idx}>
-                    <td className="border border-black p-1 font-bold">{row.model}</td>
-                    <td className="border border-black p-1">{row.dept}</td>
-                    <td className="border border-black p-1 text-center">{row.s}</td>
-                    <td className="border border-black p-1 font-medium">{row.itemName}</td>
-                    <td className="border border-black p-1 text-center">{row.cty}</td>
-                    <td className="border border-black p-1 text-center">{formatNum(row.qty)}</td>
-                    <td className="border border-black p-1">{row.material}</td>
-                    <td className="border border-black p-1 text-center">{row.vendor}</td>
-                    <td className="border border-black p-1 text-center">{row.injectionVendor}</td>
-                    <td className="border border-black p-1 text-center">{formatNum(row.orderQty)}</td>
-                    <td className="border border-black p-1 text-right">{row.unitPrice ? `@ ${formatNum(row.unitPrice)}` : ''}</td>
-                    <td className="border border-black p-1 text-right font-bold">{formatNum(row.price)}</td>
-                    <td className="border border-black p-1 text-center">{formatNum(row.extra)}</td>
-                    <td className="border border-black p-1 text-right">{formatNum(row.extraAmount)}</td>
-                    <td className="border border-black p-1 italic text-slate-500">{row.remarksRSP}</td>
-                  </tr>
-                ))}
-                <tr className="border-t-2 border-black font-bold">
-                  <td colSpan={11} className="border border-black p-1 text-right">합계 (Subtotal)</td>
-                  <td className="border border-black p-1 text-right">{itemTotals.price.toLocaleString()}</td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1 text-right">{itemTotals.extra.toLocaleString()}</td>
-                  <td className="border border-black p-1"></td>
-                </tr>
-                <tr className="font-bold">
-                  <td colSpan={11} className="border border-black p-1 text-right">부가세 (VAT 10%)</td>
-                  <td className="border border-black p-1 text-right">{pVat.toLocaleString()}</td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1 text-right">{eVat.toLocaleString()}</td>
-                  <td className="border border-black p-1"></td>
-                </tr>
-                <tr className="bg-slate-50 font-black">
-                  <td colSpan={11} className="border border-black p-1 text-right">총액 (Grand Total)</td>
-                  <td className="border border-black p-1 text-right text-blue-700">{(itemTotals.price + pVat).toLocaleString()}</td>
-                  <td className="border border-black p-1"></td>
-                  <td className="border border-black p-1 text-right text-blue-700">{(itemTotals.extra + eVat).toLocaleString()}</td>
-                  <td className="border border-black p-1"></td>
-                </tr>
-              </tbody>
-            </table>
+            {/* Excel Rows 3-5 Info (UI View) */}
+            {headerInfo.length > 0 && (
+              <div className="w-full bg-white p-4 rounded-2xl border border-slate-200 shadow-sm mb-6 overflow-hidden">
+                <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 no-print">업로드 파일 정보 (3~5행)</h2>
+                <div className="space-y-1.5">
+                  {headerInfo.map((row: any[], idx: number) => (
+                    <div key={idx} className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-bold text-slate-700 border-b border-slate-50 last:border-0 pb-1.5 last:pb-0">
+                      {row.map((cell, cIdx) => (
+                        <span key={cIdx} className="inline-block">{String(cell || '')}</span>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Data Table Section */}
+            <div className="w-full bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col mb-6">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between no-print">
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
+                <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {data.length} ITEMS</span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
+                      <th className="w-[55px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
+                      <th className="w-[40px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                      <th className="w-[15px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
+                      <th className="w-[120px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                      <th className="w-[25px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
+                      <th className="w-[25px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
+                      <th className="w-[60px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
+                      <th className="w-[35px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
+                      <th className="w-[35px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
+                      <th className="w-[40px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
+                      <th className="w-[50px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                      <th className="w-[65px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
+                      <th className="w-[25px] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
+                      <th className="w-[65px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
+                      <th className="w-[45px] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-black">
+                    {data.map((row: any, index: number) => {
+                      const hasMold = !!row.model && row.model.trim() !== '';
+                      const nextRowHasMold = index < data.length - 1 && !!data[index + 1].model && data[index + 1].model.trim() !== '';
+                      const isLastRow = index === data.length - 1;
+                      
+                      const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
+                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
+
+                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+
+                      return (
+                        <tr key={index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
+                          <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                        </tr>
+                      );
+                    })}
+                    {/* Summary Rows */}
+                    <tr className="bg-slate-50/30 font-bold text-black border-t-2 border-slate-400">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{itemTotals.price.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                    <tr className="bg-slate-50/30 font-bold text-black">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{pVat.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{eVat.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                    <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
+                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Footer Text Section */}
+            {footer.length > 0 && (
+              <div className="w-full bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 no-print">추가 정보 (Footer Text)</h2>
+                <div className="space-y-1">
+                  {footer.map((line: string, idx: number) => (
+                    <p key={idx} className="text-[15px] text-slate-600 font-medium">{line}</p>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
