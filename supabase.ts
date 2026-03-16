@@ -37,13 +37,6 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
     try {
       let cloudId = String(doc.id);
 
-      if (tableName === 'injectionorder') {
-        cloudId = doc.title || String(doc.id);
-      } else if (tableName !== 'recipients') {
-        const recipientName = doc.recipient || doc.clientName || doc.consigneeName || doc.title;
-        if (recipientName) cloudId = String(recipientName);
-      }
-
       const payload: any = {
         id: cloudId,
         content: doc,
