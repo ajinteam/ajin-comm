@@ -464,14 +464,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20">완료 (AJ사출발주 이동)</button>
             )}
             <button onClick={() => {
-              const content = document.querySelector('.injection-order-print-detail')?.innerHTML;
+              const content = document.querySelector('.injection-order-print-detail-hidden')?.innerHTML;
               if (!content) return;
               const win = window.open('', '_blank');
               if (win) {
                 win.document.write(`
                   <html>
                     <head>
-                      <title>Injection_Order_${item.title}</title>
+                      <title>Injection_Order_${item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
                         @page { size: A4 portrait; margin: 10mm; }
@@ -482,6 +482,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
                         td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
                         .document-wrapper { padding: 0; box-sizing: border-box; }
+                        .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
                         .border-t-bold { border-top: 1.5px solid black !important; }
                         .border-b-bold { border-bottom: 1.5px solid black !important; }
                         .border-t-thin { border-top: 0.5px solid black !important; }
@@ -508,7 +509,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       </style>
                     </head>
                     <body onload="window.print(); window.close();">
-                      <div class="document-wrapper p-4">${content}</div>
+                      <div class="document-wrapper">${content}</div>
                       <div class="footer">
                         ${item.title} - <span class="page-number"></span>
                       </div>
@@ -526,141 +527,300 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           </div>
         </div>
 
-        <div className="injection-order-print-detail space-y-8">
-          {/* Header & Approval Section */}
-          <div className="flex flex-col items-center">
-            <h1 className="text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
-            
-            <div className="w-full flex justify-between items-start mb-8">
-              <div className="text-sm font-bold space-y-1">
-                <p>파일명: {item.title}</p>
-                <p>작성일: {item.date}</p>
-                {item.rejectReason && (
-                  <p className="text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100 no-print">반송사유: {item.rejectReason}</p>
-                )}
-              </div>
-              
-              <div className="flex border border-black divide-x divide-black bg-white">
-                {['writer', 'design', 'director', 'ceo'].map((slot) => {
-                  const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
-                  const stamp = stamps[slot];
-                  return (
-                    <div key={slot} className="w-16 h-20 flex flex-col">
-                      <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
-                      <div className="flex-1 flex flex-col items-center justify-center leading-tight p-1 text-center">
-                        {stamp ? (
-                          <>
-                            <span className="font-black text-[10px] text-blue-700">{stamp.userId}</span>
-                            <span className="text-[6px] text-slate-500 mt-0.5">{stamp.timestamp}</span>
-                          </>
-                        ) : (
-                          <span className="text-[8px] text-slate-200 font-bold italic">승인대기</span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <div className="space-y-8">
+          {/* Header Section */}
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출 발주서 (Injection Order)</h1>
+              <p className="text-sm text-slate-500 font-medium">작성완료된 발주서의 상세 내용 및 결재 현황입니다.</p>
             </div>
+            {item.title && (
+              <div className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
+                </svg>
+                {item.title}
+              </div>
+            )}
+          </div>
 
-            {/* Excel Rows 3-5 Info */}
-            {headerInfo.length > 0 && (
-              <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+          {/* Approval Section */}
+          <div className="flex justify-end">
+            <table className="border-collapse border-slate-300 border-[1px] text-center text-[11px] w-auto bg-white shadow-sm rounded-lg overflow-hidden">
+              <tbody>
+                <tr>
+                  <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
+                  {['writer', 'design', 'director', 'ceo'].map(slot => (
+                    <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
+                      {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
+                    </td>
+                  ))}
+                </tr>
+                <tr className="h-16">
+                  {['writer', 'design', 'director', 'ceo'].map(slot => {
+                    const stamp = stamps[slot];
+                    return (
+                      <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
+                        {stamp ? (
+                          <div className="flex flex-col items-center">
+                            <span className="font-black text-blue-600 text-sm">{stamp.userId}</span>
+                            <span className="text-[7px] text-slate-400 font-bold mt-1">{stamp.timestamp}</span>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Header Info Section */}
+          {headerInfo.length > 0 && (
+            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm max-w-4xl overflow-hidden">
+              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">업로드 파일 정보 (3~5행)</h2>
+              <div className="space-y-1.5">
                 {headerInfo.map((row: any[], idx: number) => (
-                  <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                  <div key={idx} className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-bold text-slate-700 border-b border-slate-50 last:border-0 pb-1.5 last:pb-0">
                     {row.map((cell, cIdx) => (
-                      <span key={cIdx}>{String(cell || '')}</span>
+                      <span key={cIdx} className="inline-block">{String(cell || '')}</span>
                     ))}
                   </div>
                 ))}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Data Table Section */}
-            <table className="w-full border-collapse border border-black">
-              <thead>
-                <tr className="bg-slate-50 text-black">
-                  <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
-                  <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
-                  <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
-                  <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
-                  <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
-                  <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
-                  <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
-                  <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
-                  <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
-                  <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
-                  <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
-                  <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
-                  <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
-                  <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
-                  <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
-                </tr>
-              </thead>
-              <tbody className="text-black">
-                {data.map((row: any, index: number) => {
-                  const hasMold = !!row.model && row.model.trim() !== '';
-                  const nextRowHasMold = index < data.length - 1 && !!data[index + 1].model && data[index + 1].model.trim() !== '';
-                  const isLastRow = index === data.length - 1;
-                  
-                  const borderTopClass = hasMold ? 'border-t-bold' : '';
-                  const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-bold' : '';
+          {/* Data Table Section */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
+              <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {data.length} ITEMS</span>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
+                    <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
+                    <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                    <th className="w-[3%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
+                    <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                    <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
+                    <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
+                    <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
+                    <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
+                    <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
+                    <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
+                    <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                    <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
+                    <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
+                    <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
+                    <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                  </tr>
+                </thead>
+                <tbody className="text-black">
+                  {data.map((row: any, index: number) => {
+                    const hasMold = !!row.model && row.model.trim() !== '';
+                    const nextRowHasMold = index < data.length - 1 && !!data[index + 1].model && data[index + 1].model.trim() !== '';
+                    const isLastRow = index === data.length - 1;
+                    
+                    const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
+                    const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
 
-                  const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+                    const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
 
-                  return (
-                    <tr key={index} className={`${borderTopClass} ${borderBottomClass}`}>
-                      <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
-                      <td className="px-1 py-1 text-[8px]">{row.dept}</td>
-                      <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
-                      <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
-                      <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
-                      <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
-                      <td className="px-1 py-1 text-[8px]">{row.material}</td>
-                      <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
-                      <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
-                      <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
-                      <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
-                      <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
-                      <td className="px-1 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
-                      <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
-                      <td className="px-1 py-1 text-[8px] italic">{row.remarksRSP}</td>
-                    </tr>
-                  );
-                })}
-                {/* Summary Rows */}
-                <tr className="border-t-bold">
-                  <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
-                  <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
-                  <td className="border border-black px-0 py-1"></td>
-                  <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
-                  <td className="border border-black px-1 py-1"></td>
-                </tr>
-                <tr className="border-t-thin border-b-thin">
-                  <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
-                  <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{pVat.toLocaleString()}</td>
-                  <td className="border border-black px-0 py-1"></td>
-                  <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{eVat.toLocaleString()}</td>
-                  <td className="border border-black px-1 py-1"></td>
-                </tr>
-                <tr className="bg-slate-50 border-b-bold">
-                  <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
-                  <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
-                  <td className="border border-black px-0 py-1"></td>
-                  <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
-                  <td className="border border-black px-1 py-1"></td>
-                </tr>
-              </tbody>
-            </table>
+                    return (
+                      <tr key={index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
+                        <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
+                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
+                        <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
+                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
+                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
+                        <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
+                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
+                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
+                        <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                      </tr>
+                    );
+                  })}
+                  {/* Summary Rows */}
+                  <tr className="bg-slate-50/30 font-bold text-black border-t-2 border-slate-400">
+                    <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
+                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{itemTotals.price.toLocaleString()}</td>
+                    <td className="px-0 py-3 border-r border-slate-100"></td>
+                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{itemTotals.extra.toLocaleString()}</td>
+                    <td className="px-1 py-3"></td>
+                  </tr>
+                  <tr className="bg-slate-50/30 font-bold text-black">
+                    <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
+                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{pVat.toLocaleString()}</td>
+                    <td className="px-0 py-3 border-r border-slate-100"></td>
+                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{eVat.toLocaleString()}</td>
+                    <td className="px-1 py-3"></td>
+                  </tr>
+                  <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
+                    <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
+                    <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.price + pVat).toLocaleString()}</td>
+                    <td className="px-0 py-3 border-r border-slate-100"></td>
+                    <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                    <td className="px-1 py-3"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
 
-            {/* Footer Text Section */}
-            {footer.length > 0 && (
-              <div className="w-full mt-4 text-[8px] space-y-1">
+          {/* Footer Text Section */}
+          {footer.length > 0 && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">추가 정보 (Footer Text)</h2>
+              <div className="space-y-1">
                 {footer.map((line: string, idx: number) => (
-                  <p key={idx} className="font-medium">{line}</p>
+                  <p key={idx} className="text-[15px] text-slate-600 font-medium">{line}</p>
                 ))}
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Hidden Print Content (VN Style) */}
+          <div className="hidden">
+            <div className="injection-order-print-detail-hidden">
+              <div className="flex flex-col items-center">
+                <h1 className="text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
+                
+                <div className="w-full flex justify-between items-start mb-8">
+                  <div className="text-sm font-bold">
+                    <p>파일명: {item.title}</p>
+                    <p>작성일: {item.date}</p>
+                  </div>
+                  
+                  <div className="flex border border-black divide-x divide-black">
+                    {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
+                      const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
+                      const stamp = stamps[slot];
+                      return (
+                        <div key={idx} className="w-16 h-20 flex flex-col">
+                          <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
+                          <div className="flex-1 flex flex-col items-center justify-center leading-tight">
+                            {stamp && (
+                              <>
+                                <span className="font-black text-[10px] text-blue-700">{stamp.userId}</span>
+                                <span className="text-[6px] text-slate-500 mt-0.5">{stamp.timestamp}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Excel Rows 3-5 Info */}
+                {headerInfo.length > 0 && (
+                  <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+                    {headerInfo.map((row: any[], idx: number) => (
+                      <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                        {row.map((cell, cIdx) => (
+                          <span key={cIdx}>{String(cell || '')}</span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <table className="w-full border-collapse border border-black">
+                  <thead>
+                    <tr className="bg-slate-50 text-black">
+                      <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
+                      <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
+                      <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
+                      <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
+                      <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
+                      <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
+                      <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
+                      <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
+                      <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-black">
+                    {data.map((row: any, idx: number) => {
+                      const hasMold = !!row.model && row.model.trim() !== '';
+                      const nextRowHasMold = idx < data.length - 1 && !!data[idx + 1].model && data[idx + 1].model.trim() !== '';
+                      const isLastRow = idx === data.length - 1;
+                      
+                      const borderTopClass = hasMold ? 'border-t-bold' : '';
+                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-bold' : '';
+
+                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+
+                      return (
+                        <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
+                          <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
+                          <td className="px-1 py-1 text-[8px]">{row.dept}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
+                          <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-1 text-[8px]">{row.material}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-1 text-[8px] italic text-slate-500">{row.remarksRSP}</td>
+                        </tr>
+                      );
+                    })}
+                    <tr className="border-t-bold">
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
+                      <td className="border border-black px-0 py-1"></td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1"></td>
+                    </tr>
+                    <tr className="border-t-thin border-b-thin">
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{pVat.toLocaleString()}</td>
+                      <td className="border border-black px-0 py-1"></td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{eVat.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1"></td>
+                    </tr>
+                    <tr className="bg-slate-50 border-b-bold">
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td className="border border-black px-0 py-1"></td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1"></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Footer Text for Print */}
+                {footer.length > 0 && (
+                  <div className="w-full mt-4 text-[8px] space-y-1">
+                    {footer.map((line: string, idx: number) => (
+                      <p key={idx} className="font-medium">{line}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>

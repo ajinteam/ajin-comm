@@ -128,7 +128,7 @@ export const pullStateFromCloud = async () => {
   
   // 트래픽 최적화: 10초 이내 중복 요청 방지
   const now = Date.now();
-  if (now - lastPullTime < 10000) return null;
+  if (now - lastPullTime < 3000) return null;
   lastPullTime = now;
 
   try {
