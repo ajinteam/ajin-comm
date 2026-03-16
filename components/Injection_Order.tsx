@@ -158,6 +158,32 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
   const handleApprove = async (role: string) => {
     if (!activeItem) return;
+
+    // Strict initial check
+    const allowedInitials: Record<string, string> = {
+      design: 'H-CHUN',
+      director: 'M-YEUN',
+      ceo: 'DAVID'
+    };
+
+    const userInit = currentUser.initials.toUpperCase();
+    const targetInit = allowedInitials[role];
+
+    if (userInit !== targetInit) {
+      alert(`해당 직위(${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'}) 승인 권한이 없습니다. (필요: ${targetInit})`);
+      return;
+    }
+
+    // Sequence check
+    if (role === 'director' && !activeItem.stamps?.design) {
+      alert('설계 승인이 먼저 완료되어야 합니다.');
+      return;
+    }
+    if (role === 'ceo' && !activeItem.stamps?.director) {
+      alert('이사 승인이 먼저 완료되어야 합니다.');
+      return;
+    }
+
     if (!window.confirm(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인하시겠습니까?`)) return;
 
     try {
@@ -177,6 +203,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
+      // Update State
+      setItems(updatedItems.filter((item: any) => item.status === sub));
+      setActiveItem(updatedItem);
+
       // Update Supabase
       await saveSingleDoc('Injection_Order', updatedItem);
       
@@ -190,7 +220,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       }
 
       alert('승인되었습니다.');
-      setActiveItem(null); // Close window after approval
       pushStateToCloud();
     } catch (err) {
       console.error('Error approving:', err);
@@ -445,15 +474,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           <div className="flex gap-2">
             {sub === InjectionOrderSubCategory.PENDING && (
               <>
-                {!stamps.design && (
-                  <button onClick={() => handleApprove('design')} className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold text-sm shadow-lg shadow-blue-500/20">설계 승인</button>
-                )}
-                {stamps.design && !stamps.director && (
-                  <button onClick={() => handleApprove('director')} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-bold text-sm shadow-lg shadow-indigo-500/20">이사 승인</button>
-                )}
-                {stamps.director && !stamps.ceo && (
-                  <button onClick={() => handleApprove('ceo')} className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 font-bold text-sm shadow-lg shadow-purple-500/20">대표 승인</button>
-                )}
                 {stamps.ceo && (
                   <button onClick={handleFinalConfirm} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20 animate-pulse">최종 확인 (결재완료 이동)</button>
                 )}
@@ -529,19 +549,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
         <div className="space-y-8">
           {/* Header Section */}
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+          <div className="flex flex-col gap-2">
             <div>
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출 발주서 (Injection Order)</h1>
-              <p className="text-sm text-slate-500 font-medium">작성완료된 발주서의 상세 내용 및 결재 현황입니다.</p>
+              {item.title && (
+                <div className="mt-2 text-3xl font-black text-blue-600 uppercase tracking-tight">
+                  {item.title}
+                </div>
+              )}
+              <p className="mt-1 text-sm text-slate-500 font-medium">작성완료된 발주서의 상세 내용 및 결재 현황입니다.</p>
             </div>
-            {item.title && (
-              <div className="inline-flex items-center px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-xs font-bold border border-blue-100">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 mr-1.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
-                </svg>
-                {item.title}
-              </div>
-            )}
           </div>
 
           {/* Approval Section */}
@@ -559,15 +576,23 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tr className="h-16">
                   {['writer', 'design', 'director', 'ceo'].map(slot => {
                     const stamp = stamps[slot];
+                    const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
+                    
                     return (
-                      <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
+                      <td 
+                        key={slot} 
+                        className={`border border-slate-300 p-1 align-middle min-w-[80px] ${isClickable ? 'cursor-pointer hover:bg-blue-50 transition-colors' : ''}`}
+                        onClick={() => isClickable && handleApprove(slot)}
+                      >
                         {stamp ? (
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center justify-center h-full text-center">
                             <span className="font-black text-blue-600 text-sm">{stamp.userId}</span>
-                            <span className="text-[7px] text-slate-400 font-bold mt-1">{stamp.timestamp}</span>
+                            <span className="text-[7px] text-slate-400 font-bold mt-1 leading-tight">{stamp.timestamp}</span>
                           </div>
                         ) : (
-                          <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
+                          <div className="flex items-center justify-center h-full text-center">
+                            <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
+                          </div>
                         )}
                       </td>
                     );
