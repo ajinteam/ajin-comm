@@ -28,7 +28,6 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
   try {
     let cloudId = String(doc.id);
 
-    // [수정] id text를 모두 수신처가 이름으로, injectionorder는 파일이름으로
     if (tableName === 'injectionorder') {
       cloudId = doc.title || String(doc.id);
     } else if (tableName !== 'recipients') {
@@ -112,6 +111,12 @@ export const deleteRecipient = async (id: string) => {
       .delete()
       .eq('id', id);
     if (error) throw error;
+    
+    // 로컬에서도 삭제
+    const localAccounts = JSON.parse(localStorage.getItem('ajin_accounts') || '[]');
+    const filtered = localAccounts.filter((a: any) => String(a.id) !== String(id));
+    localStorage.setItem('ajin_accounts', JSON.stringify(filtered));
+
     console.log(`[Cloud Sync] Recipients 삭제 성공: ${id}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] Recipients:`, err.message || err);
@@ -119,49 +124,53 @@ export const deleteRecipient = async (id: string) => {
 };
 
 /**
- * 문서 삭제 (개별 테이블에서 삭제)
+ * 문서 삭제 (개별 테이블 및 로컬 스토리지 동시 삭제)
  */
 export const deleteSingleDoc = async (tableName: string, id: string, doc?: any) => {
   if (!supabase) return;
   try {
     let cloudId = id;
-    
-    // 만약 doc이 전달되지 않았다면 로컬스토리지에서 찾아서 cloudId를 유추합니다.
+    const localKeyMap: Record<string, string> = {
+      'orders': 'ajin_orders',
+      'invoices': 'ajin_invoices',
+      'purchase_orders': 'ajin_purchase_orders',
+      'vn_purchase_orders': 'ajin_vietnam_orders',
+      'nationalinvoice': 'ajin_national_invoices',
+      'injectionorder': 'ajin_injection_orders'
+    };
+    const localKey = localKeyMap[tableName];
+
+    // 1. 클라우드용 ID 매칭 로직
     if (doc) {
       if (tableName === 'injectionorder') {
         cloudId = doc.title || id;
       } else if (tableName !== 'recipients') {
         cloudId = doc.recipient || doc.clientName || doc.consigneeName || doc.title || id;
       }
-    } else {
-      const localKeyMap: Record<string, string> = {
-        'orders': 'ajin_orders',
-        'invoices': 'ajin_invoices',
-        'purchase_orders': 'ajin_purchase_orders',
-        'vn_purchase_orders': 'ajin_vietnam_orders',
-        'nationalinvoice': 'ajin_national_invoices',
-        'injectionorder': 'ajin_injection_orders'
-      };
-      const localKey = localKeyMap[tableName];
-      if (localKey) {
-        const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
-        const found = localData.find((d: any) => String(d.id) === String(id));
-        if (found) {
-          if (tableName === 'injectionorder') {
-            cloudId = found.title || id;
-          } else {
-            cloudId = found.recipient || found.clientName || found.consigneeName || found.title || id;
-          }
-        }
+    } else if (localKey) {
+      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+      const found = localData.find((d: any) => String(d.id) === String(id));
+      if (found) {
+        cloudId = (tableName === 'injectionorder') ? (found.title || id) : (found.recipient || found.clientName || found.consigneeName || found.title || id);
       }
     }
 
+    // 2. Supabase에서 삭제
     const { error } = await supabase
       .from(tableName)
       .delete()
       .eq('id', String(cloudId));
 
     if (error) throw error;
+
+    // 3. 로컬 스토리지에서도 즉시 삭제 (동기화 핵심)
+    if (localKey) {
+      const localData = JSON.parse(localStorage.getItem(localKey) || '[]');
+      const filteredData = localData.filter((item: any) => String(item.id) !== String(id));
+      localStorage.setItem(localKey, JSON.stringify(filteredData));
+      console.log(`[Local Sync] ${localKey}에서 항목 제거 완료`);
+    }
+
     console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${cloudId}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message || err);
@@ -169,7 +178,7 @@ export const deleteSingleDoc = async (tableName: string, id: string, doc?: any) 
 };
 
 /**
- * 클라우드 데이터와 로컬 데이터 병합 (계정 동기화 포함)
+ * 클라우드 데이터와 로컬 데이터 병합
  */
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
@@ -184,16 +193,9 @@ export const pullStateFromCloud = async () => {
       }
     };
 
-    // 1. 모든 테이블 데이터 및 계정(recipients) 데이터를 가져옵니다.
     const [
-      ordersRes, 
-      invoicesRes, 
-      pOrdersRes, 
-      vnOrdersRes, 
-      nationalInvoicesRes, 
-      injectionOrdersRes, 
-      nationalEntitiesRes,
-      accountsRes
+      ordersRes, invoicesRes, pOrdersRes, vnOrdersRes, 
+      nationalInvoicesRes, injectionOrdersRes, nationalEntitiesRes, accountsRes
     ] = await Promise.all([
       fetchTable('orders'),
       fetchTable('invoices'),
@@ -205,7 +207,6 @@ export const pullStateFromCloud = async () => {
       supabase.from('recipients').select('*').eq('category', 'ACCOUNT')
     ]);
 
-    // 2. 클라우드 계정 데이터를 앱 형식으로 변환
     const cloudAccounts = accountsRes.data?.map(item => ({
       id: item.id,
       loginId: item.name,
@@ -214,20 +215,14 @@ export const pullStateFromCloud = async () => {
       createdAt: item.created_at || new Date().toISOString()
     })) || [];
 
-    // 3. 병합 로직 (ID 기준 중복 제거)
+    // 병합 로직: 클라우드 데이터를 우선으로 함
     const merge = (localKey: string, newList: any[] = []) => {
-      const localData = JSON.parse(localStorage.getItem(`ajin_${localKey}`) || '[]');
       const cloudItems = newList?.map((item: any) => item.content).filter(Boolean) || [];
-      
-      const combined = [...cloudItems, ...localData];
-      const map = new Map();
-      combined.forEach(item => {
-        if (item && item.id) map.set(item.id, item);
-      });
-      return Array.from(map.values());
+      // 삭제 동기화를 위해 클라우드에 데이터가 있다면 클라우드를 마스터로 사용합니다.
+      // 만약 오프라인 저장이 중요하다면 기존 combined 방식을 유지하되 delete 시 관리를 철저히 해야 합니다.
+      return cloudItems; 
     };
 
-    // 4. 최종 데이터 셋 (계정은 클라우드 우선)
     const finalData = {
       accounts: cloudAccounts.length > 0 ? cloudAccounts : JSON.parse(localStorage.getItem('ajin_accounts') || '[]'),
       orders: merge('orders', ordersRes),
@@ -243,7 +238,6 @@ export const pullStateFromCloud = async () => {
       updatedAt: new Date().toISOString()
     };
 
-    // 5. 로컬 스토리지에 결과 쓰기
     Object.keys(finalData).forEach(key => {
       if (key !== 'updatedAt') {
         localStorage.setItem(`ajin_${key}`, JSON.stringify((finalData as any)[key]));
@@ -251,7 +245,7 @@ export const pullStateFromCloud = async () => {
     });
     localStorage.setItem('ajin_last_local_update', finalData.updatedAt);
 
-    console.log('[Cloud Sync] 계정 포함 개별 테이블 기반 동기화 완료');
+    console.log('[Cloud Sync] 개별 테이블 기반 동기화 완료');
     return finalData;
   } catch (err) {
     console.error('[Cloud Sync] Pull error:', err);
@@ -259,9 +253,6 @@ export const pullStateFromCloud = async () => {
   }
 };
 
-/**
- * 잔디 알림 전송
- */
 export const sendJandiNotification = async (
   target: 'KR' | 'VN' | 'KR_PO',
   type: 'REQUEST' | 'COMPLETE' | 'REJECT',
@@ -276,15 +267,9 @@ export const sendJandiNotification = async (
       body: JSON.stringify({ target, type, title, recipient, date })
     });
     if (!response.ok) throw new Error('Jandi API error');
-    console.log(`[JANDI SUCCESS] Notification sent`);
   } catch (err) {
     console.error('[JANDI API CALL ERROR]', err);
   }
 };
 
-/**
- * 전체 백업 기능 중단 (빈 함수 유지로 에러 방지)
- */
-export const pushStateToCloud = async (immediate: boolean = false) => {
-  return; 
-};
+export const pushStateToCloud = async (immediate: boolean = false) => { return; };
