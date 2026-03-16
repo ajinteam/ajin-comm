@@ -271,6 +271,7 @@ export interface InvoiceItem {
   authorId: string;
   createdAt: string;
   isTemporary?: boolean;
+  status?: string;
   merges?: Record<string, { rS: number, cS: number }>;
   aligns?: Record<string, 'left' | 'center' | 'right'>; 
   borders?: Record<string, { t?: string, b?: string, l?: string, r?: string }>;

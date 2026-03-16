@@ -569,6 +569,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       onConfirm: () => {
         const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
         let allConfirmed = false;
+        let updatedDocForCloud: InvoiceItem | null = null;
         let finalUpdated = currentFullList.map((inv: InvoiceItem) => {
           if (inv.id === activeInvoice.id) {
             const updatedRows = inv.rows.map(row => 
@@ -578,12 +579,28 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             ) as InvoiceRow[];
             const currentActiveRows = updatedRows.filter(r => !r.isDeleted && (r.model?.trim() || r.itemName?.trim()));
             allConfirmed = currentActiveRows.length > 0 && currentActiveRows.every(r => !!r.qtyConfirm);
-            return { ...inv, rows: updatedRows, stamps: allConfirmed ? { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } } : inv.stamps } as InvoiceItem;
+            
+            const updatedDoc = { 
+              ...inv, 
+              rows: updatedRows, 
+              status: allConfirmed ? '결재완료' : (inv.status || '결재대기'),
+              stamps: allConfirmed ? { ...inv.stamps, final: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } } : inv.stamps 
+            } as InvoiceItem;
+            
+            if (allConfirmed) {
+              updatedDocForCloud = updatedDoc;
+            }
+            return updatedDoc;
           }
           return inv;
         });
         localStorage.setItem('ajin_invoices', JSON.stringify(finalUpdated));
         setInvoices(finalUpdated);
+        
+        if (updatedDocForCloud) {
+          saveSingleDoc('invoices', updatedDocForCloud);
+        }
+
         if (allConfirmed) {
           setModal({ type: 'ALERT', message: '모든 확인이 완료되어 해당 수신처 폴더로 저장(분류)되었습니다.', onConfirm: () => { setModal(null); setActiveInvoice(null); } });
         } else {
@@ -637,6 +654,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             ...inv, title: newTitle, date: formDate, recipient: formRecipient, cargoInfo: formCargo, 
             rows: isTemp ? activeInvoice.rows : validRows, 
             weight: formWeight, boxQty: formBoxQty, isTemporary: isTemp,
+            status: isTemp ? '임시저장' : '결재대기',
             merges: merges, aligns: aligns, borders: borders,
             stamps: { ...inv.stamps, writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
           };
@@ -650,6 +668,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
         id: `INV-${Date.now()}`, title: newTitle, date: formDate, recipient: formRecipient, cargoInfo: formCargo, 
         rows: isTemp ? formRows : validRows, 
         weight: formWeight, boxQty: formBoxQty, authorId: currentUser.initials, createdAt: new Date().toISOString(), merges: merges, aligns: aligns, borders: borders, isTemporary: isTemp,
+        status: isTemp ? '임시저장' : '결재대기',
         stamps: { writer: { userId: currentUser.initials, timestamp: getCurrentAmPmTime() } }
       };
       saveInvoices([newInvoice, ...invoices], newInvoice);
