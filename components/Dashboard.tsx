@@ -47,7 +47,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const pOrders = JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]');
     const vOrders = JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]');
 
-    const injectionOrders = pOrders.filter((o: any) => o.type === PurchaseOrderSubCategory.PO1 || o.type === '사출발주서');
+    const injectionOrders = pOrders.filter((o: any) => o.code === 'INJECTION');
 
     setCounts({
       order: {
@@ -62,17 +62,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     ).length
   },
       purchase: {
-        pending: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
-        rejected: pOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
+        pending: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.PENDING).length,
+        rejected: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.REJECTED).length,
         approved: pOrders.filter((o: any) => 
+    o.code !== 'INJECTION' &&
     o.status === PurchaseOrderSubCategory.APPROVED && 
     (!o.type || o.type === '일반' || o.type === PurchaseOrderSubCategory.APPROVED)
   ).length
 },
       injection: {
-        pending: injectionOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.PENDING).length,
-        rejected: injectionOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.REJECTED).length,
-        approved: injectionOrders.filter((o: any) => o.status === PurchaseOrderSubCategory.APPROVED).length
+        pending: injectionOrders.filter((o: any) => o.status === InjectionOrderSubCategory.PENDING).length,
+        rejected: injectionOrders.filter((o: any) => o.status === InjectionOrderSubCategory.REJECTED).length,
+        approved: injectionOrders.filter((o: any) => o.status === InjectionOrderSubCategory.APPROVED).length
       },
       vietnam: {
         pending: vOrders.filter((o: any) => o.status === VietnamSubCategory.PENDING).length,

@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { PurchaseOrderSubCategory, InjectionSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
+import { PurchaseOrderSubCategory, InjectionOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
 import { supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 
 interface PurchaseOrderViewProps {
-  sub: PurchaseOrderSubCategory | InjectionSubCategory;
+  sub: PurchaseOrderSubCategory | InjectionOrderSubCategory;
   currentUser: UserAccount;
   setView: (v: ViewState) => void;
   dataVersion: number;
@@ -89,7 +89,7 @@ const getCellBorderStyle = (r: number, c: number, borderData: any) => {
 };
 
 const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser, setView, dataVersion }) => {
-  const isInjectionView = useMemo(() => Object.values(InjectionSubCategory).includes(sub as any), [sub]);
+  const isInjectionView = useMemo(() => Object.values(InjectionOrderSubCategory).includes(sub as any), [sub]);
   const currentViewType = isInjectionView ? 'INJECTION' : 'PURCHASE';
 
   const [items, setItems] = useState<PurchaseOrderItem[]>([]);
@@ -523,13 +523,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     
     // [트래픽 절약용] 수정된 발주서 한 건만 즉시 Supabase 새 테이블로 보냅니다.
     if (updatedDoc) {
-      await saveSingleDoc('purchase_orders', updatedDoc);
+      const tableName = updatedDoc.code === 'INJECTION' ? 'Injection_Order' : 'purchase_orders';
+      await saveSingleDoc(tableName, updatedDoc);
     } else if (activeItem) {
-      // activeItem이 있으면 그것을 저장 (기존 로직 보완)
-      await saveSingleDoc('purchase_orders', activeItem);
+      const tableName = activeItem.code === 'INJECTION' ? 'Injection_Order' : 'purchase_orders';
+      await saveSingleDoc(tableName, activeItem);
     }
-
-    
   };
 
   const handleSaveVendor = () => {
@@ -765,12 +764,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
     // 수정: currentType이 _TEMP일 수도 있으므로 포함하여 체크합니다.
     if (isTemp) {
-      if (isInjection) targetStatus = InjectionSubCategory.TEMPORARY;
+      if (isInjection) targetStatus = InjectionOrderSubCategory.TEMPORARY;
       else if (currentType === PurchaseOrderSubCategory.PO1 || currentType === PurchaseOrderSubCategory.PO1_TEMP) targetStatus = PurchaseOrderSubCategory.PO1_TEMP;
       else if (currentType === PurchaseOrderSubCategory.PO3 || currentType === PurchaseOrderSubCategory.PO3_TEMP) targetStatus = PurchaseOrderSubCategory.PO3_TEMP;
       else targetStatus = PurchaseOrderSubCategory.PO2_TEMP;
     } else {
-      targetStatus = isInjection ? InjectionSubCategory.PENDING : PurchaseOrderSubCategory.PENDING;
+      targetStatus = isInjection ? InjectionOrderSubCategory.PENDING : PurchaseOrderSubCategory.PENDING;
     }
 
     // 새 아이템의 type을 기본 타입(PO1, PO2, PO3)으로 고정하기 위한 매핑
@@ -1005,6 +1004,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     
     const targetItem = items.find(it => it.id === itemToReject);
     let updatedDoc: PurchaseOrderItem | undefined;
+    let isInjection = false;
     const updated = items.map(item => {
       if (item.id === itemToReject) {
         let currentTitle = item.title;
@@ -1017,12 +1017,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         }
         const newTitle = `${baseTitle} (${nextCount})`;
         
-        const isInjection = item.code === 'INJECTION';
+        isInjection = item.code === 'INJECTION';
         
         updatedDoc = { 
           ...item, 
           title: newTitle,
-          status: (isInjection ? InjectionSubCategory.REJECTED : PurchaseOrderSubCategory.REJECTED) as any, 
+          status: (isInjection ? InjectionOrderSubCategory.REJECTED : PurchaseOrderSubCategory.REJECTED) as any, 
           rejectReason: rejectReasonText, 
           rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } 
         };
@@ -1040,7 +1040,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     setIsRejectModalOpen(false); 
     setItemToReject(null); 
     setActiveItem(null); 
-    setView({ type: currentViewType, sub: (isInjection ? InjectionSubCategory.REJECTED : PurchaseOrderSubCategory.REJECTED) as any });
+    setView({ type: currentViewType, sub: (isInjection ? InjectionOrderSubCategory.REJECTED : PurchaseOrderSubCategory.REJECTED) as any });
   };
 
   /**
@@ -1054,6 +1054,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     if (stampType === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
     
     let updatedDoc: PurchaseOrderItem | undefined;
+    let isInjection = false;
     const updated = items.map(item => {
       if (item.id === id) {
         const newStamps = { ...item.stamps, [stampType]: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
@@ -1061,9 +1062,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         // Completion logic based on dynamic path
         const slots = getApprovalSlots(item.type, item.recipient || '');
         const isComplete = slots.every(slot => !!newStamps[slot as keyof PurchaseOrderItem['stamps']]);
-        const isInjection = item.code === 'INJECTION';
+        isInjection = item.code === 'INJECTION';
         const nextStatus = isComplete 
-          ? (isInjection ? InjectionSubCategory.APPROVED : PurchaseOrderSubCategory.APPROVED) 
+          ? (isInjection ? InjectionOrderSubCategory.APPROVED : PurchaseOrderSubCategory.APPROVED) 
           : item.status;
 
         // JANDI 알림 시나리오 - [수신처] 제목 형식
@@ -1098,16 +1099,16 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                          ['사출발주서', '메탈발주서', '인쇄발주서'].includes(updatedActive.type as string);
       
       if (isTargetPO) {
-        if (updatedActive.status === PurchaseOrderSubCategory.APPROVED) {
-          alert("최종 결재가 완료되어 PO 결재완료 목록으로 이동되었습니다.");
+        if (updatedActive.status === PurchaseOrderSubCategory.APPROVED || updatedActive.status === InjectionOrderSubCategory.APPROVED) {
+          alert(`최종 결재가 완료되어 ${isInjection ? '사출' : 'PO'} 결재완료 목록으로 이동되었습니다.`);
         } else {
           alert("승인 처리가 완료되었습니다.");
         }
         setActiveItem(null);
       } else {
         setActiveItem(updatedActive);
-        if (updatedActive.status === PurchaseOrderSubCategory.APPROVED) {
-          alert("최종 결재가 완료되어 PO 결재완료 목록으로 이동되었습니다.");
+        if (updatedActive.status === PurchaseOrderSubCategory.APPROVED || updatedActive.status === InjectionOrderSubCategory.APPROVED) {
+          alert(`최종 결재가 완료되어 ${isInjection ? '사출' : 'PO'} 결재완료 목록으로 이동되었습니다.`);
           setActiveItem(null);
         }
       }
@@ -1129,7 +1130,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     alert('최종 보관 처리가 완료되어 수신처 보관함으로 이동되었습니다.'); 
     setActiveItem(null); 
     if (isInjection) {
-      setView({ type: 'INJECTION', sub: InjectionSubCategory.ARCHIVE });
+      setView({ type: 'INJECTION', sub: InjectionOrderSubCategory.DESTINATION });
     } else {
       setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.ARCHIVE });
     }
@@ -1143,7 +1144,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       senderPerson: item.senderPerson || (item.type === PurchaseOrderSubCategory.PO3 ? '이재성 010-6342-5656' : item.type === PurchaseOrderSubCategory.PO1 ? '김미숙 010-9252-1565' : '이상구 010-6212-6945'),
       rows: copiedRows, notes: item.notes || [], headerRows: item.headerRows || [], merges: item.merges || {}, aligns: item.aligns || {}, weights: item.weights || {}, borders: item.borders || {}, hideInjectionColumn: item.hideInjectionColumn || false
     };
-    localStorage.setItem('ajin_po_copy_buffer', JSON.stringify(copyData)); setView({ type: isInjectionView ? 'INJECTION' : 'PURCHASE', sub: (isInjectionView ? InjectionSubCategory.CREATE : item.type) as any }); setActiveItem(null); alert('발주서 내역이 신규 작성폼으로 복사되었습니다.');
+    localStorage.setItem('ajin_po_copy_buffer', JSON.stringify(copyData)); setView({ type: isInjectionView ? 'INJECTION' : 'PURCHASE', sub: (isInjectionView ? InjectionOrderSubCategory.CREATE : item.type) as any }); setActiveItem(null); alert('발주서 내역이 신규 작성폼으로 복사되었습니다.');
   };
 
   const handleDeleteItemFromList = useCallback((id: string) => {
@@ -1155,7 +1156,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         const itemToDelete = items.find(i => i.id === id);
         const updated = items.filter(i => i.id !== id);
         saveItems(updated);
-        deleteSingleDoc('purchase_orders', id, itemToDelete);
+        const tableName = itemToDelete?.code === 'INJECTION' ? 'Injection_Order' : 'purchase_orders';
+        deleteSingleDoc(tableName, id, itemToDelete);
         setModal(null);
         alert('발주서가 삭제되었습니다.');
       }
@@ -1266,7 +1268,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   const archivedItems = useMemo(() => {
     const base = items.filter(o => !!o.stamps.final);
-    if (sub === InjectionSubCategory.ARCHIVE) {
+    if (sub === (InjectionOrderSubCategory.DESTINATION as any)) {
       return base.filter(o => o.code === 'INJECTION');
     }
     return base.filter(o => o.code !== 'INJECTION');
@@ -1513,9 +1515,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 if (editingItemId) {
                   setEditingItemId(null);
                   setOriginalRejectedItem(null);
-                  setView({ type: currentViewType, sub: originalRejectedItem?.status || (isInjectionView ? InjectionSubCategory.PENDING : PurchaseOrderSubCategory.PENDING) });
+                  setView({ type: currentViewType, sub: originalRejectedItem?.status || (isInjectionView ? InjectionOrderSubCategory.PENDING : PurchaseOrderSubCategory.PENDING) });
                 } else {
-                  setView({ type: currentViewType, sub: isInjectionView ? InjectionSubCategory.CREATE : PurchaseOrderSubCategory.CREATE });
+                  setView({ type: currentViewType, sub: isInjectionView ? InjectionOrderSubCategory.CREATE : PurchaseOrderSubCategory.CREATE });
                 }
               }} 
               className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 rounded-2xl font-bold text-sm shadow-sm hover:bg-slate-50 transition-all active:scale-95"
@@ -2174,7 +2176,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 )}
               </div>
 
-              {activeItem.status === PurchaseOrderSubCategory.APPROVED && !stamps.final && (
+              {(activeItem.status === PurchaseOrderSubCategory.APPROVED || activeItem.status === InjectionOrderSubCategory.APPROVED) && !stamps.final && (
                 <div className="mt-12 flex justify-center no-print">
                   <button 
                     onClick={() => handleFinalArchive(activeItem)} 
@@ -2210,7 +2212,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       </div>);
   }
 
-  const isArchiveView = sub === PurchaseOrderSubCategory.ARCHIVE || sub === InjectionSubCategory.ARCHIVE;
+  const isArchiveView = sub === PurchaseOrderSubCategory.ARCHIVE || sub === (InjectionOrderSubCategory.DESTINATION as any);
 
   if (isArchiveView && !selectedArchiveVendor) {
     return (

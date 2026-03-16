@@ -143,7 +143,7 @@ export const pullStateFromCloud = async () => {
       fetchTable('purchase_orders'),
       fetchTable('vn_purchase_orders'),
       fetchTable('nationalinvoice'),
-      fetchTable('injectionorder'),
+      fetchTable('Injection_Order'),
       supabase.from('recipients').select('*')
     ]);
 
