@@ -23,8 +23,8 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [po2Reference, setPo2Reference] = useState('');
   const [po2TelFax, setPo2TelFax] = useState('');
   const [po2SenderName, setPo2SenderName] = useState('주식회사 아진정공');
-  const [po2SenderPerson, setPo2SenderPerson] = useState(currentUser.name || '');
-  const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString());
+  const [po2SenderPerson, setPo2SenderPerson] = useState('김미숙 010-0000-0000');
+  const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'));
 
   useEffect(() => {
     const loadPo1Data = () => {
@@ -136,16 +136,15 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
     // Construct the order object to return
     // "사출업체 입력란에 입력한 사출업체를 ... 문서의 기종 하단에 붙여넣기"
-    // We'll append the vendor to the title or handle it in the parent
     const resultOrder = {
-      title: `${searchTerm} (${vendorSearch})`,
+      title: `${searchTerm} ${vendorSearch}`.trim(),
       rows: finalRows,
       merges: foundMerges,
       aligns: foundAligns,
       weights: foundWeights,
       headerRows: sourceHeaderRows,
       recipient: vendorSearch,
-      date: new Date().toLocaleDateString(),
+      date: new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'),
       status: InjectionOrderSubCategory.TEMPORARY,
       // Footer text is explicitly excluded (no notes)
     };
