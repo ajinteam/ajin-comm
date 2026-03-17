@@ -22,6 +22,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   
+  // New states for the "Load" feature
+  const [recipient, setRecipient] = useState('');
+  const [recipientType, setRecipientType] = useState<'direct' | 'saved'>('direct');
+  const [reference, setReference] = useState('');
+  const [telFax, setTelFax] = useState('');
+  const [searchInjectionVendor, setSearchInjectionVendor] = useState('');
+  const [selectedSourceDocId, setSelectedSourceDocId] = useState('');
+  const [recipientsList, setRecipientsList] = useState<string[]>([]);
+  const [sourceDocs, setSourceDocs] = useState<any[]>([]);
+  
   // Load items from local storage
   useEffect(() => {
     const saved = localStorage.getItem('ajin_injection_orders');
@@ -29,8 +39,75 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const allItems = JSON.parse(saved);
       const filtered = allItems.filter((item: any) => item.status === sub);
       setItems(filtered);
+
+      // Load source documents for the "Load" feature (from AJ사출발주)
+      const destinations = allItems.filter((item: any) => item.status === InjectionOrderSubCategory.DESTINATION);
+      setSourceDocs(destinations);
+    }
+
+    // Load saved recipients
+    const savedRecipients = localStorage.getItem('ajin_recipients');
+    if (savedRecipients) {
+      setRecipientsList(JSON.parse(savedRecipients));
     }
   }, [sub, dataVersion]);
+
+  const saveRecipient = (name: string) => {
+    if (!name.trim()) return;
+    const newList = Array.from(new Set([...recipientsList, name.trim()]));
+    setRecipientsList(newList);
+    localStorage.setItem('ajin_recipients', JSON.stringify(newList));
+  };
+
+  const deleteRecipient = (name: string) => {
+    const newList = recipientsList.filter(r => r !== name);
+    setRecipientsList(newList);
+    localStorage.setItem('ajin_recipients', JSON.stringify(newList));
+  };
+
+  const handleDataLoad = () => {
+    if (!selectedSourceDocId) {
+      alert('기종(문서)을 먼저 선택해주세요.');
+      return;
+    }
+    if (!searchInjectionVendor.trim()) {
+      alert('사출업체를 입력해주세요.');
+      return;
+    }
+
+    const sourceDoc = sourceDocs.find(doc => doc.id === selectedSourceDocId);
+    if (!sourceDoc || !sourceDoc.rows) {
+      alert('선택된 문서의 데이터를 찾을 수 없습니다.');
+      return;
+    }
+
+    const filteredRows = sourceDoc.rows.filter((row: any) => 
+      (row.injectionVendor || '').includes(searchInjectionVendor.trim())
+    );
+
+    if (filteredRows.length === 0) {
+      alert('해당 사출업체의 행을 찾을 수 없습니다.');
+      return;
+    }
+
+    // Copy rows and add to excelData
+    const newRows = filteredRows.map((row: any) => ({
+      ...row,
+      id: crypto.randomUUID ? crypto.randomUUID() : `injection-copy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    }));
+
+    setExcelData(prev => [...prev, ...newRows]);
+    
+    // Also copy headerInfoRows and footerText if they are empty
+    if (headerInfoRows.length === 0 && sourceDoc.headerInfoRows) {
+      setHeaderInfoRows(sourceDoc.headerInfoRows);
+    }
+    if (footerText.length === 0 && sourceDoc.footerText) {
+      setFooterText(sourceDoc.footerText);
+    }
+
+    alert(`${filteredRows.length}개의 행을 불러왔습니다.`);
+  };
 
   useEffect(() => {
     setCurrentPage(1);
@@ -169,15 +246,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     // Strict initial check
     const allowedInitials: Record<string, string> = {
       design: 'H-CHUN',
-      director: 'M-YEUN',
-      ceo: 'DAVID'
+      director: 'M-YEUN'
     };
 
     const userInit = currentUser.initials.toUpperCase();
     const targetInit = allowedInitials[role];
 
     if (userInit !== targetInit && userInit !== 'MASTER') {
-      alert(`해당 직위(${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
+      alert(`해당 직위(${role === 'design' ? '설계' : '이사'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
       return;
     }
 
@@ -186,25 +262,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       alert('설계 승인이 먼저 완료되어야 합니다.');
       return;
     }
-    if (role === 'ceo' && !activeItem.stamps?.director) {
-      alert('이사 승인이 먼저 완료되어야 합니다.');
-      return;
-    }
 
-    if (!window.confirm(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인하시겠습니까?`)) return;
+    if (!window.confirm(`${role === 'design' ? '설계' : '이사'} 승인하시겠습니까?`)) return;
 
     try {
       const now = new Date();
       const timestamp = now.toLocaleString();
       
-      const isCEO = role === 'ceo';
+      const isDirector = role === 'director';
       const updatedItem = {
         ...activeItem,
-        status: isCEO ? InjectionOrderSubCategory.APPROVED : activeItem.status,
+        status: isDirector ? InjectionOrderSubCategory.APPROVED : activeItem.status,
         stamps: {
           ...activeItem.stamps,
           [role]: { userId: currentUser.initials, timestamp },
-          ...(isCEO ? { final: { userId: currentUser.initials, timestamp } } : {})
+          ...(isDirector ? { final: { userId: currentUser.initials, timestamp } } : {})
         }
       };
 
@@ -216,8 +288,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       // Update State
       setItems(updatedItems.filter((item: any) => item.status === sub));
       
-      if (isCEO) {
-        alert('대표 승인이 완료되어 결재완료 목록으로 이동합니다.');
+      if (isDirector) {
+        alert('이사 승인이 완료되어 결재완료 목록으로 이동합니다.');
         setActiveItem(null);
         setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
       } else {
@@ -231,7 +303,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       // JANDI Notification
       let nextRecipient = '';
       if (role === 'design') nextRecipient = 'DIRECTOR';
-      else if (role === 'director') nextRecipient = 'CEO';
       
       if (nextRecipient) {
         sendJandiNotification('KR_PO', 'APPROVE', `[사출] ${activeItem.title}`, nextRecipient, now.toISOString().split('T')[0]);
@@ -387,6 +458,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         rows: excelData,
         headerInfoRows,
         footerText,
+        recipient,
+        reference,
+        telFax,
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
@@ -513,42 +587,22 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
+                        @page { size: A4 portrait; margin: 10mm; }
                         body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
-                        table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
-                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
+                        table { border-collapse: collapse; width: 100%; border: 1px solid black; }
+                        th { border: 1px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
+                        td { border: 1px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
                         .document-wrapper { padding: 0; box-sizing: border-box; }
-                        .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
                         .border-t-bold { border-top: 1.5px solid black !important; }
                         .border-b-bold { border-bottom: 1.5px solid black !important; }
                         .border-t-thin { border-top: 0.5px solid black !important; }
                         .border-b-thin { border-bottom: 0.5px solid black !important; }
-                        
-                        /* Page numbering footer */
-                        .footer {
-                          position: fixed;
-                          bottom: 0mm;
-                          left: 0;
-                          right: 0;
-                          text-align: center;
-                          font-size: 8px;
-                          padding: 5px 0;
-                          display: none;
-                        }
-                        @media print {
-                          .footer { display: block; }
-                        }
-                        
                       </style>
                     </head>
                     <body onload="window.print(); window.close();">
                       <div class="document-wrapper">${content}</div>
-                      <div class="footer">
-                        ${item.title} 
-                      </div>
                     </body>
                   </html>
                 `);
@@ -577,65 +631,109 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             </div>
           </div>
 
-          {/* Approval Section */}
-          <div className="flex justify-end">
-            <table className="border-collapse border-slate-300 border-[1px] text-center text-[11px] w-auto bg-white shadow-sm rounded-lg overflow-hidden">
-              <tbody>
-                <tr>
-                  <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                  {['writer', 'design', 'director', 'ceo'].map(slot => (
-                    <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
-                      {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
-                    </td>
-                  ))}
-                </tr>
-                <tr className="h-16">
-                  {['writer', 'design', 'director', 'ceo'].map(slot => {
-                    const stamp = stamps[slot];
-                    const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
-                    
-                    return (
-                      <td 
-                        key={slot} 
-                        className={`border border-slate-300 p-1 align-middle min-w-[80px] ${isClickable ? 'cursor-pointer hover:bg-blue-50 transition-colors' : ''}`}
-                        onClick={() => isClickable && handleApprove(slot)}
-                      >
-                        {stamp ? (
-                          <div className="flex flex-col items-center justify-center h-full text-center">
-                            <span className="font-black text-blue-600 text-sm">{stamp.userId}</span>
-                            <span className="text-[7px] text-slate-400 font-bold mt-1 leading-tight text-center w-full break-keep">{stamp.timestamp}</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center justify-center h-full text-center">
-                            <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
-                          </div>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              </tbody>
-            </table>
-          </div>
+          {/* Document Header (Image Style) */}
+          <div className="max-w-4xl mx-auto bg-white border border-slate-200 p-10 shadow-sm space-y-6">
+            <div className="text-center space-y-1">
+              <h1 className="text-4xl font-black tracking-[0.5em] text-slate-900">주식회사 아진정공</h1>
+              <p className="text-[11px] text-slate-600 font-bold">
+                (우:08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호
+              </p>
+              <p className="text-[11px] text-slate-600 font-bold">
+                ☎ (02) 894-2611 FAX (02) 802-9941 <span className="text-blue-600 underline ml-2">misuk.kim@ajinpre.net</span>
+              </p>
+            </div>
 
-          {/* Header Info Section */}
-          {headerInfo.length > 0 && (
-            <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm max-w-4xl overflow-hidden">
-              <h2 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">업로드 파일 정보 (3~5행)</h2>
-              <div className="space-y-1.5">
-                {headerInfo.map((row: any[], idx: number) => (
-                  <div key={idx} className="flex flex-wrap gap-x-6 gap-y-1 text-[13px] font-bold text-slate-700 border-b border-slate-50 last:border-0 pb-1.5 last:pb-0">
-                    {row.map((cell, cIdx) => (
-                      <span key={cIdx} className="inline-block">{String(cell || '')}</span>
+            <div className="border-t-2 border-black pt-6 flex justify-between items-start">
+              <div className="flex-1 text-center">
+                <h2 className="text-5xl font-black tracking-[1em] text-slate-900 ml-[1em]">발 주 서</h2>
+              </div>
+              
+              {/* Approval Box */}
+              <table className="border-collapse border-black border text-center text-[10px] w-auto">
+                <tbody>
+                  <tr>
+                    <td rowSpan={2} className="border border-black px-2 py-4 font-black w-8">결 재</td>
+                    {['담 당', '설 계', '이 사'].map(label => (
+                      <td key={label} className="border border-black py-1 px-4 font-bold min-w-[70px]">{label}</td>
                     ))}
+                  </tr>
+                  <tr className="h-14">
+                    <td className="border border-black p-1 align-middle">
+                      <div className="flex flex-col items-center justify-center">
+                        <span className="font-black text-blue-600 text-xs">{item.stamps?.writer?.userId}</span>
+                        <span className="text-[8px] text-slate-400 mt-1">{item.stamps?.writer?.timestamp ? new Date(item.stamps.writer.timestamp).toLocaleDateString() : ''}</span>
+                      </div>
+                    </td>
+                    <td 
+                      className={`border border-black p-1 align-middle ${!item.stamps?.design && currentUser.initials === 'H-CHUN' && sub === InjectionOrderSubCategory.PENDING ? 'cursor-pointer bg-blue-50' : ''}`}
+                      onClick={() => !item.stamps?.design && currentUser.initials === 'H-CHUN' && sub === InjectionOrderSubCategory.PENDING && handleApprove('design')}
+                    >
+                      {item.stamps?.design ? (
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="font-black text-blue-600 text-xs">{item.stamps.design.userId}</span>
+                          <span className="text-[8px] text-slate-400 mt-1">{new Date(item.stamps.design.timestamp).toLocaleDateString()}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-slate-300 italic">승인대기</span>
+                      )}
+                    </td>
+                    <td 
+                      className={`border border-black p-1 align-middle ${!item.stamps?.director && currentUser.initials === 'M-YEUN' && sub === InjectionOrderSubCategory.PENDING && item.stamps?.design ? 'cursor-pointer bg-blue-50' : ''}`}
+                      onClick={() => !item.stamps?.director && currentUser.initials === 'M-YEUN' && sub === InjectionOrderSubCategory.PENDING && item.stamps?.design && handleApprove('director')}
+                    >
+                      {item.stamps?.director ? (
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="font-black text-blue-600 text-xs">{item.stamps.director.userId}</span>
+                          <span className="text-[8px] text-slate-400 mt-1">{new Date(item.stamps.director.timestamp).toLocaleDateString()}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-slate-300 italic">승인대기</span>
+                      )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 border-t border-black pt-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">수 신 :</span>
+                  <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.recipient || ''}</span>
+                  <div className="flex flex-col text-[10px] font-bold leading-tight">
+                    <span>귀하</span>
+                    <span>중</span>
                   </div>
-                ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">참 조 :</span>
+                  <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.reference || ''}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0 text-[10px] leading-tight">TEL / FAX :</span>
+                  <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.telFax || ''}</span>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-16 shrink-0">발 신 :</span>
+                  <span className="text-sm font-bold">㈜ 아진정공</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-16 shrink-0">담 당 :</span>
+                  <span className="text-sm font-bold">김미숙 010-9252-1565</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-16 shrink-0 leading-tight">작성일자 :</span>
+                  <span className="text-sm font-bold">{new Date(item.createdAt).toLocaleDateString()}</span>
+                </div>
               </div>
             </div>
-          )}
+          </div>
 
           {/* Data Table Section */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-w-6xl mx-auto">
             <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
               <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {data.length} ITEMS</span>
@@ -721,7 +819,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
           {/* Footer Text Section */}
           {footer.length > 0 && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm max-w-6xl mx-auto">
               <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4">추가 정보 (Footer Text)</h2>
               <div className="space-y-1">
                 {footer.map((line: string, idx: number) => (
@@ -731,138 +829,458 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             </div>
           )}
 
-          {/* Hidden Print Content (VN Style) */}
+          {/* Hidden Print Content (Image Style) */}
           <div className="hidden">
-            <div className="injection-order-print-detail-hidden">
-              <div className="flex flex-col items-center">
-                <h1 className="text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
-                
-                <div className="w-full flex justify-between items-start mb-8">
-                  <div className="text-sm font-bold">
-                    <p>파일명: {item.title}</p>
-                    <p>작성일: {item.date}</p>
-                  </div>
-                  
-                  <div className="flex border border-black divide-x divide-black">
-                    {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
-                      const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
-                      const stamp = stamps[slot];
-                      return (
-                        <div key={idx} className="w-16 h-20 flex flex-col">
-                          <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
-                          <div className="flex-1 flex flex-col items-center justify-center leading-tight">
-                            {stamp && (
-                              <>
-                                <span className="font-black text-[10px] text-blue-700">{stamp.userId}</span>
-                                <span className="text-[6px] text-slate-500 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+            <div className="injection-order-print-detail-hidden space-y-6">
+              <div className="text-center space-y-1">
+                <h1 className="text-2xl font-black tracking-[0.5em] text-black">주식회사 아진정공</h1>
+                <p className="text-[9px] text-black font-bold">
+                  (우:08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호
+                </p>
+                <p className="text-[9px] text-black font-bold">
+                  ☎ (02) 894-2611 FAX (02) 802-9941 misuk.kim@ajinpre.net
+                </p>
+              </div>
+
+              <div className="border-t-2 border-black pt-4 flex justify-between items-start">
+                <div className="flex-1 text-center">
+                  <h2 className="text-4xl font-black tracking-[1em] text-black ml-[1em]">발 주 서</h2>
                 </div>
-
-                {/* Excel Rows 3-5 Info */}
-                {headerInfo.length > 0 && (
-                  <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
-                    {headerInfo.map((row: any[], idx: number) => (
-                      <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
-                        {row.map((cell, cIdx) => (
-                          <span key={cIdx}>{String(cell || '')}</span>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <table className="w-full border-collapse border border-black">
-                  <thead>
-                    <tr className="bg-slate-50 text-black">
-                      <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
-                      <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
-                      <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
-                      <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
-                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
-                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
-                      <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
-                      <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
-                      <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
-                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
-                      <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
-                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
-                      <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                
+                {/* Approval Box */}
+                <table className="border-collapse border-black border text-center text-[9px] w-auto">
+                  <tbody>
+                    <tr>
+                      <td rowSpan={2} className="border border-black px-1 py-2 font-black w-6">결 재</td>
+                      {['담 당', '설 계', '이 사'].map(label => (
+                        <td key={label} className="border border-black py-1 px-3 font-bold min-w-[50px]">{label}</td>
+                      ))}
                     </tr>
-                  </thead>
-                  <tbody className="text-black">
-                    {data.map((row: any, idx: number) => {
-                      const hasMold = !!row.model && row.model.trim() !== '';
-                      const nextRowHasMold = idx < data.length - 1 && !!data[idx + 1].model && data[idx + 1].model.trim() !== '';
-                      const isLastRow = idx === data.length - 1;
-                      
-                      const borderTopClass = hasMold ? 'border-t-bold' : '';
-                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-bold' : '';
-
-                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
-
-                      return (
-                        <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
-                          <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
-                          <td className="px-1 py-1 text-[8px]">{row.dept}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
-                          <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
-                          <td className="px-1 py-1 text-[8px]">{row.material}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
-                          <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
-                          <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
-                          <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
-                          <td className="px-1 py-1 text-[8px] italic text-slate-500">{row.remarksRSP}</td>
-                        </tr>
-                      );
-                    })}
-                    <tr className="border-t-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
-                      <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
-                      <td className="border border-black px-1 py-1"></td>
-                    </tr>
-                    <tr className="border-t-thin border-b-thin">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{pVat.toLocaleString()}</td>
-                      <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{eVat.toLocaleString()}</td>
-                      <td className="border border-black px-1 py-1"></td>
-                    </tr>
-                    <tr className="bg-slate-50 border-b-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
-                      <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
-                      <td className="border border-black px-1 py-1"></td>
+                    <tr className="h-10">
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="font-black text-blue-600 text-[10px]">{item.stamps?.writer?.userId}</span>
+                          <span className="text-[6px] text-slate-400 mt-0.5">{item.stamps?.writer?.timestamp ? new Date(item.stamps.writer.timestamp).toLocaleDateString() : ''}</span>
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 align-middle">
+                        {item.stamps?.design && (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="font-black text-blue-600 text-[10px]">{item.stamps.design.userId}</span>
+                            <span className="text-[6px] text-slate-400 mt-0.5">{new Date(item.stamps.design.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-black p-1 align-middle">
+                        {item.stamps?.director && (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="font-black text-blue-600 text-[10px]">{item.stamps.director.userId}</span>
+                            <span className="text-[6px] text-slate-400 mt-0.5">{new Date(item.stamps.director.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </td>
                     </tr>
                   </tbody>
                 </table>
+              </div>
 
-                {/* Footer Text for Print */}
-                {footer.length > 0 && (
-                  <div className="w-full mt-4 text-[8px] space-y-1">
-                    {footer.map((line: string, idx: number) => (
-                      <p key={idx} className="font-medium">{line}</p>
-                    ))}
+              <div className="grid grid-cols-2 gap-4 border-t border-black pt-2">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-10 shrink-0">수 신 :</span>
+                    <span className="flex-1 text-[10px] border-b border-slate-300 font-bold">{item.recipient || ''}</span>
+                    <div className="flex flex-col text-[8px] font-bold leading-tight">
+                      <span>귀하</span>
+                      <span>중</span>
+                    </div>
                   </div>
-                )}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-10 shrink-0">참 조 :</span>
+                    <span className="flex-1 text-[10px] border-b border-slate-300 font-bold">{item.reference || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-10 shrink-0 leading-tight">TEL/FAX:</span>
+                    <span className="flex-1 text-[10px] border-b border-slate-300 font-bold">{item.telFax || ''}</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-12 shrink-0">발 신 :</span>
+                    <span className="text-[10px] font-bold">㈜ 아진정공</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-12 shrink-0">담 당 :</span>
+                    <span className="text-[10px] font-bold">김미숙 010-9252-1565</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-12 shrink-0 leading-tight">작성일자 :</span>
+                    <span className="text-[10px] font-bold">{new Date(item.createdAt).toLocaleDateString()}</span>
+                  </div>
+                </div>
+              </div>
+
+              <table className="w-full border-collapse border border-black text-[9px]">
+                <thead>
+                  <tr className="bg-slate-50 text-black">
+                    <th className="border border-black px-1 py-1 font-black">MOLD</th>
+                    <th className="border border-black px-1 py-1 font-black">DN</th>
+                    <th className="border border-black px-0 py-1 font-black">S</th>
+                    <th className="border border-black px-1 py-1 font-black">PART NAME</th>
+                    <th className="border border-black px-0 py-1 font-black">CTY</th>
+                    <th className="border border-black px-0 py-1 font-black">QTY</th>
+                    <th className="border border-black px-1 py-1 font-black">MATERIAL</th>
+                    <th className="border border-black px-0 py-1 font-black">금형</th>
+                    <th className="border border-black px-0 py-1 font-black">사출</th>
+                    <th className="border border-black px-0 py-1 font-black">주문</th>
+                    <th className="border border-black px-1 py-1 font-black">단가</th>
+                    <th className="border border-black px-1 py-1 font-black">금액</th>
+                    <th className="border border-black px-0 py-1 font-black">추가</th>
+                    <th className="border border-black px-1 py-1 font-black">추가금액</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.map((row: any, idx: number) => (
+                    <tr key={idx}>
+                      <td className="border border-black px-1 py-1">{row.model}</td>
+                      <td className="border border-black px-1 py-1">{row.dept}</td>
+                      <td className="border border-black px-0 py-1 text-center">{row.s}</td>
+                      <td className="border border-black px-1 py-1">{row.itemName}</td>
+                      <td className="border border-black px-0 py-1 text-center">{row.cty}</td>
+                      <td className="border border-black px-0 py-1 text-center">{formatNum(row.qty)}</td>
+                      <td className="border border-black px-1 py-1">{row.material}</td>
+                      <td className="border border-black px-0 py-1 text-center">{row.vendor}</td>
+                      <td className="border border-black px-0 py-1 text-center">{row.injectionVendor}</td>
+                      <td className="border border-black px-0 py-1 text-center">{formatNum(row.orderQty)}</td>
+                      <td className="border border-black px-1 py-1 text-right">{row.unitPrice ? `@ ${formatNum(row.unitPrice)}` : ''}</td>
+                      <td className="border border-black px-1 py-1 text-right font-bold">{formatNum(row.price)}</td>
+                      <td className="border border-black px-0 py-1 text-center">{formatNum(row.extra)}</td>
+                      <td className="border border-black px-1 py-1 text-right">{formatNum(row.extraAmount)}</td>
+                    </tr>
+                  ))}
+                  <tr className="font-bold">
+                    <td colSpan={11} className="border border-black px-2 py-1 text-right">합계</td>
+                    <td className="border border-black px-1 py-1 text-right">{itemTotals.price.toLocaleString()}</td>
+                    <td className="border border-black px-0 py-1"></td>
+                    <td className="border border-black px-1 py-1 text-right">{itemTotals.extra.toLocaleString()}</td>
+                  </tr>
+                  <tr className="font-bold">
+                    <td colSpan={11} className="border border-black px-2 py-1 text-right">부가세</td>
+                    <td className="border border-black px-1 py-1 text-right">{pVat.toLocaleString()}</td>
+                    <td className="border border-black px-0 py-1"></td>
+                    <td className="border border-black px-1 py-1 text-right">{eVat.toLocaleString()}</td>
+                  </tr>
+                  <tr className="font-black bg-slate-50">
+                    <td colSpan={11} className="border border-black px-2 py-1 text-right">총액</td>
+                    <td className="border border-black px-1 py-1 text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                    <td className="border border-black px-0 py-1"></td>
+                    <td className="border border-black px-1 py-1 text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              {footer.length > 0 && (
+                <div className="text-[9px] space-y-0.5">
+                  {footer.map((line: string, idx: number) => (
+                    <p key={idx}>{line}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderLoadForm = () => {
+    return (
+      <div className="h-full flex flex-col overflow-hidden bg-white rounded-xl border border-slate-200 shadow-sm">
+        {/* Header Section */}
+        <div className="p-6 border-b border-slate-200 shrink-0 bg-slate-50/50">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출발주서 불러오기</h1>
+              <p className="text-sm text-slate-500 font-medium">기존 AJ사출발주 문서를 불러와 새 발주서를 작성합니다.</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleComplete} className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all font-bold text-sm flex items-center shadow-lg shadow-emerald-500/20">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                </svg>
+                작성완료
+              </button>
+              <button onClick={handlePrint} className="px-6 py-2.5 bg-white border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition-all font-bold text-sm flex items-center shadow-sm">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
+                </svg>
+                인쇄
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar">
+          {/* Document Header (Image Style) */}
+          <div className="max-w-4xl mx-auto bg-white border border-slate-200 p-10 shadow-sm space-y-6">
+            <div className="text-center space-y-1">
+              <h1 className="text-4xl font-black tracking-[0.5em] text-slate-900">주식회사 아진정공</h1>
+              <p className="text-[11px] text-slate-600 font-bold">
+                (우:08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호
+              </p>
+              <p className="text-[11px] text-slate-600 font-bold">
+                ☎ (02) 894-2611 FAX (02) 802-9941 <span className="text-blue-600 underline ml-2">misuk.kim@ajinpre.net</span>
+              </p>
+            </div>
+
+            <div className="border-t-2 border-black pt-6 flex justify-between items-start">
+              <div className="flex-1 text-center">
+                <h2 className="text-5xl font-black tracking-[1em] text-slate-900 ml-[1em]">발 주 서</h2>
+              </div>
+              
+              {/* Approval Box */}
+              <table className="border-collapse border-black border text-center text-[10px] w-auto">
+                <tbody>
+                  <tr>
+                    <td rowSpan={2} className="border border-black px-2 py-4 font-black w-8">결 재</td>
+                    {['담 당', '설 계', '이 사'].map(label => (
+                      <td key={label} className="border border-black py-1 px-4 font-bold min-w-[70px]">{label}</td>
+                    ))}
+                  </tr>
+                  <tr className="h-14">
+                    <td className="border border-black p-1 align-middle">
+                      <div className="flex flex-col items-center justify-center">
+                        <span className="font-black text-blue-600 text-xs">{currentUser.initials}</span>
+                        <span className="text-[8px] text-slate-400 mt-1">{new Date().toLocaleDateString()}</span>
+                      </div>
+                    </td>
+                    <td className="border border-black p-1"></td>
+                    <td className="border border-black p-1"></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div className="grid grid-cols-2 gap-8 border-t border-black pt-4">
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">수 신 :</span>
+                  <select 
+                    value={recipientType}
+                    onChange={(e) => setRecipientType(e.target.value as any)}
+                    className="text-xs border border-slate-300 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  >
+                    <option value="direct">직접입력</option>
+                    <option value="saved">수신처 선택</option>
+                  </select>
+                  {recipientType === 'saved' ? (
+                    <div className="flex-1 flex gap-1">
+                      <select 
+                        value={recipient}
+                        onChange={(e) => setRecipient(e.target.value)}
+                        className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                      >
+                        <option value="">수신처를 선택하세요</option>
+                        {recipientsList.map(r => <option key={r} value={r}>{r}</option>)}
+                      </select>
+                      <button 
+                        onClick={() => deleteRecipient(recipient)}
+                        className="text-rose-500 hover:text-rose-700"
+                        title="삭제"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex-1 flex gap-1">
+                      <input 
+                        type="text"
+                        value={recipient}
+                        onChange={(e) => setRecipient(e.target.value)}
+                        placeholder="수신처 명칭"
+                        className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                      />
+                      <button 
+                        onClick={() => saveRecipient(recipient)}
+                        className="text-blue-500 hover:text-blue-700"
+                        title="저장"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex flex-col text-[10px] font-bold leading-tight">
+                    <span>귀하</span>
+                    <span>중</span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">참 조 :</span>
+                  <input 
+                    type="text"
+                    value={reference}
+                    onChange={(e) => setReference(e.target.value)}
+                    placeholder="참조 내용"
+                    className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0 text-[10px] leading-tight">TEL / FAX :</span>
+                  <input 
+                    type="text"
+                    value={telFax}
+                    onChange={(e) => setTelFax(e.target.value)}
+                    placeholder="연락처 정보"
+                    className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-16 shrink-0">발 신 :</span>
+                  <span className="text-sm font-bold">㈜ 아진정공</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-16 shrink-0">담 당 :</span>
+                  <span className="text-sm font-bold">김미숙 010-9252-1565</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-16 shrink-0 leading-tight">작성일자 :</span>
+                  <span className="text-sm font-bold">{new Date().toLocaleDateString()}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 pt-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-black text-slate-500 shrink-0">사출업체 검색 :</span>
+                <input 
+                  type="text"
+                  value={searchInjectionVendor}
+                  onChange={(e) => setSearchInjectionVendor(e.target.value)}
+                  placeholder="사출업체명을 입력하세요 (AJ사출발주 검색)"
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none"
+                />
+                <button 
+                  onClick={handleDataLoad}
+                  className="px-6 py-2 bg-orange-500 text-white rounded-lg font-black text-sm hover:bg-orange-600 transition-all shadow-lg shadow-orange-500/20"
+                >
+                  데이터 불러오기
+                </button>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <span className="text-2xl font-black text-slate-900 shrink-0">기 종 :</span>
+                <select 
+                  value={selectedSourceDocId}
+                  onChange={(e) => {
+                    setSelectedSourceDocId(e.target.value);
+                    const doc = sourceDocs.find(d => d.id === e.target.value);
+                    if (doc) setFileName(doc.title);
+                  }}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-lg font-black text-rose-400 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none bg-white"
+                >
+                  <option value="">기종을 선택하십시오 (필수)</option>
+                  {sourceDocs.map(doc => (
+                    <option key={doc.id} value={doc.id}>{doc.title} ({doc.date})</option>
+                  ))}
+                </select>
               </div>
             </div>
           </div>
+
+          {/* Table Section */}
+          {excelData.length > 0 && (
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-w-6xl mx-auto">
+              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => setExcelData([])} className="text-xs font-bold text-rose-500 hover:underline">초기화</button>
+                  <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {excelData.length} ITEMS</span>
+                </div>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                      <th className="w-[3%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
+                      <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                      <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
+                      <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
+                      <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
+                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
+                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
+                      <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
+                      <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                      <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
+                      <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
+                      <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-black">
+                    {excelData.map((row, index) => {
+                      const hasMold = !!row.model && row.model.trim() !== '';
+                      const nextRowHasMold = index < excelData.length - 1 && !!excelData[index + 1].model && excelData[index + 1].model.trim() !== '';
+                      const isLastRow = index === excelData.length - 1;
+                      const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
+                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
+                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+
+                      return (
+                        <tr key={row.id || index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
+                          <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
+                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                        </tr>
+                      );
+                    })}
+                    {/* Summary Rows */}
+                    <tr className="bg-slate-50/30 font-bold text-black border-t-2 border-slate-400">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.subtotal.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.subtotal.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                    <tr className="bg-slate-50/30 font-bold text-black">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.vat.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.vat.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                    <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
+                      <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
+                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.price.total.toLocaleString()}</td>
+                      <td className="px-0 py-3 border-r border-slate-100"></td>
+                      <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.extra.total.toLocaleString()}</td>
+                      <td className="px-1 py-3"></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -966,7 +1384,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 )}
                 
                 <div className="flex items-center gap-1.5 mt-auto pt-4 border-t border-slate-50">
-                  {['writer', 'design', 'director', 'ceo'].map(slot => (
+                  {['writer', 'design', 'director'].map(slot => (
                     <div key={slot} className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} title={slot} />
                   ))}
                 </div>
@@ -1018,7 +1436,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <td className="px-6 py-4 text-sm font-bold text-slate-400">{item.date}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        {['writer', 'design', 'director', 'ceo'].map(slot => (
+                        {['writer', 'design', 'director'].map(slot => (
                           <div key={slot} className={`w-2.5 h-2.5 rounded-full ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} />
                         ))}
                       </div>
@@ -1071,6 +1489,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         </div>
         <h2 className="text-xl font-black text-slate-900 mb-2">사출 수신처</h2>
         <p className="text-slate-500 font-medium">하위 카테고리를 선택하여 문서를 확인하세요.</p>
+      </div>
+    );
+  }
+
+  if (sub === InjectionOrderSubCategory.LOAD) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+        {renderLoadForm()}
       </div>
     );
   }
@@ -1138,14 +1564,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['writer', 'design', 'director', 'ceo'].map(slot => (
+                    {['writer', 'design', 'director'].map(slot => (
                       <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
-                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
+                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : '이 사'}
                       </td>
                     ))}
                   </tr>
                   <tr className="h-16">
-                    {['writer', 'design', 'director', 'ceo'].map(slot => (
+                    {['writer', 'design', 'director'].map(slot => (
                       <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
                         {slot === 'writer' ? (
                           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -1286,8 +1712,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </div>
                     
                     <div className="flex border border-black divide-x divide-black">
-                      {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
-                        const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
+                      {['writer', 'design', 'director'].map((slot, idx) => {
+                        const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : '이사';
                         return (
                           <div key={idx} className="w-16 h-20 flex flex-col">
                             <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
