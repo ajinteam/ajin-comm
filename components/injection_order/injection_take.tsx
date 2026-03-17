@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { UserAccount, ViewState, InjectionOrderSubCategory, PurchaseOrderSubCategory, PurchaseOrderItem } from '../../types';
-import { saveSingleDoc, pushStateToCloud, sendJandiNotification } from '../../supabase';
+import { saveSingleDoc, pushStateToCloud, sendJandiNotification, saveRecipient as supabaseSaveRecipient, deleteRecipient as supabaseDeleteRecipient } from '../../supabase';
 
 interface Recipient {
   id: string;
@@ -50,18 +50,30 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [loadedHeaders, setLoadedHeaders] = useState<string[]>([]);
 
   useEffect(() => {
-    const loadPo1Data = () => {
+    const loadData = () => {
       setLoading(true);
       try {
-        const saved = localStorage.getItem('ajin_purchase_orders');
-        if (saved) {
-          const parsed: PurchaseOrderItem[] = JSON.parse(saved);
+        // Load PO1 (Original source)
+        const savedPo1 = localStorage.getItem('ajin_purchase_orders');
+        let allSourceItems: any[] = [];
+        if (savedPo1) {
+          const parsed: PurchaseOrderItem[] = JSON.parse(savedPo1);
           const po1s = parsed.filter(item => 
             item.stamps?.final && 
             (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서')
           );
-          setPo1Items(po1s);
+          allSourceItems = [...po1s];
         }
+
+        // Load AJ Injection Orders (New requested source from Supabase/Local)
+        const savedInjections = localStorage.getItem('ajin_injection_orders');
+        if (savedInjections) {
+          const parsed = JSON.parse(savedInjections);
+          const ajInjections = parsed.filter((item: any) => item.status === InjectionOrderSubCategory.DESTINATION);
+          allSourceItems = [...allSourceItems, ...ajInjections];
+        }
+        
+        setPo1Items(allSourceItems);
 
         const savedRecipients = localStorage.getItem('ajin_injection_recipients');
         if (savedRecipients) {
@@ -74,7 +86,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       }
     };
 
-    loadPo1Data();
+    loadData();
   }, [dataVersion]);
 
   const handleModelChange = (val: string) => {
@@ -235,6 +247,17 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
       localStorage.setItem('ajin_injection_orders', JSON.stringify([newPO, ...existingInjections]));
 
+      // Auto-save recipient if new
+      const existingRecipient = recipients.find(r => r.name === vendorSearch);
+      if (!existingRecipient && vendorSearch.trim()) {
+        await saveRecipient({
+          name: vendorSearch,
+          telFax: po2TelFax,
+          reference: po2Reference,
+          remarks: ''
+        });
+      }
+
       await saveSingleDoc('Injection_Order', newPO);
       pushStateToCloud();
       
@@ -371,30 +394,64 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     win.document.close();
   }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser]);
 
-  const saveRecipient = (r: Partial<Recipient>) => {
+  const saveRecipient = async (r: Partial<Recipient>) => {
     let updated;
+    const target = editingRecipient || {
+      id: `rec-${Date.now()}`,
+      name: r.name || '',
+      telFax: r.telFax || '',
+      reference: r.reference || '',
+      remarks: r.remarks || ''
+    };
+
+    const finalRecipient = { ...target, ...r };
+
     if (editingRecipient) {
-      updated = recipients.map(item => item.id === editingRecipient.id ? { ...editingRecipient, ...r } : item);
+      updated = recipients.map(item => item.id === editingRecipient.id ? finalRecipient : item);
     } else {
-      const newR: Recipient = {
-        id: `rec-${Date.now()}`,
-        name: r.name || '',
-        telFax: r.telFax || '',
-        reference: r.reference || '',
-        remarks: r.remarks || ''
-      };
-      updated = [newR, ...recipients];
+      updated = [finalRecipient, ...recipients];
     }
+
     setRecipients(updated);
     localStorage.setItem('ajin_injection_recipients', JSON.stringify(updated));
+    
+    // Sync to Supabase
+    await supabaseSaveRecipient({
+      id: finalRecipient.id,
+      name: finalRecipient.name,
+      tel: finalRecipient.telFax,
+      fax: finalRecipient.reference,
+      remark: finalRecipient.remarks,
+      category: 'INJECTION_RECIPIENT'
+    });
+
     setEditingRecipient(null);
   };
 
-  const deleteRecipient = (id: string) => {
+  const deleteRecipient = async (id: string) => {
     if (!window.confirm('정말로 삭제하시겠습니까?')) return;
     const updated = recipients.filter(r => r.id !== id);
     setRecipients(updated);
     localStorage.setItem('ajin_injection_recipients', JSON.stringify(updated));
+    
+    // Sync to Supabase
+    await supabaseDeleteRecipient(id);
+  };
+
+  const handleQuickSaveRecipient = () => {
+    if (!vendorSearch.trim()) return;
+    const existing = recipients.find(r => r.name === vendorSearch);
+    if (existing) {
+      alert('이미 등록된 수신처입니다.');
+      return;
+    }
+    saveRecipient({
+      name: vendorSearch,
+      telFax: po2TelFax,
+      reference: po2Reference,
+      remarks: ''
+    });
+    alert('수신처가 저장되었습니다.');
   };
 
   return (
@@ -469,6 +526,13 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     className="flex-1 outline-none font-bold bg-transparent" 
                   />
                   <span className="font-bold">귀중</span>
+                  <button 
+                    onClick={handleQuickSaveRecipient}
+                    className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all border border-slate-200"
+                    title="수신처 관리로 저장"
+                  >
+                    수신처 저장
+                  </button>
                   {showVendorSuggestions && (
                     <div className="absolute left-0 right-0 top-full bg-white border border-slate-200 shadow-xl rounded-lg mt-1 z-[120] overflow-hidden">
                       {vendorSuggestions.map((v, i) => (

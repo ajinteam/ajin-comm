@@ -183,6 +183,14 @@ export const pullStateFromCloud = async () => {
       };
     });
 
+    const cloudInjectionRecipients = recipients.filter(r => r.category === 'INJECTION_RECIPIENT').map(item => ({
+      id: item.id,
+      name: item.name,
+      telFax: item.tel,
+      reference: item.fax,
+      remarks: item.remark
+    }));
+
     const finalData = {
       orders: getCloudData(orders),
       invoices: getCloudData(invoices),
@@ -193,6 +201,7 @@ export const pullStateFromCloud = async () => {
       accounts: cloudAccounts,
       notices: cloudNotices,
       national_entities: cloudNationalEntities,
+      injection_recipients: cloudInjectionRecipients,
       updatedAt: new Date().toISOString()
     };
 
