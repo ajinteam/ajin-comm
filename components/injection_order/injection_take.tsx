@@ -27,13 +27,13 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   // Suggestions
   const [po1TitleSuggestions, setPo1TitleSuggestions] = useState<string[]>([]);
   const [showPo1Suggestions, setShowPo1Suggestions] = useState(false);
-  const [vendorSuggestions, setVendorSuggestions] = useState<string[]>([]);
-  const [showVendorSuggestions, setShowVendorSuggestions] = useState(false);
 
   // Recipient Management
   const [recipients, setRecipients] = useState<Recipient[]>([]);
   const [showRecipientManager, setShowRecipientManager] = useState(false);
   const [editingRecipient, setEditingRecipient] = useState<Recipient | null>(null);
+
+  const [selectedRecipientId, setSelectedRecipientId] = useState('direct');
 
   // Form fields for display
   const [po2Reference, setPo2Reference] = useState('');
@@ -103,36 +103,17 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     }
   };
 
-  const handleVendorChange = (val: string) => {
-    setVendorSearch(val);
-    if (val.trim()) {
-      // Get vendors from PO1 items
-      const po1Vendors = po1Items.flatMap(item => 
-        (item.rows || []).map(row => row.injectionVendor || row.vendor || '')
-      ).filter(v => v.toLowerCase().includes(val.toLowerCase()));
-
-      // Get vendors from Recipient Manager
-      const managedVendors = recipients
-        .filter(r => r.name.toLowerCase().includes(val.toLowerCase()))
-        .map(r => r.name);
-
-      const matches = Array.from(new Set([...po1Vendors, ...managedVendors])).slice(0, 10);
-      setVendorSuggestions(matches);
-      setShowVendorSuggestions(matches.length > 0);
-    } else {
-      setShowVendorSuggestions(false);
-    }
-  };
-
   const selectVendor = (v: string) => {
     setVendorSearch(v);
-    setShowVendorSuggestions(false);
     
     // Auto-fill TEL/FAX and Reference if found in Recipient Manager
     const recipient = recipients.find(r => r.name === v);
     if (recipient) {
       setPo2TelFax(recipient.telFax);
       setPo2Reference(recipient.reference);
+      setSelectedRecipientId(recipient.id);
+    } else {
+      setSelectedRecipientId('direct');
     }
   };
 
@@ -516,37 +497,42 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               <div className="flex items-center gap-2 border-b border-black pb-0 relative">
                 <span className="font-bold whitespace-nowrap">수 신 :</span>
                 <div className="flex-1 flex gap-2 items-center relative">
+                  <select 
+                    className="border border-slate-200 rounded px-1 py-0.5 text-xs font-bold outline-none bg-slate-50"
+                    value={selectedRecipientId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedRecipientId(val);
+                      if (val === 'direct') {
+                        setVendorSearch('');
+                        setPo2TelFax('');
+                        setPo2Reference('');
+                      } else {
+                        const r = recipients.find(item => item.id === val);
+                        if (r) {
+                          setVendorSearch(r.name);
+                          setPo2TelFax(r.telFax);
+                          setPo2Reference(r.reference);
+                        }
+                      }
+                    }}
+                  >
+                    <option value="direct">직접입력</option>
+                    {recipients.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
                   <input 
                     type="text" 
                     value={vendorSearch} 
-                    onChange={(e) => handleVendorChange(e.target.value)} 
-                    onFocus={() => vendorSearch && setShowVendorSuggestions(true)}
-                    onBlur={() => setTimeout(() => setShowVendorSuggestions(false), 200)}
-                    placeholder="수신처(업체명) 검색" 
+                    onChange={(e) => {
+                      setVendorSearch(e.target.value);
+                      setSelectedRecipientId('direct');
+                    }} 
+                    placeholder="수신처 명칭" 
                     className="flex-1 outline-none font-bold bg-transparent" 
                   />
                   <span className="font-bold">귀중</span>
-                  <button 
-                    onClick={handleQuickSaveRecipient}
-                    className="ml-2 px-2 py-0.5 bg-slate-100 text-slate-500 rounded text-[10px] font-bold hover:bg-slate-200 transition-all border border-slate-200"
-                    title="수신처 관리로 저장"
-                  >
-                    수신처 저장
-                  </button>
-                  {showVendorSuggestions && (
-                    <div className="absolute left-0 right-0 top-full bg-white border border-slate-200 shadow-xl rounded-lg mt-1 z-[120] overflow-hidden">
-                      {vendorSuggestions.map((v, i) => (
-                        <button 
-                          key={i} 
-                          type="button"
-                          onClick={() => selectVendor(v)}
-                          className="w-full text-left px-3 py-2 hover:bg-slate-50 text-sm font-bold border-b border-slate-50 last:border-0"
-                        >
-                          {v}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 border-b border-black pb-0">
@@ -608,7 +594,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               <input 
                 type="text" 
                 value={vendorSearch} 
-                onChange={(e) => handleVendorChange(e.target.value)} 
+                onChange={(e) => setVendorSearch(e.target.value)} 
                 placeholder="사출업체명을 입력하세요" 
                 className="flex-1 outline-none text-sm font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200" 
                 onKeyDown={(e) => e.key === 'Enter' && handleLoadData()}
