@@ -264,14 +264,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     // Strict initial check
     const allowedInitials: Record<string, string> = {
       design: 'H-CHUN',
-      director: 'M-YEUN'
+      director: 'M-YEUN',
+      ceo: 'CEO'
     };
 
     const userInit = currentUser.initials.toUpperCase();
     const targetInit = allowedInitials[role];
 
     if (userInit !== targetInit && userInit !== 'MASTER') {
-      alert(`해당 직위(${role === 'design' ? '설계' : '이사'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
+      const roleLabel = role === 'design' ? '설계' : role === 'director' ? '이사' : '대표';
+      alert(`해당 직위(${roleLabel}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
       return;
     }
 
@@ -281,7 +283,18 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       return;
     }
 
-    if (!window.confirm(`${role === 'design' ? '설계' : '이사'} 승인하시겠습니까?`)) return;
+    if (role === 'ceo' && !activeItem.stamps?.director) {
+      alert('이사 승인이 먼저 완료되어야 합니다.');
+      return;
+    }
+
+    if (role === 'ceo' && activeItem.sourceSub === InjectionOrderSubCategory.LOAD) {
+      alert('불러오기 문서는 이사 승인까지만 필요합니다.');
+      return;
+    }
+
+    const roleLabel = role === 'design' ? '설계' : role === 'director' ? '이사' : '대표';
+    if (!window.confirm(`${roleLabel} 승인하시겠습니까?`)) return;
 
     try {
       const now = new Date();
@@ -595,9 +608,18 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
   const handleConfirm = async () => {
     if (!activeItem) return;
-    if (!activeItem.stamps?.director) {
-      alert('이사 승인이 완료되어야 합니다.');
-      return;
+    
+    const isLoad = activeItem.sourceSub === InjectionOrderSubCategory.LOAD;
+    if (isLoad) {
+      if (!activeItem.stamps?.director) {
+        alert('이사 승인이 완료되어야 합니다.');
+        return;
+      }
+    } else {
+      if (!activeItem.stamps?.ceo) {
+        alert('대표 승인이 완료되어야 합니다.');
+        return;
+      }
     }
 
     if (!window.confirm('최종 확인하시겠습니까? 결재완료 목록으로 이동합니다.')) return;
@@ -882,8 +904,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               </table>
             </div>
 
-            {/* Confirm Button for Director Approved items */}
-            {sub === InjectionOrderSubCategory.PENDING && stamps.director && !stamps.final && (
+            {/* Confirm Button for Final Approved items */}
+            {sub === InjectionOrderSubCategory.PENDING && (item.sourceSub === InjectionOrderSubCategory.LOAD ? stamps.director : stamps.ceo) && !stamps.final && (
               <div className="flex justify-end mt-4">
                 <button 
                   onClick={handleConfirm}
@@ -1058,7 +1080,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <tbody>
                     <tr>
                       <td rowSpan={2} className="border border-black px-1 py-2 font-black w-6">결 재</td>
-                      {['담 당', '설 계', '이 사'].map(label => (
+                      {(item.sourceSub === InjectionOrderSubCategory.LOAD ? ['담 당', '설 계', '이 사'] : ['담 당', '설 계', '이 사', '대 표']).map(label => (
                         <td key={label} className="border border-black py-1 px-3 font-bold min-w-[50px]">{label}</td>
                       ))}
                     </tr>
@@ -1085,6 +1107,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                           </div>
                         )}
                       </td>
+                      {item.sourceSub !== InjectionOrderSubCategory.LOAD && (
+                        <td className="border border-black p-1 align-middle">
+                          {item.stamps?.ceo && (
+                            <div className="flex flex-col items-center justify-center">
+                              <span className="font-black text-blue-600 text-[10px]">{item.stamps.ceo.userId}</span>
+                              <span className="text-[6px] text-slate-400 mt-0.5">{new Date(item.stamps.ceo.timestamp).toLocaleDateString()}</span>
+                            </div>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   </tbody>
                 </table>
@@ -1925,14 +1957,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['writer', 'design', 'director'].map(slot => (
+                    {['writer', 'design', 'director', 'ceo'].map(slot => (
                       <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
-                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : '이 사'}
+                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
                       </td>
                     ))}
                   </tr>
                   <tr className="h-16">
-                    {['writer', 'design', 'director'].map(slot => (
+                    {['writer', 'design', 'director', 'ceo'].map(slot => (
                       <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
                         {slot === 'writer' ? (
                           <div className="flex flex-col items-center justify-center h-full text-center">
@@ -2060,6 +2092,20 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               </div>
             )}
 
+            {/* Footer Input Section */}
+            <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+              <div className="flex items-center gap-4">
+                <span className="text-sm font-black text-slate-500 shrink-0 uppercase tracking-widest">FOOTER 입력:</span>
+                <textarea 
+                  value={footerInput}
+                  onChange={(e) => setFooterInput(e.target.value)}
+                  placeholder="발주서 하단에 표시될 추가 정보를 입력하세요..."
+                  rows={2}
+                  className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none resize-none custom-scrollbar"
+                />
+              </div>
+            </div>
+
             {/* Hidden Print Content (VN Style) */}
             <div className="hidden">
               <div className="injection-order-print">
@@ -2073,8 +2119,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </div>
                     
                     <div className="flex border border-black divide-x divide-black">
-                      {['writer', 'design', 'director'].map((slot, idx) => {
-                        const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : '이사';
+                      {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
+                        const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
                         return (
                           <div key={idx} className="w-16 h-20 flex flex-col">
                             <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
