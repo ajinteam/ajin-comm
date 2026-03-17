@@ -27,6 +27,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [recipientType, setRecipientType] = useState<'direct' | 'saved'>('direct');
   const [reference, setReference] = useState('');
   const [telFax, setTelFax] = useState('');
+  const [modelName, setModelName] = useState('');
   const [searchInjectionVendor, setSearchInjectionVendor] = useState('');
   const [selectedSourceDocId, setSelectedSourceDocId] = useState('');
   const [recipientsList, setRecipientsList] = useState<string[]>([]);
@@ -78,6 +79,48 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     localStorage.setItem('ajin_recipients', JSON.stringify(newList));
   };
 
+  const handleRowChange = (index: number, field: keyof OrderRow, value: string) => {
+    const newData = [...excelData];
+    newData[index] = { ...newData[index], [field]: value };
+    
+    // Auto-calculate price if quantity and unit price are numbers
+    if (field === 'orderQty' || field === 'unitPrice') {
+      const qty = parseFloat(String(newData[index].orderQty || '0').replace(/,/g, '')) || 0;
+      const unit = parseFloat(String(newData[index].unitPrice || '0').replace(/,/g, '')) || 0;
+      if (qty > 0 && unit > 0) {
+        newData[index].price = String(qty * unit);
+      }
+    }
+    
+    setExcelData(newData);
+  };
+
+  const handleAddRow = () => {
+    const newRow: OrderRow = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `injection-manual-${Date.now()}`,
+      model: '',
+      dept: '',
+      s: '',
+      itemName: '',
+      cty: '',
+      qty: '',
+      material: '',
+      vendor: '',
+      injectionVendor: searchInjectionVendor,
+      orderQty: '',
+      unitPrice: '',
+      price: '',
+      remarks: '',
+      remarksRSP: '',
+    };
+    setExcelData([...excelData, newRow]);
+  };
+
+  const handleDeleteRow = (index: number) => {
+    const newData = excelData.filter((_, i) => i !== index);
+    setExcelData(newData);
+  };
+
   const handleDataLoad = () => {
     if (!selectedSourceDocId) {
       alert('기종(문서)을 먼저 선택해주세요.');
@@ -111,13 +154,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
     setExcelData(prev => [...prev, ...newRows]);
     
-    // Also copy headerInfoRows and footerText if they are empty
-    if (headerInfoRows.length === 0 && sourceDoc.headerInfoRows) {
+    // Requirement 1: Load upload file info (headerInfoRows)
+    if (sourceDoc.headerInfoRows) {
       setHeaderInfoRows(sourceDoc.headerInfoRows);
     }
-    if (footerText.length === 0 && sourceDoc.footerText) {
-      setFooterText(sourceDoc.footerText);
-    }
+    
+    // Requirement 2: Do NOT load footerText
+    // if (footerText.length === 0 && sourceDoc.footerText) {
+    //   setFooterText(sourceDoc.footerText);
+    // }
+
+    // Load other fields if they are empty
+    if (!recipient && sourceDoc.recipient) setRecipient(sourceDoc.recipient);
+    if (!reference && sourceDoc.reference) setReference(sourceDoc.reference);
+    if (!telFax && sourceDoc.telFax) setTelFax(sourceDoc.telFax);
+    if (!modelName && sourceDoc.modelName) setModelName(sourceDoc.modelName);
 
     alert(`${filteredRows.length}개의 행을 불러왔습니다.`);
   };
@@ -259,14 +310,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     // Strict initial check
     const allowedInitials: Record<string, string> = {
       design: 'H-CHUN',
-      director: 'M-YEUN'
+      director: 'M-YEUN',
+      ceo: 'MASTER'
     };
 
     const userInit = currentUser.initials.toUpperCase();
     const targetInit = allowedInitials[role];
 
     if (userInit !== targetInit && userInit !== 'MASTER') {
-      alert(`해당 직위(${role === 'design' ? '설계' : '이사'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
+      alert(`해당 직위(${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
       return;
     }
 
@@ -275,8 +327,12 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       alert('설계 승인이 먼저 완료되어야 합니다.');
       return;
     }
+    if (role === 'ceo' && !activeItem.stamps?.director) {
+      alert('이사 승인이 먼저 완료되어야 합니다.');
+      return;
+    }
 
-    if (!window.confirm(`${role === 'design' ? '설계' : '이사'} 승인하시겠습니까?`)) return;
+    if (!window.confirm(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인하시겠습니까?`)) return;
 
     try {
       const now = new Date();
@@ -299,7 +355,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       setItems(updatedItems.filter((item: any) => item.status === sub));
       setActiveItem(updatedItem);
       
-      alert(`${role === 'design' ? '설계' : '이사'} 승인이 완료되었습니다.`);
+      alert(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인이 완료되었습니다.`);
 
       // Update Supabase
       await saveSingleDoc('Injection_Order', updatedItem);
@@ -307,6 +363,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       // JANDI Notification
       let nextRecipient = '';
       if (role === 'design') nextRecipient = 'DIRECTOR';
+      else if (role === 'director') nextRecipient = 'CEO';
       
       if (nextRecipient) {
         sendJandiNotification('KR_PO', 'APPROVE', `[사출] ${activeItem.title}`, nextRecipient, now.toISOString().split('T')[0]);
@@ -320,8 +377,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   };
 
   const handleConfirmApproval = async (item: any) => {
-    if (!item.stamps?.director) {
-      alert('이사 승인이 완료되어야 확인이 가능합니다.');
+    if (!item.stamps?.ceo) {
+      alert('대표 승인이 완료되어야 확인이 가능합니다.');
       return;
     }
 
@@ -471,6 +528,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         recipient,
         reference,
         telFax,
+        modelName,
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
@@ -582,7 +640,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           <div className="flex gap-2">
             {sub === InjectionOrderSubCategory.PENDING && (
               <>
-                {item.stamps?.director && (
+                {item.stamps?.ceo && (
                   <button 
                     onClick={() => handleConfirmApproval(item)} 
                     className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20"
@@ -673,7 +731,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-black px-2 py-4 font-black w-8">결 재</td>
-                    {['담 당', '설 계', '이 사'].map(label => (
+                    {['담 당', '설 계', '이 사', '대 표'].map(label => (
                       <td key={label} className="border border-black py-1 px-4 font-bold min-w-[70px]">{label}</td>
                     ))}
                   </tr>
@@ -710,6 +768,19 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         <span className="text-[8px] text-slate-300 italic">승인대기</span>
                       )}
                     </td>
+                    <td 
+                      className={`border border-black p-1 align-middle ${!item.stamps?.ceo && currentUser.initials === 'MASTER' && sub === InjectionOrderSubCategory.PENDING && item.stamps?.director ? 'cursor-pointer bg-blue-50' : ''}`}
+                      onClick={() => !item.stamps?.ceo && currentUser.initials === 'MASTER' && sub === InjectionOrderSubCategory.PENDING && item.stamps?.director && handleApprove('ceo')}
+                    >
+                      {item.stamps?.ceo ? (
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="font-black text-blue-600 text-xs">{item.stamps.ceo.userId}</span>
+                          <span className="text-[8px] text-slate-400 mt-1">{new Date(item.stamps.ceo.timestamp).toLocaleDateString()}</span>
+                        </div>
+                      ) : (
+                        <span className="text-[8px] text-slate-300 italic">승인대기</span>
+                      )}
+                    </td>
                   </tr>
                 </tbody>
               </table>
@@ -731,6 +802,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-black w-12 shrink-0 text-[10px] leading-tight">TEL / FAX :</span>
                   <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.telFax || ''}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0 text-[10px] leading-tight">기 종 :</span>
+                  <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.modelName || ''}</span>
                 </div>
               </div>
 
@@ -871,7 +946,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <tbody>
                     <tr>
                       <td rowSpan={2} className="border border-black px-1 py-2 font-black w-6">결 재</td>
-                      {['담 당', '설 계', '이 사'].map(label => (
+                      {['담 당', '설 계', '이 사', '대 표'].map(label => (
                         <td key={label} className="border border-black py-1 px-3 font-bold min-w-[50px]">{label}</td>
                       ))}
                     </tr>
@@ -895,6 +970,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                           <div className="flex flex-col items-center justify-center">
                             <span className="font-black text-blue-600 text-[10px]">{item.stamps.director.userId}</span>
                             <span className="text-[6px] text-slate-400 mt-0.5">{new Date(item.stamps.director.timestamp).toLocaleDateString()}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="border border-black p-1 align-middle">
+                        {item.stamps?.ceo && (
+                          <div className="flex flex-col items-center justify-center">
+                            <span className="font-black text-blue-600 text-[10px]">{item.stamps.ceo.userId}</span>
+                            <span className="text-[6px] text-slate-400 mt-0.5">{new Date(item.stamps.ceo.timestamp).toLocaleDateString()}</span>
                           </div>
                         )}
                       </td>
@@ -1062,7 +1145,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-black px-2 py-4 font-black w-8">결 재</td>
-                    {['담 당', '설 계', '이 사'].map(label => (
+                    {['담 당', '설 계', '이 사', '대 표'].map(label => (
                       <td key={label} className="border border-black py-1 px-4 font-bold min-w-[70px]">{label}</td>
                     ))}
                   </tr>
@@ -1073,6 +1156,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         <span className="text-[8px] text-slate-400 mt-1">{new Date().toLocaleDateString()}</span>
                       </div>
                     </td>
+                    <td className="border border-black p-1"></td>
                     <td className="border border-black p-1"></td>
                     <td className="border border-black p-1"></td>
                   </tr>
@@ -1166,6 +1250,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">기 종 :</span>
+                  <input 
+                    type="text"
+                    value={modelName}
+                    onChange={(e) => setModelName(e.target.value)}
+                    placeholder="기종 정보"
+                    className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -1228,6 +1322,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
                 <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
                 <div className="flex items-center gap-4">
+                  <button onClick={handleAddRow} className="px-3 py-1 bg-blue-600 text-white rounded text-xs font-bold hover:bg-blue-700">행 추가</button>
                   <button onClick={() => setExcelData([])} className="text-xs font-bold text-rose-500 hover:underline">초기화</button>
                   <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {excelData.length} ITEMS</span>
                 </div>
@@ -1236,49 +1331,80 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <table className="w-full border-collapse text-left">
                   <thead>
                     <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
-                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
-                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                      <th className="w-[4%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">삭제</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">MOLD</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">DN</th>
                       <th className="w-[3%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
-                      <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                      <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">PART NAME</th>
                       <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
                       <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
-                      <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
+                      <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">MATERIAL</th>
                       <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
                       <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
-                      <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
-                      <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                      <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight font-black text-blue-600">주문<br/>수량</th>
+                      <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center font-black text-blue-600">단가</th>
                       <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
                       <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
                       <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
-                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter text-center">비고 R.S/P</th>
                     </tr>
                   </thead>
                   <tbody className="text-black">
                     {excelData.map((row, index) => {
-                      const hasMold = !!row.model && row.model.trim() !== '';
-                      const nextRowHasMold = index < excelData.length - 1 && !!excelData[index + 1].model && excelData[index + 1].model.trim() !== '';
-                      const isLastRow = index === excelData.length - 1;
-                      const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
-                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
-                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
-
                       return (
-                        <tr key={row.id || index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
-                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
-                          <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
-                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
-                          <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                        <tr key={row.id || index} className="hover:bg-slate-50/50 transition-colors group border-b border-slate-200">
+                          <td className="px-1 py-1 border-r border-slate-100 text-center">
+                            <button onClick={() => handleDeleteRow(index)} className="p-1 text-rose-500 hover:bg-rose-50 rounded">
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                              </svg>
+                            </button>
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100">
+                            <input type="text" value={row.model} onChange={(e) => handleRowChange(index, 'model', e.target.value)} className="w-full text-[13px] font-bold outline-none bg-transparent" />
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100">
+                            <input type="text" value={row.dept} onChange={(e) => handleRowChange(index, 'dept', e.target.value)} className="w-full text-[13px] outline-none bg-transparent" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.s} onChange={(e) => handleRowChange(index, 's', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent" />
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100">
+                            <input type="text" value={row.itemName} onChange={(e) => handleRowChange(index, 'itemName', e.target.value)} className="w-full text-[13px] font-medium outline-none bg-transparent" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.cty} onChange={(e) => handleRowChange(index, 'cty', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.qty} onChange={(e) => handleRowChange(index, 'qty', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent" />
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100">
+                            <input type="text" value={row.material} onChange={(e) => handleRowChange(index, 'material', e.target.value)} className="w-full text-[13px] outline-none bg-transparent" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.vendor} onChange={(e) => handleRowChange(index, 'vendor', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.injectionVendor} onChange={(e) => handleRowChange(index, 'injectionVendor', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.orderQty} onChange={(e) => handleRowChange(index, 'orderQty', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent font-bold text-blue-600" />
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100 text-right">
+                            <input type="text" value={row.unitPrice} onChange={(e) => handleRowChange(index, 'unitPrice', e.target.value)} className="w-full text-[13px] text-right outline-none bg-transparent font-bold text-blue-600" />
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100 text-right">
+                            <input type="text" value={row.price} onChange={(e) => handleRowChange(index, 'price', e.target.value)} className="w-full text-[13px] text-right outline-none bg-transparent font-bold" />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100 text-center">
+                            <input type="text" value={row.extra} onChange={(e) => handleRowChange(index, 'extra', e.target.value)} className="w-full text-[13px] text-center outline-none bg-transparent" />
+                          </td>
+                          <td className="px-1 py-1 border-r border-slate-100 text-right">
+                            <input type="text" value={row.extraAmount} onChange={(e) => handleRowChange(index, 'extraAmount', e.target.value)} className="w-full text-[13px] text-right outline-none bg-transparent" />
+                          </td>
+                          <td className="px-1 py-1">
+                            <input type="text" value={row.remarksRSP} onChange={(e) => handleRowChange(index, 'remarksRSP', e.target.value)} className="w-full text-[13px] italic text-slate-500 outline-none bg-transparent" />
+                          </td>
                         </tr>
                       );
                     })}
@@ -1306,6 +1432,19 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </tr>
                   </tbody>
                 </table>
+              </div>
+              
+              {/* Footer Text Input Section */}
+              <div className="p-6 bg-slate-50/50 border-t border-slate-100">
+                <div className="max-w-4xl mx-auto space-y-2">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">하단 참고사항 (Footer)</h3>
+                  <textarea 
+                    value={footerText.join('\n')}
+                    onChange={(e) => setFooterText(e.target.value.split('\n'))}
+                    placeholder="하단에 표시될 참고사항을 입력하세요..."
+                    className="w-full h-32 p-4 bg-white border border-slate-200 rounded-xl text-sm font-medium focus:ring-2 focus:ring-blue-500/20 outline-none resize-none shadow-inner"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -1676,10 +1815,39 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             {/* Approval Section */}
             <div className="flex flex-col gap-6">
               <div className="max-w-4xl mx-auto w-full bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">수신처 정보 입력</h3>
-                <div className="grid grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest">수신처 정보 입력</h3>
+                  <div className="flex justify-end">
+                    <table className="border-collapse border-slate-300 border-[1px] text-center text-[11px] w-auto bg-white shadow-sm rounded-lg overflow-hidden">
+                      <tbody>
+                        <tr>
+                          <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
+                          {['writer', 'design', 'director', 'ceo'].map(slot => (
+                            <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
+                              {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
+                            </td>
+                          ))}
+                        </tr>
+                        <tr className="h-16">
+                          {['writer', 'design', 'director', 'ceo'].map(slot => (
+                            <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
+                              {slot === 'writer' ? (
+                                <div className="flex flex-col items-center justify-center h-full text-center">
+                                  <span className="font-black text-blue-600 text-sm">{currentUser.initials}</span>
+                                  <span className="text-[9px] text-slate-400 font-bold mt-1 leading-tight">{new Date().toLocaleString()}</span>
+                                </div>
+                              ) : null}
+                            </td>
+                          ))}
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 flex-1">
                       <span className="text-xs font-black w-16 shrink-0 text-slate-500">수 신 처 :</span>
                       <select 
                         value={recipientType}
@@ -1717,19 +1885,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         />
                       )}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-black w-16 shrink-0 text-slate-500">참 조 :</span>
-                      <input 
-                        type="text"
-                        value={reference}
-                        onChange={(e) => setReference(e.target.value)}
-                        placeholder="참조 내용"
-                        className="flex-1 text-sm border-b border-slate-200 focus:border-blue-500 outline-none font-bold py-1"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 w-1/3">
                       <span className="text-xs font-black w-16 shrink-0 text-slate-500">TEL/FAX :</span>
                       <input 
                         type="text"
@@ -1740,36 +1896,19 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       />
                     </div>
                   </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black w-16 shrink-0 text-slate-500">참 조 :</span>
+                    <input 
+                      type="text"
+                      value={reference}
+                      onChange={(e) => setReference(e.target.value)}
+                      placeholder="참조 내용"
+                      className="flex-1 text-sm border-b border-slate-200 focus:border-blue-500 outline-none font-bold py-1"
+                    />
+                  </div>
                 </div>
               </div>
-
-              <div className="flex justify-end">
-                <table className="border-collapse border-slate-300 border-[1px] text-center text-[11px] w-auto bg-white shadow-sm rounded-lg overflow-hidden">
-                <tbody>
-                  <tr>
-                    <td rowSpan={2} className="border border-slate-300 px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['writer', 'design', 'director'].map(slot => (
-                      <td key={slot} className="border border-slate-300 py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[80px]">
-                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : '이 사'}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="h-16">
-                    {['writer', 'design', 'director'].map(slot => (
-                      <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
-                        {slot === 'writer' ? (
-                          <div className="flex flex-col items-center justify-center h-full text-center">
-                            <span className="font-black text-blue-600 text-sm">{currentUser.initials}</span>
-                            <span className="text-[9px] text-slate-400 font-bold mt-1 leading-tight">{new Date().toLocaleString()}</span>
-                          </div>
-                        ) : null}
-                      </td>
-                    ))}
-                  </tr>
-                </tbody>
-              </table>
             </div>
-          </div>
 
             {/* Excel Rows 3-5 Info (UI View) */}
             {headerInfoRows.length > 0 && (
