@@ -426,7 +426,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+              @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
               body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
@@ -443,7 +443,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               /* Page numbering footer */
               .footer {
                 position: fixed;
-                bottom: 5mm;
+                bottom: 0mm;
                 left: 0;
                 right: 0;
                 text-align: center;
@@ -513,7 +513,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+                        @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
                         body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
@@ -530,7 +530,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         /* Page numbering footer */
                         .footer {
                           position: fixed;
-                          bottom: 5mm;
+                          bottom: 0mm;
                           left: 0;
                           right: 0;
                           text-align: center;
