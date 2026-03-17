@@ -25,7 +25,7 @@ const debounceMap: Record<string, any> = {};
 let lastPullTime = 0;
 
 /**
- * 특정 문서 1건을 개별 테이블에 저장 (트래픽 최적화: 3초 디바운스)
+ * 특정 문서 1건을 개별 테이블에 저장 (트래픽 최적화: 1초 디바운스)
  */
 export const saveSingleDoc = async (tableName: string, doc: any, category?: string) => {
   if (!supabase) return;
@@ -58,7 +58,7 @@ export const saveSingleDoc = async (tableName: string, doc: any, category?: stri
     } catch (err: any) {
       console.error(`[Cloud Sync Error] ${tableName}:`, err.message);
     }
-  }, 3000); 
+  }, 1000); 
 };
 
 /**
@@ -126,9 +126,9 @@ export const deleteRecipient = async (id: string) => {
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
   
-  // 트래픽 최적화: 0.5초 이내 중복 요청 방지
+  // 트래픽 최적화: 1초 이내 중복 요청 방지
   const now = Date.now();
-  if (now - lastPullTime < 500) return null;
+  if (now - lastPullTime < 1000) return null;
   lastPullTime = now;
 
   try {
