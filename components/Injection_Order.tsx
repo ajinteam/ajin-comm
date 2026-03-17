@@ -655,17 +655,17 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           <div className="max-w-4xl mx-auto bg-white border border-slate-200 p-10 shadow-sm space-y-6">
             <div className="text-center space-y-1">
               <h1 className="text-4xl font-black tracking-[0.5em] text-slate-900">주식회사 아진정공</h1>
-              <p className="text-[11px] text-slate-600 font-bold">
+              <p className="text-[12px] text-slate-600 font-bold">
                 (우:08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호
               </p>
-              <p className="text-[11px] text-slate-600 font-bold">
-                ☎ (02) 894-2611 FAX (02) 802-9941 <span className="text-blue-600 underline ml-2">misuk.kim@ajinpre.net</span>
+              <p className="text-[12px] text-slate-600 font-bold">
+                ☎ 02-894-2611 FAX / 02-802-9941 <span className="text-blue-600 underline ml-2">misuk.kim@ajinpre.net</span>
               </p>
             </div>
 
             <div className="border-t-2 border-black pt-6 flex justify-between items-start">
               <div className="flex-1 text-center">
-                <h2 className="text-5xl font-black tracking-[1em] text-slate-900 ml-[1em]">발 주 서</h2>
+                <h2 className="text-4xl font-black tracking-[1em] text-slate-900 ml-[1em]">사출 발주서</h2>
               </div>
               
               {/* Approval Box */}
@@ -721,8 +721,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <span className="text-sm font-black w-12 shrink-0">수 신 :</span>
                   <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.recipient || ''}</span>
                   <div className="flex flex-col text-[10px] font-bold leading-tight">
-                    <span>귀하</span>
-                    <span>중</span>
+                    <span>귀중</span>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
