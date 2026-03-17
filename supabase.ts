@@ -126,9 +126,9 @@ export const deleteRecipient = async (id: string) => {
 export const pullStateFromCloud = async () => {
   if (!supabase) return null;
   
-  // 트래픽 최적화: 10초 이내 중복 요청 방지
+  // 트래픽 최적화: 1초 이내 중복 요청 방지
   const now = Date.now();
-  if (now - lastPullTime < 3000) return null;
+  if (now - lastPullTime < 1000) return null;
   lastPullTime = now;
 
   try {

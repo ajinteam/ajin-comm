@@ -18,6 +18,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [headerInfoRows, setHeaderInfoRows] = useState<any[][]>([]);
   const [footerText, setFooterText] = useState<string[]>([]);
   const [fileName, setFileName] = useState<string>('');
+  const [viewMode, setViewMode] = useState<'icon' | 'list'>('icon');
+  const [searchTerm, setSearchTerm] = useState('');
   
   // Load items from local storage
   useEffect(() => {
@@ -190,11 +192,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const now = new Date();
       const timestamp = now.toLocaleString();
       
+      const isCEO = role === 'ceo';
       const updatedItem = {
         ...activeItem,
+        status: isCEO ? InjectionOrderSubCategory.APPROVED : activeItem.status,
         stamps: {
           ...activeItem.stamps,
-          [role]: { userId: currentUser.initials, timestamp }
+          [role]: { userId: currentUser.initials, timestamp },
+          ...(isCEO ? { final: { userId: currentUser.initials, timestamp } } : {})
         }
       };
 
@@ -205,7 +210,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
       // Update State
       setItems(updatedItems.filter((item: any) => item.status === sub));
-      setActiveItem(updatedItem);
+      
+      if (isCEO) {
+        alert('대표 승인이 완료되어 결재완료 목록으로 이동합니다.');
+        setActiveItem(null);
+        setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
+      } else {
+        setActiveItem(updatedItem);
+        alert('승인되었습니다.');
+      }
 
       // Update Supabase
       await saveSingleDoc('Injection_Order', updatedItem);
@@ -219,7 +232,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         sendJandiNotification('KR_PO', 'APPROVE', `[사출] ${activeItem.title}`, nextRecipient, now.toISOString().split('T')[0]);
       }
 
-      alert('승인되었습니다.');
       pushStateToCloud();
     } catch (err) {
       console.error('Error approving:', err);
@@ -399,7 +411,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 10mm 10mm 20mm 10mm; }
+              @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
               body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; counter-reset: page; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
@@ -428,7 +440,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 .footer { display: block; }
               }
               .page-number:after {
-                content: counter(page) " / " counter(pages);
+                content: "Page " counter(page);
               }
             </style>
           </head>
@@ -472,12 +484,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           
           <div className="flex gap-2">
             {sub === InjectionOrderSubCategory.PENDING && (
-              <>
-                {stamps.ceo && (
-                  <button onClick={handleFinalConfirm} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20 animate-pulse">최종 확인 (결재완료 이동)</button>
-                )}
-                <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20">반송</button>
-              </>
+              <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20">반송</button>
             )}
             {sub === InjectionOrderSubCategory.APPROVED && (
               <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20">완료 (AJ사출발주 이동)</button>
@@ -493,7 +500,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 10mm 10mm 20mm 10mm; }
+                        @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
                         body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; counter-reset: page; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
@@ -522,7 +529,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                           .footer { display: block; }
                         }
                         .page-number:after {
-                          content: counter(page) " / " counter(pages);
+                          content: "Page " counter(page);
                         }
                       </style>
                     </head>
@@ -736,7 +743,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                             {stamp && (
                               <>
                                 <span className="font-black text-[10px] text-blue-700">{stamp.userId}</span>
-                                <span className="text-[6px] text-slate-500 mt-0.5">{stamp.timestamp}</span>
+                                <span className="text-[6px] text-slate-500 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
                               </>
                             )}
                           </div>
@@ -851,32 +858,78 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   };
 
   const renderList = () => {
+    const filteredItems = items.filter(item => 
+      (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (item.authorId || '').toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-      <div className="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{sub} 목록</h2>
-          <span className="px-3 py-1 bg-white border border-slate-200 rounded-full text-xs font-bold text-slate-500 shadow-sm">
-            {items.length} 건
-          </span>
+      <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-white">
+        {/* Header Section */}
+        <div className="space-y-6">
+          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{sub}</h2>
+          
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="text-sm font-bold text-slate-500">
+                총 {filteredItems.length}건
+              </span>
+              <div className="h-4 w-[1px] bg-slate-200" />
+              <div className="flex bg-slate-100 p-1 rounded-lg">
+                <button 
+                  onClick={() => setViewMode('icon')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    viewMode === 'icon' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  아이콘
+                </button>
+                <button 
+                  onClick={() => setViewMode('list')}
+                  className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${
+                    viewMode === 'list' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  리스트
+                </button>
+              </div>
+            </div>
+            
+            <div className="relative w-full md:w-80">
+              <input 
+                type="text"
+                placeholder="제목 또는 수신처 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              />
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+              </svg>
+            </div>
+          </div>
         </div>
         
-        {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border border-dashed border-slate-200">
-            <p className="text-slate-400 font-bold">해당하는 문서가 없습니다.</p>
+        {filteredItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-32 bg-slate-50/50 rounded-3xl border-2 border-dashed border-slate-200">
+            <p className="text-slate-400 font-bold italic">데이터가 없습니다.</p>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {items.map((item) => (
-              <div key={item.id} onClick={() => setActiveItem(item)} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-300 transition-all cursor-pointer group relative">
-                <div className="flex justify-between items-start mb-3">
-                  <div className="p-2 bg-blue-50 text-blue-600 rounded-lg group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+        ) : viewMode === 'icon' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredItems.map((item) => (
+              <div key={item.id} onClick={() => setActiveItem(item)} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-all" />
+                <div className="flex justify-between items-start mb-4">
+                  <div className={`p-3 rounded-2xl transition-colors ${
+                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'
+                  }`}>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                     </svg>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{item.date}</span>
-                    <span className={`mt-1 px-2 py-0.5 rounded text-[10px] font-bold ${
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{item.date}</span>
+                    <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase ${
                       item.status === InjectionOrderSubCategory.APPROVED ? 'bg-emerald-50 text-emerald-600' :
                       item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' :
                       'bg-blue-50 text-blue-600'
@@ -885,22 +938,83 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </span>
                   </div>
                 </div>
-                <h3 className="text-sm font-black text-slate-900 mb-1 truncate">{item.title}</h3>
+                <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">{item.title}</h3>
                 <p className="text-xs text-slate-500 font-bold mb-4">작성자: {item.authorId}</p>
                 
-                <div className="flex items-center gap-1 mt-auto pt-4 border-t border-slate-50">
+                {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
+                  <div className="mb-4 p-3 bg-rose-50 rounded-2xl border border-rose-100">
+                    <p className="text-[10px] font-black text-rose-400 uppercase tracking-widest mb-1">반송 사유</p>
+                    <p className="text-xs text-rose-600 font-bold line-clamp-2 leading-relaxed">{item.rejectReason}</p>
+                  </div>
+                )}
+                
+                <div className="flex items-center gap-1.5 mt-auto pt-4 border-t border-slate-50">
                   {['writer', 'design', 'director', 'ceo'].map(slot => (
-                    <div key={slot} className={`w-3 h-3 rounded-full ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} title={slot} />
+                    <div key={slot} className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} title={slot} />
                   ))}
                 </div>
 
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="absolute bottom-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="absolute bottom-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                   </svg>
                 </button>
               </div>
             ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200">
+                  <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">상태</th>
+                  <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">제목</th>
+                  <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">작성자</th>
+                  <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">날짜</th>
+                  <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest">결재현황</th>
+                  <th className="px-6 py-4 text-xs font-black text-slate-500 uppercase tracking-widest text-right">관리</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredItems.map((item) => (
+                  <tr key={item.id} onClick={() => setActiveItem(item)} className="hover:bg-slate-50 transition-colors cursor-pointer group">
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase ${
+                        item.status === InjectionOrderSubCategory.APPROVED ? 'bg-emerald-50 text-emerald-600' :
+                        item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' :
+                        'bg-blue-50 text-blue-600'
+                      }`}>
+                        {item.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex flex-col">
+                        <span className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.title}</span>
+                        {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
+                          <span className="text-[10px] text-rose-500 font-bold mt-1">반송: {item.rejectReason}</span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-600">{item.authorId}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-slate-400">{item.date}</td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1">
+                        {['writer', 'design', 'director', 'ceo'].map(slot => (
+                          <div key={slot} className={`w-2.5 h-2.5 rounded-full ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} />
+                        ))}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -994,9 +1108,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     {['writer', 'design', 'director', 'ceo'].map(slot => (
                       <td key={slot} className="border border-slate-300 p-1 align-middle min-w-[80px]">
                         {slot === 'writer' ? (
-                          <div className="flex flex-col items-center">
+                          <div className="flex flex-col items-center justify-center h-full text-center">
                             <span className="font-black text-blue-600 text-sm">{currentUser.initials}</span>
-                            <span className="text-[9px] text-slate-400 font-bold mt-1">{new Date().toLocaleString()}</span>
+                            <span className="text-[9px] text-slate-400 font-bold mt-1 leading-tight">{new Date().toLocaleString()}</span>
                           </div>
                         ) : null}
                       </td>
