@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { UserAccount, ViewState, InjectionOrderSubCategory } from '../../types';
+import { UserAccount, ViewState, InjectionOrderSubCategory, PurchaseOrderSubCategory, PurchaseOrderItem } from '../../types';
 
 interface InjectionTakeProps {
   currentUser: UserAccount;
@@ -10,47 +10,147 @@ interface InjectionTakeProps {
 }
 
 const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dataVersion, onSelect }) => {
-  const [orders, setOrders] = useState<any[]>([]);
+  const [po1Items, setPo1Items] = useState<PurchaseOrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorSearch, setVendorSearch] = useState('');
   const [loading, setLoading] = useState(true);
   
-  // Form fields for search
+  // Suggestions
+  const [po1TitleSuggestions, setPo1TitleSuggestions] = useState<string[]>([]);
+  const [showPo1Suggestions, setShowPo1Suggestions] = useState(false);
+
+  // Form fields for display
   const [po2Reference, setPo2Reference] = useState('');
   const [po2TelFax, setPo2TelFax] = useState('');
   const [po2SenderName, setPo2SenderName] = useState('주식회사 아진정공');
-  const [po2SenderPerson, setPo2SenderPerson] = useState(currentUser.name);
+  const [po2SenderPerson, setPo2SenderPerson] = useState(currentUser.name || '');
   const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString());
 
   useEffect(() => {
-    const loadOrders = () => {
+    const loadPo1Data = () => {
       setLoading(true);
       try {
-        const saved = localStorage.getItem('ajin_injection_orders');
+        const saved = localStorage.getItem('ajin_purchase_orders');
         if (saved) {
-          const parsed = JSON.parse(saved);
-          // Show all orders for loading
-          setOrders(parsed.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()));
+          const parsed: PurchaseOrderItem[] = JSON.parse(saved);
+          // Filter for AJ Injection Orders (PO1)
+          const po1s = parsed.filter(item => 
+            item.stamps?.final && 
+            (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서')
+          );
+          setPo1Items(po1s);
         }
       } catch (err) {
-        console.error('Failed to load injection orders:', err);
+        console.error('Failed to load PO1 data:', err);
       } finally {
         setLoading(false);
       }
     };
 
-    loadOrders();
+    loadPo1Data();
   }, [dataVersion]);
 
-  const filteredOrders = orders.filter(order => 
-    (order.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-     order.id?.toLowerCase().includes(searchTerm.toLowerCase())) &&
-    (order.vendor?.toLowerCase().includes(vendorSearch.toLowerCase()) ||
-     order.injectionVendor?.toLowerCase().includes(vendorSearch.toLowerCase()))
-  );
+  const handleModelChange = (val: string) => {
+    setSearchTerm(val);
+    if (val.trim()) {
+      const matches = Array.from(new Set(po1Items
+        .filter(item => (item.title || '').toLowerCase().includes(val.toLowerCase()))
+        .map(item => item.title || '')
+      )).slice(0, 10);
+      setPo1TitleSuggestions(matches);
+      setShowPo1Suggestions(matches.length > 0);
+    } else {
+      setShowPo1Suggestions(false);
+    }
+  };
 
-  const handleSelectOrder = (order: any) => {
-    onSelect(order);
+  const handleLoadData = () => {
+    if (!searchTerm.trim()) {
+      alert('기종을 입력하거나 선택해주세요.');
+      return;
+    }
+
+    const titleNormalized = searchTerm.trim().toLowerCase();
+    const vendorNormalized = vendorSearch.trim().toLowerCase();
+
+    // Find matching PO1 documents
+    const matchingDocs = po1Items.filter(item => 
+      (item.title || '').toLowerCase() === titleNormalized
+    );
+
+    if (matchingDocs.length === 0) {
+      alert('일치하는 기종의 문서를 찾을 수 없습니다.');
+      return;
+    }
+
+    let finalRows: any[] = [];
+    let foundMerges: any = {};
+    let foundAligns: any = {};
+    let foundWeights: any = {};
+    let sourceHeaderRows: string[] = [];
+
+    matchingDocs.forEach(doc => {
+      // 1. Extract header rows 3~5 (index 2, 3, 4)
+      if (doc.headerRows) {
+        // We take rows 3, 4, 5 if they exist. 
+        // Usually headerRows is an array of strings.
+        const relevantHeaders = doc.headerRows.slice(2, 5); 
+        sourceHeaderRows = [...new Set([...sourceHeaderRows, ...relevantHeaders])];
+      }
+
+      // 2. Extract rows matching injection vendor
+      doc.rows.forEach((row, rIdx) => {
+        const rowVendor = (row.injectionVendor || row.vendor || '').toLowerCase();
+        if (rowVendor.includes(vendorNormalized)) {
+          const newRowId = `load-${Date.now()}-${Math.random()}`;
+          const currentRowIdx = finalRows.length;
+          finalRows.push({ ...row, id: newRowId });
+
+          // Copy formatting
+          if (doc.merges) {
+            Object.entries(doc.merges).forEach(([key, m]) => {
+              const [mr, mc] = key.split('-').map(Number);
+              if (mr === rIdx) foundMerges[`${currentRowIdx}-${mc}`] = m;
+            });
+          }
+          if (doc.aligns) {
+            Object.entries(doc.aligns).forEach(([key, a]) => {
+              const [ar, ac] = key.split('-').map(Number);
+              if (ar === rIdx) foundAligns[`${currentRowIdx}-${ac}`] = a;
+            });
+          }
+          if (doc.weights) {
+            Object.entries(doc.weights).forEach(([key, w]) => {
+              const [wr, wc] = key.split('-').map(Number);
+              if (wr === rIdx) foundWeights[`${currentRowIdx}-${wc}`] = w;
+            });
+          }
+        }
+      });
+    });
+
+    if (finalRows.length === 0) {
+      alert('해당 사출업체에 해당하는 품목이 없습니다.');
+      return;
+    }
+
+    // Construct the order object to return
+    // "사출업체 입력란에 입력한 사출업체를 ... 문서의 기종 하단에 붙여넣기"
+    // We'll append the vendor to the title or handle it in the parent
+    const resultOrder = {
+      title: `${searchTerm} (${vendorSearch})`,
+      rows: finalRows,
+      merges: foundMerges,
+      aligns: foundAligns,
+      weights: foundWeights,
+      headerRows: sourceHeaderRows,
+      recipient: vendorSearch,
+      date: new Date().toLocaleDateString(),
+      status: InjectionOrderSubCategory.TEMPORARY,
+      // Footer text is explicitly excluded (no notes)
+    };
+
+    onSelect(resultOrder);
   };
 
   return (
@@ -165,8 +265,14 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 onChange={(e) => setVendorSearch(e.target.value)} 
                 placeholder="사출업체명을 입력하세요" 
                 className="flex-1 outline-none text-sm font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200" 
+                onKeyDown={(e) => e.key === 'Enter' && handleLoadData()}
               />
-              <button className="px-4 py-1 bg-amber-600 text-white rounded text-xs font-black hover:bg-amber-700 transition-all shadow-sm">데이터 불러오기</button>
+              <button 
+                onClick={handleLoadData}
+                className="px-4 py-1 bg-amber-600 text-white rounded text-xs font-black hover:bg-amber-700 transition-all shadow-sm"
+              >
+                데이터 불러오기
+              </button>
             </div>
           </div>
 
@@ -177,101 +283,38 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               <input 
                 type="text" 
                 value={searchTerm} 
-                onChange={(e) => setSearchTerm(e.target.value)} 
+                onChange={(e) => handleModelChange(e.target.value)} 
+                onFocus={() => searchTerm && setShowPo1Suggestions(true)}
+                onBlur={() => setTimeout(() => setShowPo1Suggestions(false), 200)}
                 placeholder="기종을 입력하십시오 (필수)" 
                 className="w-full outline-none text-2xl font-bold placeholder:text-red-300 bg-transparent" 
               />
+              {showPo1Suggestions && (
+                <div className="absolute left-0 right-0 top-full bg-white border border-slate-200 shadow-xl rounded-xl mt-1 z-[100] overflow-hidden">
+                  {po1TitleSuggestions.map((s, i) => (
+                    <button 
+                      key={i} 
+                      type="button"
+                      onClick={() => { setSearchTerm(s); setShowPo1Suggestions(false); }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-lg font-bold border-b border-slate-50 last:border-0"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Table Content */}
-      <div className="p-8 pt-0">
-        <div className="max-w-[1000px] mx-auto">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center py-32">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mb-4"></div>
-              <p className="text-sm text-slate-400 font-bold animate-pulse">데이터를 불러오는 중...</p>
-            </div>
-          ) : filteredOrders.length > 0 ? (
-            <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
-              <table className="w-full border-collapse text-left">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200">
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">상태</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">제목 / 기종</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">업체 정보</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">작성 정보</th>
-                    <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">관리</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredOrders.map((order) => (
-                    <tr 
-                      key={order.id} 
-                      onClick={() => handleSelectOrder(order)}
-                      className="hover:bg-orange-50/30 transition-colors cursor-pointer group"
-                    >
-                      <td className="px-6 py-5">
-                        <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase ${
-                          order.status === InjectionOrderSubCategory.APPROVED ? 'bg-emerald-50 text-emerald-600' :
-                          order.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' :
-                          'bg-amber-50 text-amber-600'
-                        }`}>
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col">
-                          <span className="text-sm font-black text-slate-900 group-hover:text-orange-600 transition-colors">{order.title || '제목 없음'}</span>
-                          <span className="text-[10px] text-slate-400 font-bold mt-0.5 uppercase tracking-tighter">{order.id}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col gap-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-black text-slate-300 uppercase w-10">사출</span>
-                            <span className="text-xs font-bold text-slate-700">{order.injectionVendor || order.vendor || '-'}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-black text-slate-300 uppercase w-10">금형</span>
-                            <span className="text-xs font-bold text-slate-500">{order.vendor || '-'}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-700">{order.writerName || order.authorId || '-'}</span>
-                          <span className="text-[10px] text-slate-400 font-medium mt-0.5">{order.date}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-5 text-right">
-                        <button className="inline-flex items-center px-4 py-2 bg-slate-900 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-orange-600 transition-all shadow-sm group-hover:shadow-lg group-hover:shadow-orange-500/20">
-                          불러오기
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 ml-1.5 group-hover:translate-x-0.5 transition-transform" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-32 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-300">
-              <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-6 shadow-sm">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">검색 결과가 없습니다.</h3>
-              <p className="text-sm text-slate-400 font-bold">다른 검색어를 입력하거나 필터를 조정해 보세요.</p>
-            </div>
-          )}
+      {/* Loading State */}
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-12">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mb-4"></div>
+          <p className="text-sm text-slate-400 font-bold">데이터를 불러오는 중...</p>
         </div>
-      </div>
+      )}
     </div>
   );
 };
