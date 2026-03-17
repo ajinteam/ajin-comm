@@ -14,6 +14,13 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorSearch, setVendorSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  
+  // Form fields for search
+  const [po2Reference, setPo2Reference] = useState('');
+  const [po2TelFax, setPo2TelFax] = useState('');
+  const [po2SenderName, setPo2SenderName] = useState('주식회사 아진정공');
+  const [po2SenderPerson, setPo2SenderPerson] = useState(currentUser.name);
+  const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString());
 
   useEffect(() => {
     const loadOrders = () => {
@@ -47,60 +54,141 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   };
 
   return (
-    <div className="flex flex-col h-full bg-white">
-      {/* Header & Search Form */}
-      <div className="p-8 bg-slate-50 border-b border-slate-200">
-        <div className="max-w-5xl mx-auto">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 bg-orange-500 rounded-xl flex items-center justify-center shadow-lg shadow-orange-500/20">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
-              </svg>
+    <div className="flex flex-col h-full bg-slate-200 overflow-y-auto custom-scrollbar">
+      {/* PO Form Style Header */}
+      <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 w-full max-w-[1000px] text-black font-gulim text-left mt-8 mb-4">
+        <div className="min-w-[800px] md:min-w-0">
+          {/* Company Info */}
+          <div className="flex flex-col items-center mb-1">
+            <h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1>
+            <p className="text-sm font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
+            <p className="text-sm font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">misuk.kim@ajinpre.net</span></p>
+            <div className="w-full h-1 bg-black mt-2"></div>
+            <div className="w-full h-[1px] bg-black mt-0.5"></div>
+          </div>
+
+          {/* Title & Approval */}
+          <div className="flex justify-between items-end mb-1 relative border-b border-black pb-0">
+            <div className="text-5xl font-black tracking-[2rem] uppercase leading-none pb-4 ml-20 whitespace-nowrap">발 주 서</div>
+            <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
+              <tbody>
+                <tr>
+                  <td rowSpan={2} className="border border-black px-1 py-4 bg-slate-50 font-bold w-10">결 재</td>
+                  <td className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">담 당</td>
+                  <td className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">설 계</td>
+                  <td className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">이 사</td>
+                </tr>
+                <tr className="h-16">
+                  <td className="border border-black p-1 align-middle"></td>
+                  <td className="border border-black p-1 align-middle"></td>
+                  <td className="border border-black p-1 align-middle"></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Recipient / Sender Info */}
+          <div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 border-b border-black pb-0">
+                <span className="font-bold whitespace-nowrap">수 신 :</span>
+                <div className="flex-1 flex gap-2 items-center">
+                  <input 
+                    type="text" 
+                    value={vendorSearch} 
+                    onChange={(e) => setVendorSearch(e.target.value)} 
+                    placeholder="수신처(업체명) 검색" 
+                    className="flex-1 outline-none font-bold bg-transparent" 
+                  />
+                  <span className="font-bold">귀중</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 border-b border-black pb-0">
+                <span className="font-bold whitespace-nowrap">참 조 :</span>
+                <input 
+                  type="text" 
+                  value={po2Reference} 
+                  onChange={(e) => setPo2Reference(e.target.value)} 
+                  placeholder="참조 내용" 
+                  className="flex-1 outline-none bg-transparent" 
+                />
+              </div>
+              <div className="flex items-center gap-2 border-b border-black pb-0">
+                <span className="font-bold whitespace-nowrap">TEL / FAX :</span>
+                <input 
+                  type="text" 
+                  value={po2TelFax} 
+                  onChange={(e) => setPo2TelFax(e.target.value)} 
+                  placeholder="연락처 정보" 
+                  className="flex-1 outline-none bg-transparent" 
+                />
+              </div>
             </div>
-            <div>
-              <h1 className="text-2xl font-black text-slate-900 tracking-tight">사출발주서 불러오기</h1>
-              <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">Import Existing Injection Orders</p>
+            <div className="space-y-1">
+              <div className="flex gap-4 border-b border-black pb-0">
+                <span className="w-16 font-bold">발 신 :</span>
+                <input 
+                  type="text" 
+                  value={po2SenderName} 
+                  onChange={(e) => setPo2SenderName(e.target.value)} 
+                  className="flex-1 outline-none font-bold bg-transparent" 
+                />
+              </div>
+              <div className="flex gap-4 border-b border-black pb-0">
+                <span className="w-16 font-bold">담 당 :</span>
+                <input 
+                  type="text" 
+                  value={po2SenderPerson} 
+                  onChange={(e) => setPo2SenderPerson(e.target.value)} 
+                  className="flex-1 outline-none bg-transparent" 
+                />
+              </div>
+              <div className="flex gap-4 items-center border-b border-black pb-0">
+                <span className="w-16 font-bold">작성일자 :</span>
+                <input 
+                  type="text" 
+                  value={po2Date} 
+                  onChange={(e) => setPo2Date(e.target.value)} 
+                  className="flex-1 outline-none bg-transparent" 
+                />
+              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">기종 / 제목 검색</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="기종 또는 제목 입력..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none"
-                />
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-              </div>
+          {/* Injection Vendor Search Bar */}
+          <div className="mb-3 flex items-center border-b border-black pb-1 gap-4">
+            <span className="font-bold text-sm text-slate-500 w-24">사출업체 검색 :</span>
+            <div className="flex-1 flex gap-2">
+              <input 
+                type="text" 
+                value={vendorSearch} 
+                onChange={(e) => setVendorSearch(e.target.value)} 
+                placeholder="사출업체명을 입력하세요" 
+                className="flex-1 outline-none text-sm font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200" 
+              />
+              <button className="px-4 py-1 bg-amber-600 text-white rounded text-xs font-black hover:bg-amber-700 transition-all shadow-sm">데이터 불러오기</button>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">업체명 검색</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="사출업체 또는 금형업체..."
-                  value={vendorSearch}
-                  onChange={(e) => setVendorSearch(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-100 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 transition-all outline-none"
-                />
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              </div>
+          </div>
+
+          {/* Model Input Line */}
+          <div className="mb-4 flex items-center border-b border-black pb-1 relative">
+            <span className="font-black text-2xl mr-4 uppercase">기 종 :</span>
+            <div className="flex-1 relative">
+              <input 
+                type="text" 
+                value={searchTerm} 
+                onChange={(e) => setSearchTerm(e.target.value)} 
+                placeholder="기종을 입력하십시오 (필수)" 
+                className="w-full outline-none text-2xl font-bold placeholder:text-red-300 bg-transparent" 
+              />
             </div>
           </div>
         </div>
       </div>
 
       {/* Table Content */}
-      <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-        <div className="max-w-5xl mx-auto">
+      <div className="p-8 pt-0">
+        <div className="max-w-[1000px] mx-auto">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32">
               <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-orange-600 mb-4"></div>
@@ -172,7 +260,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               </table>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-32 bg-slate-50/50 rounded-[3rem] border-2 border-dashed border-slate-200">
+            <div className="flex flex-col items-center justify-center py-32 bg-white/50 rounded-[3rem] border-2 border-dashed border-slate-300">
               <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-6 shadow-sm">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
