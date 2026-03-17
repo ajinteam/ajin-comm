@@ -27,6 +27,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [recipientType, setRecipientType] = useState<'direct' | 'saved'>('direct');
   const [reference, setReference] = useState('');
   const [telFax, setTelFax] = useState('');
+  const [machineModel, setMachineModel] = useState('');
+  const [footerInput, setFooterInput] = useState('');
   const [searchInjectionVendor, setSearchInjectionVendor] = useState('');
   const [selectedSourceDocId, setSelectedSourceDocId] = useState('');
   const [recipientsList, setRecipientsList] = useState<string[]>([]);
@@ -101,9 +103,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     // Also copy headerInfoRows and footerText if they are empty
     if (headerInfoRows.length === 0 && sourceDoc.headerInfoRows) {
       setHeaderInfoRows(sourceDoc.headerInfoRows);
-    }
-    if (footerText.length === 0 && sourceDoc.footerText) {
-      setFooterText(sourceDoc.footerText);
     }
 
     alert(`${filteredRows.length}개의 행을 불러왔습니다.`);
@@ -206,7 +205,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           }
 
           setExcelData(tableRows);
-          setFooterText(footerRows);
+          setFooterText([]);
+          setFooterInput('');
         } else {
           alert('엑셀 파일에서 헤더(MOLD, DN 등)를 찾을 수 없습니다.');
         }
@@ -434,6 +434,43 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     }
   };
 
+  const updateExcelRow = (index: number, field: keyof OrderRow, value: string) => {
+    const newData = [...excelData];
+    newData[index] = { ...newData[index], [field]: value };
+    setExcelData(newData);
+  };
+
+  const deleteExcelRow = (index: number) => {
+    if (!window.confirm('이 행을 삭제하시겠습니까?')) return;
+    const newData = excelData.filter((_, i) => i !== index);
+    setExcelData(newData);
+  };
+
+  const addExcelRowBelow = (index: number) => {
+    const newRow: OrderRow = {
+      id: crypto.randomUUID ? crypto.randomUUID() : `injection-new-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      model: '',
+      dept: '',
+      itemName: '',
+      s: '',
+      cty: '',
+      qty: '',
+      material: '',
+      vendor: '',
+      injectionVendor: '',
+      orderQty: '',
+      unitPrice: '',
+      price: '',
+      remarks: '',
+      extra: '',
+      extraAmount: '',
+      remarksRSP: '',
+    };
+    const newData = [...excelData];
+    newData.splice(index + 1, 0, newRow);
+    setExcelData(newData);
+  };
+
   const handleComplete = useCallback(async () => {
     if (excelData.length === 0) {
       alert('업로드된 데이터가 없습니다.');
@@ -457,10 +494,11 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         createdAt: now.toISOString(),
         rows: excelData,
         headerInfoRows,
-        footerText,
+        footerText: footerInput ? footerInput.split('\n').filter(l => l.trim() !== '') : footerText,
         recipient,
         reference,
         telFax,
+        machineModel,
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
@@ -713,6 +751,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <span className="text-sm font-black w-12 shrink-0 text-[10px] leading-tight">TEL / FAX :</span>
                   <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.telFax || ''}</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">기 종 :</span>
+                  <span className="flex-1 text-sm border-b border-slate-300 font-bold">{item.machineModel || ''}</span>
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -901,6 +943,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <div className="flex items-center gap-1">
                     <span className="text-[10px] font-black w-10 shrink-0 leading-tight">TEL/FAX:</span>
                     <span className="flex-1 text-[10px] border-b border-slate-300 font-bold">{item.telFax || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[10px] font-black w-10 shrink-0">기 종 :</span>
+                    <span className="flex-1 text-[10px] border-b border-slate-300 font-bold">{item.machineModel || ''}</span>
                   </div>
                 </div>
 
@@ -1138,6 +1184,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
                   />
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black w-12 shrink-0">기 종 :</span>
+                  <input 
+                    type="text"
+                    value={machineModel}
+                    onChange={(e) => setMachineModel(e.target.value)}
+                    placeholder="기종 입력"
+                    className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                  />
+                </div>
               </div>
 
               <div className="space-y-3">
@@ -1154,6 +1210,20 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <span className="text-sm font-bold">{new Date().toLocaleDateString()}</span>
                 </div>
               </div>
+
+              {headerInfoRows.length > 0 && (
+                <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Excel Header Info (Rows 3-5)</h3>
+                  <div className="space-y-1">
+                    {headerInfoRows.map((row, idx) => (
+                      <div key={idx} className="text-[11px] text-slate-600 font-bold flex gap-2">
+                        <span className="shrink-0 text-slate-400">Row {idx + 3}:</span>
+                        <span>{row.join(' | ')}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-slate-200 pt-6 space-y-4">
@@ -1174,36 +1244,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 </button>
               </div>
 
-              <div className="flex items-center gap-4">
-                <span className="text-2xl font-black text-slate-900 shrink-0">기 종 :</span>
-                <select 
-                  value={selectedSourceDocId}
-                  onChange={(e) => {
-                    setSelectedSourceDocId(e.target.value);
-                    const doc = sourceDocs.find(d => d.id === e.target.value);
-                    if (doc) setFileName(doc.title);
-                  }}
-                  className="flex-1 px-4 py-2 border border-slate-200 rounded-lg text-lg font-black text-rose-400 focus:ring-2 focus:ring-blue-500/20 outline-none appearance-none bg-white"
-                >
-                  <option value="">기종을 선택하십시오 (필수)</option>
-                  {sourceDocs.map(doc => (
-                    <option key={doc.id} value={doc.id}>{doc.title} ({doc.date})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* Table Section */}
-          {excelData.length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col max-w-6xl mx-auto">
-              <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-                <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">발주 품목 리스트</h2>
-                <div className="flex items-center gap-4">
-                  <button onClick={() => setExcelData([])} className="text-xs font-bold text-rose-500 hover:underline">초기화</button>
-                  <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {excelData.length} ITEMS</span>
-                </div>
-              </div>
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead>
@@ -1222,7 +1262,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
                       <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
                       <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
-                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                      <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">비고 R.S/P</th>
+                      <th className="w-[5%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter text-center">관리</th>
                     </tr>
                   </thead>
                   <tbody className="text-black">
@@ -1232,25 +1273,151 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       const isLastRow = index === excelData.length - 1;
                       const borderTopClass = hasMold ? 'border-t-2 border-slate-400' : '';
                       const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-2 border-slate-400' : '';
-                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
 
                       return (
                         <tr key={row.id || index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
-                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
-                          <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
-                          <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
-                          <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
-                          <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
-                          <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.model} 
+                              onChange={(e) => updateExcelRow(index, 'model', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] font-bold outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.dept} 
+                              onChange={(e) => updateExcelRow(index, 'dept', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.s} 
+                              onChange={(e) => updateExcelRow(index, 's', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.itemName} 
+                              onChange={(e) => updateExcelRow(index, 'itemName', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] font-medium outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.cty} 
+                              onChange={(e) => updateExcelRow(index, 'cty', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.qty} 
+                              onChange={(e) => updateExcelRow(index, 'qty', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.material} 
+                              onChange={(e) => updateExcelRow(index, 'material', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.vendor} 
+                              onChange={(e) => updateExcelRow(index, 'vendor', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.injectionVendor} 
+                              onChange={(e) => updateExcelRow(index, 'injectionVendor', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.orderQty} 
+                              onChange={(e) => updateExcelRow(index, 'orderQty', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.unitPrice} 
+                              onChange={(e) => updateExcelRow(index, 'unitPrice', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] text-right outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.price} 
+                              onChange={(e) => updateExcelRow(index, 'price', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] font-bold text-right outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.extra} 
+                              onChange={(e) => updateExcelRow(index, 'extra', e.target.value)}
+                              className="w-full px-0 py-1 text-[13px] text-center outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.extraAmount} 
+                              onChange={(e) => updateExcelRow(index, 'extraAmount', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] text-right outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-0 py-1 border-r border-slate-100">
+                            <input 
+                              type="text" 
+                              value={row.remarksRSP} 
+                              onChange={(e) => updateExcelRow(index, 'remarksRSP', e.target.value)}
+                              className="w-full px-1 py-1 text-[13px] italic text-slate-500 outline-none bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500"
+                            />
+                          </td>
+                          <td className="px-1 py-1 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button 
+                                onClick={() => addExcelRowBelow(index)}
+                                className="p-1 text-blue-500 hover:bg-blue-50 rounded"
+                                title="아래에 행 추가"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                              <button 
+                                onClick={() => deleteExcelRow(index)}
+                                className="p-1 text-rose-500 hover:bg-rose-50 rounded"
+                                title="행 삭제"
+                              >
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                                </svg>
+                              </button>
+                            </div>
+                          </td>
                         </tr>
                       );
                     })}
@@ -1260,27 +1427,41 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.subtotal.toLocaleString()}</td>
                       <td className="px-0 py-3 border-r border-slate-100"></td>
                       <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.subtotal.toLocaleString()}</td>
-                      <td className="px-1 py-3"></td>
+                      <td className="px-1 py-3" colSpan={2}></td>
                     </tr>
                     <tr className="bg-slate-50/30 font-bold text-black">
                       <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
                       <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.price.vat.toLocaleString()}</td>
                       <td className="px-0 py-3 border-r border-slate-100"></td>
                       <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{totals.extra.vat.toLocaleString()}</td>
-                      <td className="px-1 py-3"></td>
+                      <td className="px-1 py-3" colSpan={2}></td>
                     </tr>
                     <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
                       <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
                       <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.price.total.toLocaleString()}</td>
                       <td className="px-0 py-3 border-r border-slate-100"></td>
                       <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{totals.extra.total.toLocaleString()}</td>
-                      <td className="px-1 py-3"></td>
+                      <td className="px-1 py-3" colSpan={2}></td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Fixed Footer Input Section */}
+        <div className="shrink-0 bg-white border-t border-slate-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+          <div className="max-w-6xl mx-auto flex items-center gap-4">
+            <span className="text-sm font-black text-slate-500 shrink-0 uppercase tracking-widest">FOOTER :</span>
+            <textarea 
+              value={footerInput}
+              onChange={(e) => setFooterInput(e.target.value)}
+              placeholder="발주서 하단에 표시될 추가 정보를 입력하세요..."
+              rows={2}
+              className="flex-1 px-4 py-2 border border-slate-200 rounded-xl text-sm font-bold focus:ring-2 focus:ring-blue-500/20 outline-none resize-none custom-scrollbar"
+            />
+          </div>
         </div>
       </div>
     );
