@@ -24,15 +24,17 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   
   // New states for the "Load" feature
   const [recipient, setRecipient] = useState('');
-  const [recipientType, setRecipientType] = useState<'direct' | 'saved'>('direct');
   const [reference, setReference] = useState('');
   const [telFax, setTelFax] = useState('');
   const [machineModel, setMachineModel] = useState('');
   const [footerInput, setFooterInput] = useState('');
   const [searchInjectionVendor, setSearchInjectionVendor] = useState('');
   const [selectedSourceDocId, setSelectedSourceDocId] = useState('');
-  const [recipientsList, setRecipientsList] = useState<string[]>([]);
+  const [recipientsList, setRecipientsList] = useState<any[]>([]);
   const [sourceDocs, setSourceDocs] = useState<any[]>([]);
+  const [isRecipientModalOpen, setIsRecipientModalOpen] = useState(false);
+  const [editingRecipient, setEditingRecipient] = useState<any | null>(null);
+  const [showSourceDocSearch, setShowSourceDocSearch] = useState(false);
   
   // Load items from local storage
   useEffect(() => {
@@ -48,23 +50,39 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     }
 
     // Load saved recipients
-    const savedRecipients = localStorage.getItem('ajin_recipients');
+    const savedRecipients = localStorage.getItem('ajin_recipients_v3');
     if (savedRecipients) {
       setRecipientsList(JSON.parse(savedRecipients));
+    } else {
+      // Migrate old recipients if any
+      const oldRecipients = localStorage.getItem('ajin_recipients_v2') || localStorage.getItem('ajin_recipients');
+      if (oldRecipients) {
+        const oldList = JSON.parse(oldRecipients);
+        const newList = oldList.map((r: any) => typeof r === 'string' ? { name: r, reference: '', telFax: '', remarks: '' } : r);
+        setRecipientsList(newList);
+        localStorage.setItem('ajin_recipients_v3', JSON.stringify(newList));
+      }
     }
   }, [sub, dataVersion]);
 
-  const saveRecipient = (name: string) => {
-    if (!name.trim()) return;
-    const newList = Array.from(new Set([...recipientsList, name.trim()]));
+  const saveRecipient = (recipientData: any) => {
+    let newList;
+    const exists = recipientsList.find(r => r.name === recipientData.name);
+    if (exists) {
+      newList = recipientsList.map(r => r.name === recipientData.name ? recipientData : r);
+    } else {
+      newList = [...recipientsList, recipientData];
+    }
     setRecipientsList(newList);
-    localStorage.setItem('ajin_recipients', JSON.stringify(newList));
+    localStorage.setItem('ajin_recipients_v3', JSON.stringify(newList));
+    setIsRecipientModalOpen(false);
+    setEditingRecipient(null);
   };
 
   const deleteRecipient = (name: string) => {
-    const newList = recipientsList.filter(r => r !== name);
+    const newList = recipientsList.filter(r => r.name !== name);
     setRecipientsList(newList);
-    localStorage.setItem('ajin_recipients', JSON.stringify(newList));
+    localStorage.setItem('ajin_recipients_v3', JSON.stringify(newList));
   };
 
   const handleDataLoad = () => {
@@ -267,16 +285,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
     try {
       const now = new Date();
-      const timestamp = now.toLocaleString();
+      const dateStr = now.toLocaleDateString();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timestamp = `${dateStr} ${timeStr}`;
       
-      const isDirector = role === 'director';
       const updatedItem = {
         ...activeItem,
-        status: isDirector ? InjectionOrderSubCategory.APPROVED : activeItem.status,
         stamps: {
           ...activeItem.stamps,
-          [role]: { userId: currentUser.initials, timestamp },
-          ...(isDirector ? { final: { userId: currentUser.initials, timestamp } } : {})
+          [role]: { userId: currentUser.initials, timestamp }
         }
       };
 
@@ -287,15 +304,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
       // Update State
       setItems(updatedItems.filter((item: any) => item.status === sub));
-      
-      if (isDirector) {
-        alert('이사 승인이 완료되어 결재완료 목록으로 이동합니다.');
-        setActiveItem(null);
-        setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
-      } else {
-        alert('승인되었습니다.');
-        setActiveItem(null);
-      }
+      setActiveItem(updatedItem);
+      alert('승인되었습니다.');
 
       // Update Supabase
       await saveSingleDoc('Injection_Order', updatedItem);
@@ -488,6 +498,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         code: `PO-${Date.now()}`,
         title: fileName || 'Injection Order',
         type: 'INJECTION', 
+        sourceSub: sub,
         status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
         date: now.toISOString().split('T')[0],
@@ -525,7 +536,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       console.error('Error completing injection order:', err);
       alert('저장 중 오류가 발생했습니다.');
     }
-  }, [excelData, fileName, currentUser, setView]);
+  }, [excelData, fileName, currentUser, setView, sub, recipient, reference, telFax, machineModel, footerInput, headerInfoRows, footerText]);
 
   const handlePrint = useCallback(() => {
     const content = document.querySelector('.injection-order-print')?.innerHTML;
@@ -582,6 +593,141 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     }
   }, [fileName]);
 
+  const handleConfirm = async () => {
+    if (!activeItem) return;
+    if (!activeItem.stamps?.director) {
+      alert('이사 승인이 완료되어야 합니다.');
+      return;
+    }
+
+    if (!window.confirm('최종 확인하시겠습니까? 결재완료 목록으로 이동합니다.')) return;
+
+    try {
+      const now = new Date();
+      const dateStr = now.toLocaleDateString();
+      const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const timestamp = `${dateStr} ${timeStr}`;
+
+      const updatedItem = {
+        ...activeItem,
+        status: InjectionOrderSubCategory.APPROVED,
+        stamps: {
+          ...activeItem.stamps,
+          final: { userId: currentUser.initials, timestamp }
+        }
+      };
+
+      // Save recipient if not exists
+      if (updatedItem.recipient) {
+        const exists = recipientsList.find(r => r.name === updatedItem.recipient);
+        if (!exists) {
+          const newRecipient = {
+            name: updatedItem.recipient,
+            reference: updatedItem.reference || '',
+            telFax: updatedItem.telFax || '',
+            remarks: ''
+          };
+          const newList = [...recipientsList, newRecipient];
+          setRecipientsList(newList);
+          localStorage.setItem('ajin_recipients_v3', JSON.stringify(newList));
+        }
+      }
+
+      // Update Local Storage
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      // Update State
+      setItems(updatedItems.filter((item: any) => item.status === sub));
+      saveSingleDoc('Injection_Order', updatedItem);
+      pushStateToCloud();
+
+      alert('최종 확인되었습니다. 결재완료 목록으로 이동합니다.');
+      setActiveItem(null);
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
+    } catch (err) {
+      console.error('Error confirming injection order:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  };
+
+  const renderRecipientModal = () => {
+    if (!isRecipientModalOpen) return null;
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100] p-4">
+        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+            <h3 className="text-lg font-black text-slate-900">수신처 관리</h3>
+            <button onClick={() => { setIsRecipientModalOpen(false); setEditingRecipient(null); }} className="text-slate-400 hover:text-slate-600 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            <div className="space-y-1">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">수신처 명칭</label>
+              <input 
+                type="text" 
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-bold"
+                defaultValue={editingRecipient?.name || ''}
+                id="modal-recipient-name"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">참조</label>
+              <input 
+                type="text" 
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-bold"
+                defaultValue={editingRecipient?.reference || ''}
+                id="modal-recipient-ref"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">TEL / FAX</label>
+              <input 
+                type="text" 
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-bold"
+                defaultValue={editingRecipient?.telFax || ''}
+                id="modal-recipient-tel"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-black text-slate-500 uppercase tracking-wider">비고</label>
+              <textarea 
+                className="w-full px-4 py-2 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 outline-none font-bold resize-none"
+                rows={2}
+                defaultValue={editingRecipient?.remarks || ''}
+                id="modal-recipient-remarks"
+              />
+            </div>
+          </div>
+          <div className="p-6 bg-slate-50 border-t border-slate-100 flex gap-3">
+            <button 
+              onClick={() => {
+                const name = (document.getElementById('modal-recipient-name') as HTMLInputElement).value;
+                const reference = (document.getElementById('modal-recipient-ref') as HTMLInputElement).value;
+                const telFax = (document.getElementById('modal-recipient-tel') as HTMLInputElement).value;
+                const remarks = (document.getElementById('modal-recipient-remarks') as HTMLTextAreaElement).value;
+                if (!name.trim()) { alert('수신처 명칭을 입력해주세요.'); return; }
+                saveRecipient({ name, reference, telFax, remarks });
+              }}
+              className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-black shadow-lg shadow-blue-500/20 hover:bg-blue-700 transition-all"
+            >
+              저장하기
+            </button>
+            <button 
+              onClick={() => { setIsRecipientModalOpen(false); setEditingRecipient(null); }}
+              className="flex-1 py-3 bg-white border border-slate-200 text-slate-600 rounded-xl font-black hover:bg-slate-50 transition-all"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const renderDetail = (item: any) => {
     const data = item.rows || [];
     const stamps = item.stamps || {};
@@ -691,47 +837,65 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-black px-2 py-4 font-black w-8">결 재</td>
-                    {['담 당', '설 계', '이 사'].map(label => (
+                    {(item.sourceSub === InjectionOrderSubCategory.LOAD ? ['담 당', '설 계', '이 사'] : ['담 당', '설 계', '이 사', '대 표']).map(label => (
                       <td key={label} className="border border-black py-1 px-4 font-bold min-w-[70px]">{label}</td>
                     ))}
                   </tr>
                   <tr className="h-14">
-                    <td className="border border-black p-1 align-middle">
-                      <div className="flex flex-col items-center justify-center">
-                        <span className="font-black text-blue-600 text-xs">{item.stamps?.writer?.userId}</span>
-                        <span className="text-[8px] text-slate-400 mt-1">{item.stamps?.writer?.timestamp ? new Date(item.stamps.writer.timestamp).toLocaleDateString() : ''}</span>
-                      </div>
-                    </td>
-                    <td 
-                      className={`border border-black p-1 align-middle ${!item.stamps?.design && currentUser.initials === 'H-CHUN' && sub === InjectionOrderSubCategory.PENDING ? 'cursor-pointer bg-blue-50' : ''}`}
-                      onClick={() => !item.stamps?.design && currentUser.initials === 'H-CHUN' && sub === InjectionOrderSubCategory.PENDING && handleApprove('design')}
-                    >
-                      {item.stamps?.design ? (
-                        <div className="flex flex-col items-center justify-center">
-                          <span className="font-black text-blue-600 text-xs">{item.stamps.design.userId}</span>
-                          <span className="text-[8px] text-slate-400 mt-1">{new Date(item.stamps.design.timestamp).toLocaleDateString()}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[8px] text-slate-300 italic">승인대기</span>
-                      )}
-                    </td>
-                    <td 
-                      className={`border border-black p-1 align-middle ${!item.stamps?.director && currentUser.initials === 'M-YEUN' && sub === InjectionOrderSubCategory.PENDING && item.stamps?.design ? 'cursor-pointer bg-blue-50' : ''}`}
-                      onClick={() => !item.stamps?.director && currentUser.initials === 'M-YEUN' && sub === InjectionOrderSubCategory.PENDING && item.stamps?.design && handleApprove('director')}
-                    >
-                      {item.stamps?.director ? (
-                        <div className="flex flex-col items-center justify-center">
-                          <span className="font-black text-blue-600 text-xs">{item.stamps.director.userId}</span>
-                          <span className="text-[8px] text-slate-400 mt-1">{new Date(item.stamps.director.timestamp).toLocaleDateString()}</span>
-                        </div>
-                      ) : (
-                        <span className="text-[8px] text-slate-300 italic">승인대기</span>
-                      )}
-                    </td>
+                    {(item.sourceSub === InjectionOrderSubCategory.LOAD ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map((role) => {
+                      const stamp = stamps[role];
+                      const isAllowed = (role === 'design' && currentUser.initials === 'H-CHUN') || 
+                                      (role === 'director' && currentUser.initials === 'M-YEUN') ||
+                                      (role === 'ceo' && currentUser.initials === 'CEO') ||
+                                      (role === 'writer' && currentUser.initials === item.authorId);
+
+                      const canApprove = !stamp && (
+                        (role === 'design' && stamps.writer) ||
+                        (role === 'director' && stamps.design) ||
+                        (role === 'ceo' && stamps.director)
+                      );
+
+                      return (
+                        <td key={role} className="border border-black p-1 align-middle min-w-[70px]">
+                          {stamp ? (
+                            <div className="flex flex-col items-center justify-center">
+                              <span className="font-black text-blue-600 text-[10px]">{stamp.userId}</span>
+                              <span className="text-[7px] text-slate-400 mt-0.5 whitespace-nowrap">{stamp.timestamp}</span>
+                            </div>
+                          ) : (
+                            canApprove && isAllowed && sub === InjectionOrderSubCategory.PENDING ? (
+                              <button 
+                                onClick={() => handleApprove(role)}
+                                className="w-full h-full bg-blue-50 hover:bg-blue-100 text-blue-600 font-black text-[10px] py-1 rounded transition-colors"
+                              >
+                                승인
+                              </button>
+                            ) : (
+                              <span className="text-[8px] text-slate-300 italic">승인대기</span>
+                            )
+                          )}
+                        </td>
+                      );
+                    })}
                   </tr>
                 </tbody>
               </table>
             </div>
+
+            {/* Confirm Button for Director Approved items */}
+            {sub === InjectionOrderSubCategory.PENDING && stamps.director && !stamps.final && (
+              <div className="flex justify-end mt-4">
+                <button 
+                  onClick={handleConfirm}
+                  className="px-8 py-3 bg-indigo-600 text-white rounded-xl font-black shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all flex items-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                  최종 확인 (결재완료 이동)
+                </button>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-8 border-t border-black pt-4">
               <div className="space-y-3">
@@ -1111,57 +1275,39 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               <div className="space-y-3">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-black w-12 shrink-0">수 신 :</span>
-                  <select 
-                    value={recipientType}
-                    onChange={(e) => setRecipientType(e.target.value as any)}
-                    className="text-xs border border-slate-300 rounded px-1 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  >
-                    <option value="direct">직접입력</option>
-                    <option value="saved">수신처 선택</option>
-                  </select>
-                  {recipientType === 'saved' ? (
-                    <div className="flex-1 flex gap-1">
-                      <select 
-                        value={recipient}
-                        onChange={(e) => setRecipient(e.target.value)}
-                        className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
-                      >
-                        <option value="">수신처를 선택하세요</option>
-                        {recipientsList.map(r => <option key={r} value={r}>{r}</option>)}
-                      </select>
-                      <button 
-                        onClick={() => deleteRecipient(recipient)}
-                        className="text-rose-500 hover:text-rose-700"
-                        title="삭제"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex-1 flex gap-1">
-                      <input 
-                        type="text"
-                        value={recipient}
-                        onChange={(e) => setRecipient(e.target.value)}
-                        placeholder="수신처 명칭"
-                        className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
-                      />
-                      <button 
-                        onClick={() => saveRecipient(recipient)}
-                        className="text-blue-500 hover:text-blue-700"
-                        title="저장"
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                    </div>
-                  )}
-                  <div className="flex flex-col text-[10px] font-bold leading-tight">
-                    <span>귀중</span>
-                   
+                  <div className="flex-1 flex gap-2">
+                    <select 
+                      className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold bg-transparent"
+                      value={recipient}
+                      onChange={(e) => {
+                        const r = recipientsList.find(item => item.name === e.target.value);
+                        if (r) {
+                          setRecipient(r.name);
+                          setReference(r.reference || '');
+                          setTelFax(r.telFax || '');
+                        } else {
+                          setRecipient(e.target.value);
+                        }
+                      }}
+                    >
+                      <option value="">수신처 선택</option>
+                      {recipientsList.map((r, idx) => (
+                        <option key={idx} value={r.name}>{r.name}</option>
+                      ))}
+                    </select>
+                    <input 
+                      type="text"
+                      value={recipient}
+                      onChange={(e) => setRecipient(e.target.value)}
+                      placeholder="직접 입력"
+                      className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
+                    />
+                    <button 
+                      onClick={() => setIsRecipientModalOpen(true)}
+                      className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-[10px] font-black hover:bg-slate-200 transition-colors shrink-0"
+                    >
+                      수신처관리
+                    </button>
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1184,15 +1330,49 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
                   />
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 relative">
                   <span className="text-sm font-black w-12 shrink-0">기 종 :</span>
                   <input 
                     type="text"
                     value={machineModel}
-                    onChange={(e) => setMachineModel(e.target.value)}
-                    placeholder="기종 입력"
+                    onChange={(e) => {
+                      setMachineModel(e.target.value);
+                      setShowSourceDocSearch(true);
+                    }}
+                    onFocus={() => setShowSourceDocSearch(true)}
+                    placeholder="기종 입력 (AJ사출발주 검색)"
                     className="flex-1 text-sm border-b border-slate-300 focus:border-blue-500 outline-none font-bold"
                   />
+                  {showSourceDocSearch && machineModel && (
+                    <div className="absolute top-full left-14 right-0 bg-white border border-slate-200 rounded-xl shadow-xl z-50 max-h-48 overflow-y-auto mt-1">
+                      {sourceDocs
+                        .filter(doc => doc.machineModel?.toLowerCase().includes(machineModel.toLowerCase()) || doc.title?.toLowerCase().includes(machineModel.toLowerCase()))
+                        .map(doc => (
+                          <button
+                            key={doc.id}
+                            onClick={() => {
+                              setSelectedSourceDocId(doc.id);
+                              setMachineModel(doc.machineModel || '');
+                              setShowSourceDocSearch(false);
+                              if (doc.rows) setExcelData(doc.rows);
+                              if (doc.headerInfoRows) setHeaderInfoRows(doc.headerInfoRows);
+                              if (doc.footerText) setFooterText(doc.footerText);
+                            }}
+                            className="w-full text-left px-4 py-2 hover:bg-slate-50 text-xs font-bold border-b border-slate-100 last:border-0"
+                          >
+                            <div className="text-blue-600">{doc.machineModel}</div>
+                            <div className="text-slate-400 text-[10px]">{doc.title}</div>
+                          </button>
+                        ))
+                      }
+                      <button 
+                        onClick={() => setShowSourceDocSearch(false)}
+                        className="w-full py-1 bg-slate-50 text-[10px] text-slate-400 font-black hover:text-slate-600"
+                      >
+                        닫기
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -2029,6 +2209,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           </div>
         )}
       </div>
+      {renderRecipientModal()}
     </div>
   );
 };
