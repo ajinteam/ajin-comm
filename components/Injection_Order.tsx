@@ -20,6 +20,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [fileName, setFileName] = useState<string>('');
   const [viewMode, setViewMode] = useState<'icon' | 'list'>('icon');
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
   
   // Load items from local storage
   useEffect(() => {
@@ -30,6 +31,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       setItems(filtered);
     }
   }, [sub, dataVersion]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [sub, searchTerm]);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -216,8 +221,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         setActiveItem(null);
         setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
       } else {
-        setActiveItem(updatedItem);
         alert('승인되었습니다.');
+        setActiveItem(null);
       }
 
       // Update Supabase
@@ -276,7 +281,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
   const handleMoveToDestination = async () => {
     if (!activeItem) return;
-    if (!window.confirm('AJ사출발주 방으로 이동하시겠습니까?')) return;
+    if (!window.confirm('AJ사출발주 목록으로 이동하시겠습니까?')) return;
 
     try {
       const now = new Date();
@@ -293,7 +298,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       // Update Supabase
       await saveSingleDoc('Injection_Order', updatedItem);
       
-      alert('AJ사출발주 방으로 이동되었습니다.');
+      alert('AJ사출발주 목록으로 이동되었습니다.');
       setActiveItem(null);
       setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.DESTINATION });
       pushStateToCloud();
@@ -334,9 +339,19 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   };
 
   const handleDelete = async (id: string) => {
+    const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+    const targetItem = allItems.find((item: any) => item.id === id);
+    
+    if (targetItem && targetItem.status === InjectionOrderSubCategory.REJECTED) {
+      const userInit = (currentUser.initials || '').toUpperCase();
+      if (userInit !== 'MASTER' && userInit !== 'M-SUK') {
+        alert('반송 문서는 마스터 또는 M-SUK 권한자만 삭제할 수 있습니다.');
+        return;
+      }
+    }
+
     if (!window.confirm('정말로 삭제하시겠습니까?')) return;
     try {
-      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
       const updatedItems = allItems.filter((item: any) => item.id !== id);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
       
@@ -411,8 +426,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
-              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; counter-reset: page; }
+              @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -439,15 +454,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               @media print {
                 .footer { display: block; }
               }
-              .page-number:after {
-                content: "Page " counter(page);
-              }
+              
             </style>
           </head>
           <body onload="window.print(); window.close();">
             <div class="document-wrapper">${content}</div>
             <div class="footer">
-              ${fileName} - <span class="page-number"></span>
+              ${fileName}
             </div>
           </body>
         </html>
@@ -500,8 +513,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
-                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; counter-reset: page; }
+                        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
                         table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -528,15 +541,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         @media print {
                           .footer { display: block; }
                         }
-                        .page-number:after {
-                          content: "Page " counter(page);
-                        }
+                        
                       </style>
                     </head>
                     <body onload="window.print(); window.close();">
                       <div class="document-wrapper">${content}</div>
                       <div class="footer">
-                        ${item.title} - <span class="page-number"></span>
+                        ${item.title} 
                       </div>
                     </body>
                   </html>
@@ -547,7 +558,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
               </svg>
-              인쇄
+              PDF저장 / 인쇄
             </button>
           </div>
         </div>
@@ -592,7 +603,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         {stamp ? (
                           <div className="flex flex-col items-center justify-center h-full text-center">
                             <span className="font-black text-blue-600 text-sm">{stamp.userId}</span>
-                            <span className="text-[7px] text-slate-400 font-bold mt-1 leading-tight">{stamp.timestamp}</span>
+                            <span className="text-[7px] text-slate-400 font-bold mt-1 leading-tight text-center w-full break-keep">{stamp.timestamp}</span>
                           </div>
                         ) : (
                           <div className="flex items-center justify-center h-full text-center">
@@ -858,10 +869,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   };
 
   const renderList = () => {
-    const filteredItems = items.filter(item => 
-      (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (item.authorId || '').toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const filteredItems = items
+      .filter(item => 
+        (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.authorId || '').toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+    const itemsPerPage = 10;
+    const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
+    const paginatedItems = filteredItems.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
       <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-white">
@@ -916,7 +933,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           </div>
         ) : viewMode === 'icon' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredItems.map((item) => (
+            {paginatedItems.map((item) => (
               <div key={item.id} onClick={() => setActiveItem(item)} className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden">
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-all" />
                 <div className="flex justify-between items-start mb-4">
@@ -954,11 +971,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   ))}
                 </div>
 
-                <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="absolute bottom-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                {(!(item.status === InjectionOrderSubCategory.REJECTED) || (currentUser.initials?.toUpperCase() === 'MASTER' || currentUser.initials?.toUpperCase() === 'M-SUK')) && (
+                  <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="absolute bottom-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                    </svg>
+                  </button>
+                )}
               </div>
             ))}
           </div>
@@ -976,7 +995,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredItems.map((item) => (
+                {paginatedItems.map((item) => (
                   <tr key={item.id} onClick={() => setActiveItem(item)} className="hover:bg-slate-50 transition-colors cursor-pointer group">
                     <td className="px-6 py-4">
                       <span className={`px-2 py-1 rounded-lg text-[10px] font-black tracking-wider uppercase ${
@@ -1005,16 +1024,37 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                          <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
-                        </svg>
-                      </button>
+                      {(!(item.status === InjectionOrderSubCategory.REJECTED) || (currentUser.initials?.toUpperCase() === 'MASTER' || currentUser.initials?.toUpperCase() === 'M-SUK')) && (
+                        <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {/* Pagination UI */}
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 mt-8 pb-4">
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+              <button
+                key={pageNum}
+                onClick={() => setCurrentPage(pageNum)}
+                className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${
+                  currentPage === pageNum
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20'
+                    : 'bg-slate-100 text-slate-500 hover:bg-slate-200'
+                }`}
+              >
+                {pageNum}
+              </button>
+            ))}
           </div>
         )}
       </div>
@@ -1072,7 +1112,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                     <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />
                   </svg>
-                  인쇄 / PDF
+                  PDF저장 / 인쇄
                 </button>
               </>
             )}
@@ -1255,7 +1295,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                               {slot === 'writer' && (
                                 <>
                                   <span className="font-black text-[10px] text-blue-700">{currentUser.initials}</span>
-                                  <span className="text-[6px] text-slate-500 mt-0.5">{new Date().toLocaleString()}</span>
+                                  <span className="text-[6px] text-slate-500 mt-0.5 text-center w-full break-keep whitespace-pre-line">{new Date().toLocaleString()}</span>
                                 </>
                               )}
                             </div>

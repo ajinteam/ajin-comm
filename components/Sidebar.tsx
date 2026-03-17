@@ -25,6 +25,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
   const [isPOWritingExpanded, setIsPOWritingExpanded] = useState(false);
   const [isVNWritingExpanded, setIsVNWritingExpanded] = useState(false);
   const [isVNCompletedExpanded, setIsVNCompletedExpanded] = useState(false);
+  const [isOrderApprovedExpanded, setIsOrderApprovedExpanded] = useState(false);
+  const [isInvoiceCompletedExpanded, setIsInvoiceCompletedExpanded] = useState(false);
 
   const isVisible = (menuName: string) => {
     if (isMaster) return true;
@@ -63,7 +65,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (type === 'INJECTION_ORDER_MAIN') activeBg = 'bg-orange-600';
     if (type === 'VIETNAM') activeBg = 'bg-indigo-600';
 
-    const isExpandable = (sub === PurchaseOrderSubCategory.CREATE || sub === VietnamSubCategory.CREATE_ROOT || sub === VietnamSubCategory.COMPLETED_ROOT || sub === InjectionOrderSubCategory.DESTINATION_ROOT);
+    const isExpandable = (
+      sub === PurchaseOrderSubCategory.CREATE || 
+      sub === VietnamSubCategory.CREATE_ROOT || 
+      sub === VietnamSubCategory.COMPLETED_ROOT || 
+      sub === InjectionOrderSubCategory.DESTINATION_ROOT ||
+      sub === OrderSubCategory.APPROVED ||
+      sub === InvoiceSubCategory.COMPLETED
+    );
 
     return (
       <button
@@ -72,6 +81,8 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
           if (sub === PurchaseOrderSubCategory.CREATE) setIsPOWritingExpanded(!isPOWritingExpanded);
           if (sub === VietnamSubCategory.CREATE_ROOT) setIsVNWritingExpanded(!isVNWritingExpanded);
           if (sub === VietnamSubCategory.COMPLETED_ROOT) setIsVNCompletedExpanded(!isVNCompletedExpanded);
+          if (sub === OrderSubCategory.APPROVED) setIsOrderApprovedExpanded(!isOrderApprovedExpanded);
+          if (sub === InvoiceSubCategory.COMPLETED) setIsInvoiceCompletedExpanded(!isInvoiceCompletedExpanded);
 
           setView({ type, sub } as ViewState);
           if (!isNested && !isExpandable) {
@@ -94,7 +105,9 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
             className={`h-3 w-3 transition-transform duration-300 ${
               (sub === PurchaseOrderSubCategory.CREATE && isPOWritingExpanded) || 
               (sub === VietnamSubCategory.CREATE_ROOT && isVNWritingExpanded) ||
-              (sub === VietnamSubCategory.COMPLETED_ROOT && isVNCompletedExpanded) ? 'rotate-180' : ''
+              (sub === VietnamSubCategory.COMPLETED_ROOT && isVNCompletedExpanded) ||
+              (sub === OrderSubCategory.APPROVED && isOrderApprovedExpanded) ||
+              (sub === InvoiceSubCategory.COMPLETED && isInvoiceCompletedExpanded) ? 'rotate-180' : ''
             }`} 
             fill="none" 
             viewBox="0 0 24 24" 
@@ -180,11 +193,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <div className="transition-opacity">
                   {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
                   {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
-                  <div className="mt-2 pl-4 border-l border-slate-800/50">
-                    {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
-                    {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
-                    {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
-                  </div>
+                  {isOrderApprovedExpanded && (
+                    <div className="mt-2 pl-4 border-l border-slate-800/50 space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                      {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
+                      {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
+                      {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -203,11 +218,13 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {renderSubMenu(InvoiceSubCategory.TEMPORARY, 'INVOICE')}
                 <div className="transition-opacity">
                   {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
-                  <div className="mt-2 pl-4 border-l border-slate-800/50">
-                    {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
-                    {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
-                    {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
-                  </div>
+                  {isInvoiceCompletedExpanded && (
+                    <div className="mt-2 pl-4 border-l border-slate-800/50 space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                      {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
+                      {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
+                      {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
