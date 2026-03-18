@@ -172,14 +172,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     // Strict initial check
     const allowedInitials: Record<string, string> = {
       design: 'H-CHUN',
-      director: 'M-YEUN'
+      director: 'M-YEUN',
+      ceo: 'DAVID'
     };
 
     const userInit = currentUser.initials.toUpperCase();
     const targetInit = allowedInitials[role];
 
     if (userInit !== targetInit && userInit !== 'MASTER') {
-      alert(`해당 직위(${role === 'design' ? '설계' : '이사'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
+      alert(`해당 직위(${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'}) 승인 권한이 없습니다. (필요: ${targetInit} 또는 MASTER)`);
       return;
     }
 
@@ -188,18 +189,25 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       alert('설계 승인이 먼저 완료되어야 합니다.');
       return;
     }
+    if (role === 'ceo' && !activeItem.stamps?.director) {
+      alert('이사 승인이 먼저 완료되어야 합니다.');
+      return;
+    }
 
-    if (!window.confirm(`${role === 'design' ? '설계' : '이사'} 승인하시겠습니까?`)) return;
+    if (!window.confirm(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인하시겠습니까?`)) return;
 
     try {
       const now = new Date();
       const timestamp = now.toLocaleString();
       
+      const isCEO = role === 'ceo';
       const updatedItem = {
         ...activeItem,
+        status: isCEO ? InjectionOrderSubCategory.APPROVED : activeItem.status,
         stamps: {
           ...activeItem.stamps,
-          [role]: { userId: currentUser.initials, timestamp }
+          [role]: { userId: currentUser.initials, timestamp },
+          ...(isCEO ? { final: { userId: currentUser.initials, timestamp } } : {})
         }
       };
 
@@ -210,17 +218,23 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
       // Update State
       setItems(updatedItems.filter((item: any) => item.status === sub));
-      setActiveItem(updatedItem);
       
-      alert('승인되었습니다.');
+      if (isCEO) {
+        alert('대표 승인이 완료되어 결재완료 목록으로 이동합니다.');
+        setActiveItem(null);
+        setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
+      } else {
+        alert('승인되었습니다.');
+        setActiveItem(null);
+      }
 
       // Update Supabase
-      const tableName = updatedItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(tableName, updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       // JANDI Notification
       let nextRecipient = '';
       if (role === 'design') nextRecipient = 'DIRECTOR';
+      else if (role === 'director') nextRecipient = 'CEO';
       
       if (nextRecipient) {
         sendJandiNotification('KR_PO', 'APPROVE', `[사출] ${activeItem.title}`, nextRecipient, now.toISOString().split('T')[0]);
@@ -235,14 +249,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
   const handleFinalConfirm = async () => {
     if (!activeItem) return;
-    if (!window.confirm('최종 확인하여 결재완료 및 AJ사출발주 목록으로 이동하시겠습니까?')) return;
+    if (!window.confirm('최종 확인하여 결재완료로 이동하시겠습니까?')) return;
 
     try {
       const now = new Date();
       const timestamp = now.toLocaleString();
       
-      // 1. Move to APPROVED status
-      const approvedItem = {
+      const updatedItem = {
         ...activeItem,
         status: InjectionOrderSubCategory.APPROVED,
         stamps: {
@@ -251,29 +264,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         }
       };
 
-      // 2. Also create/update in DESTINATION (AJ사출발주)
-      // We need to check if a list for this recipient already exists in DESTINATION
+      // Update Local Storage
       const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
-      
-      const destinationItem = {
-        ...approvedItem,
-        id: `dest-${Date.now()}`,
-        status: InjectionOrderSubCategory.DESTINATION,
-        createdAt: now.toISOString()
-      };
-
-      const updatedItems = allItems
-        .map((item: any) => item.id === activeItem.id ? approvedItem : item)
-        .concat(destinationItem);
-
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
-      // Update Supabase for both
-      const approvedTableName = approvedItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(approvedTableName, approvedItem);
-      await saveSingleDoc('Injection_Order', destinationItem);
+      // Update Supabase
+      await saveSingleDoc('Injection_Order', updatedItem);
       
-      alert('최종 확인되었습니다. 결재완료 및 AJ사출발주 목록으로 이동합니다.');
+      alert('최종 확인되었습니다. 사출 결재완료 목록으로 이동합니다.');
       setActiveItem(null);
       setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
       pushStateToCloud();
@@ -300,8 +299,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
       // Update Supabase
-      const tableName = updatedItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(tableName, updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       alert('AJ사출발주 목록으로 이동되었습니다.');
       setActiveItem(null);
@@ -333,8 +331,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
-      const tableName = updatedItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(tableName, updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       alert('반송되었습니다.');
       setActiveItem(null);
@@ -361,10 +358,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.filter((item: any) => item.id !== id);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
       
-      // ID 접두사에 따라 테이블 결정 (inj- 로 시작하면 Injection_Take, 그 외는 Injection_Order)
-      const tableName = id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await deleteSingleDoc(tableName, id);
-      
+      await deleteSingleDoc('Injection_Order', id);
       setItems(prev => prev.filter(item => item.id !== id));
       alert('삭제되었습니다.');
     } catch (err) {
@@ -506,12 +500,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           
           <div className="flex gap-2">
             {sub === InjectionOrderSubCategory.PENDING && (
-              <>
-                <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20 mr-2">반송</button>
-                {activeItem.stamps?.director && (
-                  <button onClick={handleFinalConfirm} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20">확인 (결재완료 이동)</button>
-                )}
-              </>
+              <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20">반송</button>
             )}
             {sub === InjectionOrderSubCategory.APPROVED && (
               <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20">완료 (AJ사출발주 이동)</button>
@@ -594,14 +583,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-black px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['writer', 'design', 'director'].map(slot => (
+                    {['writer', 'design', 'director', 'ceo'].map(slot => (
                       <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[70px]">
-                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : '이 사'}
+                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
                       </td>
                     ))}
                   </tr>
                   <tr className="h-14">
-                    {['writer', 'design', 'director'].map(slot => {
+                    {['writer', 'design', 'director', 'ceo'].map(slot => {
                       const stamp = stamps[slot];
                       const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
                       return (
@@ -631,12 +620,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             {/* Recipient / Sender Info */}
             <div className="grid grid-cols-2 gap-x-12 mb-6 text-sm leading-tight text-black">
               <div className="space-y-2">
-                {item.type !== 'INJECTION' && (
-                  <div className="flex items-center gap-2 border-b border-black pb-1">
-                    <span className="font-bold whitespace-nowrap">수 신 :</span>
-                    <span className="font-black text-lg">{item.recipient || ''} 귀중</span>
-                  </div>
-                )}
+                <div className="flex items-center gap-2 border-b border-black pb-1">
+                  <span className="font-bold whitespace-nowrap">수 신 :</span>
+                  <span className="font-black text-lg">{item.recipient || ''} 귀중</span>
+                </div>
                 <div className="flex items-center gap-2 border-b border-black pb-1">
                   <span className="font-bold whitespace-nowrap">참 조 :</span>
                   <span className="font-medium">{item.reference || ''}</span>
@@ -647,11 +634,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 </div>
               </div>
               <div className="space-y-2">
-                {item.type === 'INJECTION' && (
-                  <div className="mb-2">
-                    <p className="text-[24px] font-black text-blue-600 leading-none mb-1">{item.recipient} 귀중</p>
-                  </div>
-                )}
                 <div className="flex gap-4 border-b border-black pb-1">
                   <span className="w-16 font-bold">발 신 :</span>
                   <span className="font-black">{item.senderName || '주식회사 아진정공'}</span>
@@ -1034,8 +1016,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-all" />
                 <div className="flex justify-between items-start mb-4">
                   <div className={`p-3 rounded-2xl transition-colors ${
-                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 
-                    item.type === 'INJECTION' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
+                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'
                   }`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
@@ -1053,10 +1034,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   </div>
                 </div>
                 <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">{item.title}</h3>
-                <div className="mb-4">
-                  <p className="text-[18px] font-black text-blue-600 leading-none mb-1">{item.recipient}</p>
-                  <p className="text-xs text-slate-500 font-bold">작성자: {item.authorId}</p>
-                </div>
+                <p className="text-xs text-slate-500 font-bold mb-4">작성자: {item.authorId}</p>
                 
                 {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
                   <div className="mb-4 p-3 bg-rose-50 rounded-2xl border border-rose-100">
@@ -1066,7 +1044,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 )}
                 
                 <div className="flex items-center gap-1.5 mt-auto pt-4 border-t border-slate-50">
-                  {['writer', 'design', 'director'].map(slot => (
+                  {['writer', 'design', 'director', 'ceo'].map(slot => (
                     <div key={slot} className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} title={slot} />
                   ))}
                 </div>
@@ -1109,7 +1087,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
                         <span className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.title}</span>
-                        <span className="text-[14px] font-black text-blue-500 mt-0.5">{item.recipient}</span>
                         {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
                           <span className="text-[10px] text-rose-500 font-bold mt-1">반송: {item.rejectReason}</span>
                         )}
@@ -1119,7 +1096,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <td className="px-6 py-4 text-sm font-bold text-slate-400">{item.date}</td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1">
-                        {['writer', 'design', 'director'].map(slot => (
+                        {['writer', 'design', 'director', 'ceo'].map(slot => (
                           <div key={slot} className={`w-2.5 h-2.5 rounded-full ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} />
                         ))}
                       </div>

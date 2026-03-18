@@ -37,7 +37,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   // Form fields for display
   const [po2Reference, setPo2Reference] = useState('');
   const [po2TelFax, setPo2TelFax] = useState('');
-  const [po2SenderName, setPo2SenderName] = useState('아진정공');
+  const [po2SenderName, setPo2SenderName] = useState('주식회사 아진정공');
   const [po2SenderPerson, setPo2SenderPerson] = useState('김미숙 010-9252-1565');
   const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'));
 
@@ -131,23 +131,14 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const titleNormalized = searchTerm.trim().toLowerCase();
     const vendorNormalized = vendorSearch.trim().toLowerCase();
 
-    const allMatchingDocs = po1Items.filter(item => 
+    const matchingDocs = po1Items.filter(item => 
       (item.title || '').toLowerCase() === titleNormalized
     );
 
-    if (allMatchingDocs.length === 0) {
+    if (matchingDocs.length === 0) {
       alert('일치하는 기종의 문서를 찾을 수 없습니다.');
       return;
     }
-
-    // Only load from the most recent document to avoid duplicate rows
-    const matchingDocs = [
-      allMatchingDocs.sort((a, b) => {
-        const valA = a.createdAt || a.id || '';
-        const valB = b.createdAt || b.id || '';
-        return valB > valA ? 1 : -1;
-      })[0]
-    ];
 
     let finalRows: any[] = [];
     let foundMerges: any = {};
@@ -296,7 +287,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           <style>
             @page { size: A4 portrait; margin: 10mm; }
             body { font-family: 'Gulim', sans-serif; }
-            table { border-collapse: collapse; width: 100%; border: 1px solid black; }
+            table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid black; padding: 4px; font-size: 10px; }
             .no-border { border: none !important; }
           </style>
@@ -311,17 +302,17 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
             <div class="flex justify-between items-end mb-4">
               <div class="text-4xl font-bold tracking-[1rem] ml-10">발 주 서</div>
-              <table class="w-auto text-center no-border">
-                <tr class="no-border">
-                  <td rowspan="2" class="bg-gray-100 font-bold w-8 border border-black">결재</td>
-                  <td class="bg-gray-100 font-bold w-16 border border-black">담당</td>
-                  <td class="bg-gray-100 font-bold w-16 border border-black">설계</td>
-                  <td class="bg-gray-100 font-bold w-16 border border-black">이사</td>
+              <table class="w-auto text-center">
+                <tr>
+                  <td rowspan="2" class="bg-gray-100 font-bold w-8">결재</td>
+                  <td class="bg-gray-100 font-bold w-16">담당</td>
+                  <td class="bg-gray-100 font-bold w-16">설계</td>
+                  <td class="bg-gray-100 font-bold w-16">이사</td>
                 </tr>
-                <tr class="h-12 no-border">
-                  <td class="border border-black">${currentUser.initials}<br/><span class="text-[7px]">${new Date().toLocaleDateString()}</span></td>
-                  <td class="border border-black"></td>
-                  <td class="border border-black"></td>
+                <tr class="h-12">
+                  <td>${currentUser.initials}<br/><span class="text-[7px]">${new Date().toLocaleDateString()}</span></td>
+                  <td></td>
+                  <td></td>
                 </tr>
               </table>
             </div>
@@ -359,13 +350,6 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
             <div class="mb-2 font-bold text-xl border-b-2 border-black pb-1">기 종 : ${searchTerm}</div>
 
-            ${loadedHeaders.length > 0 ? `
-              <div class="mb-4 p-2 border border-black bg-gray-50 text-[10px]">
-                <div class="font-bold border-b border-black mb-1 pb-1 uppercase tracking-tighter">[Excel Rows 3-5 Content]</div>
-                ${loadedHeaders.map(h => `<div>${Array.isArray(h) ? h.join(' ') : h}</div>`).join('')}
-              </div>
-            ` : ''}
-
             <table class="w-full text-[9px]">
               <thead>
                 <tr class="bg-gray-50">
@@ -398,18 +382,6 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     <td class="text-right">${row.price || ''}</td>
                   </tr>
                 `).join('')}
-                <tr class="bg-gray-50 font-bold">
-                  <td colspan="10" class="text-right">합계 (Subtotal)</td>
-                  <td class="text-right">${totalAmount.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-gray-50 font-bold">
-                  <td colspan="10" class="text-right">부가세 (VAT 10%)</td>
-                  <td class="text-right">${vat.toLocaleString()}</td>
-                </tr>
-                <tr class="bg-blue-50 font-bold">
-                  <td colspan="10" class="text-right">총액 (Grand Total)</td>
-                  <td class="text-right">${grandTotal.toLocaleString()}</td>
-                </tr>
               </tbody>
             </table>
 
@@ -424,7 +396,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       </html>
     `);
     win.document.close();
-  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText, loadedHeaders, totalAmount, vat, grandTotal]);
+  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText]);
 
   const saveRecipient = async (r: Partial<Recipient>) => {
     let updated;
