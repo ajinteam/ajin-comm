@@ -583,14 +583,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <tbody>
                   <tr>
                     <td rowSpan={2} className="border border-black px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['writer', 'design', 'director', 'ceo'].map(slot => (
+                    {(item.type === 'INJECTION' ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => (
                       <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[70px]">
                         {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
                       </td>
                     ))}
                   </tr>
                   <tr className="h-14">
-                    {['writer', 'design', 'director', 'ceo'].map(slot => {
+                    {(item.type === 'INJECTION' ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => {
                       const stamp = stamps[slot];
                       const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
                       return (
@@ -784,7 +784,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <div className="text-3xl font-black tracking-[1.5rem] uppercase leading-none ml-10">발 주 서</div>
                   <div className="flex border border-black divide-x divide-black">
                     <div className="w-8 flex items-center justify-center bg-slate-50 text-[8px] font-black border-r border-black">결재</div>
-                    {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
+                    {(item.type === 'INJECTION' ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map((slot, idx) => {
                       const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
                       const stamp = stamps[slot];
                       return (
@@ -1016,7 +1016,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-all" />
                 <div className="flex justify-between items-start mb-4">
                   <div className={`p-3 rounded-2xl transition-colors ${
-                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'
+                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 
+                    item.type === 'INJECTION' ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                   }`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
@@ -1034,6 +1035,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   </div>
                 </div>
                 <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">{item.title}</h3>
+                {item.recipient && (
+                  <p className="text-[11px] text-blue-600 font-black mb-0.5">{item.recipient}</p>
+                )}
                 <p className="text-xs text-slate-500 font-bold mb-4">작성자: {item.authorId}</p>
                 
                 {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
