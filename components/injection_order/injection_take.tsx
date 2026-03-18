@@ -21,7 +21,6 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [po1Items, setPo1Items] = useState<PurchaseOrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorSearch, setVendorSearch] = useState('');
-  const [injectionVendorSearch, setInjectionVendorSearch] = useState('');
   const [loading, setLoading] = useState(true);
   
   // Suggestions
@@ -130,7 +129,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     }
 
     const titleNormalized = searchTerm.trim().toLowerCase();
-    const vendorNormalized = injectionVendorSearch.trim().toLowerCase();
+    const vendorNormalized = vendorSearch.trim().toLowerCase();
 
     const allMatchingDocs = po1Items.filter(item => 
       (item.title || '').toLowerCase() === titleNormalized
@@ -229,7 +228,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       
       const newPO: any = {
         id: `inj-${Date.now()}`,
-        title: searchTerm.trim(),
+        title: `${searchTerm} ${vendorSearch}`.trim(),
         type: 'INJECTION',
         status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
@@ -248,8 +247,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         footerText: footerText.split('\n').filter(line => line.trim() !== ''),
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
-        },
-        isInjectionOrder: true
+        }
       };
 
       const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
@@ -331,10 +329,6 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             <div class="grid grid-cols-2 gap-8 mb-4 text-sm">
               <div class="space-y-1">
                 <div class="flex border-b border-black">
-                  <span class="font-bold w-20">수 신 :</span>
-                  <span>${vendorSearch} 귀중</span>
-                </div>
-                <div class="flex border-b border-black">
                   <span class="font-bold w-20">참 조 :</span>
                   <span>${po2Reference}</span>
                 </div>
@@ -344,9 +338,12 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 </div>
               </div>
               <div class="space-y-1">
+                <div class="mb-2">
+                  <p class="text-2xl font-black text-blue-600 leading-none mb-1">${vendorSearch} 귀중</p>
+                </div>
                 <div class="flex border-b border-black">
                   <span class="font-bold w-20">발 신 :</span>
-                  <span>${po2SenderName}</span>
+                  <span class="font-black text-blue-800">${po2SenderName}</span>
                 </div>
                 <div class="flex border-b border-black">
                   <span class="font-bold w-20">담 당 :</span>
@@ -536,47 +533,6 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           {/* Recipient / Sender Info */}
           <div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight">
             <div className="space-y-1">
-              <div className="flex items-center gap-2 border-b border-black pb-0 relative">
-                <span className="font-bold whitespace-nowrap">수 신 :</span>
-                <div className="flex-1 flex gap-2 items-center relative">
-                  <select 
-                    className="border border-slate-200 rounded px-1 py-0.5 text-xs font-bold outline-none bg-slate-50"
-                    value={selectedRecipientId}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setSelectedRecipientId(val);
-                      if (val === 'direct') {
-                        setVendorSearch('');
-                        setPo2TelFax('');
-                        setPo2Reference('');
-                      } else {
-                        const r = recipients.find(item => item.id === val);
-                        if (r) {
-                          setVendorSearch(r.name);
-                          setPo2TelFax(r.telFax);
-                          setPo2Reference(r.reference);
-                        }
-                      }
-                    }}
-                  >
-                    <option value="direct">직접입력</option>
-                    {recipients.map(r => (
-                      <option key={r.id} value={r.id}>{r.name}</option>
-                    ))}
-                  </select>
-                  <input 
-                    type="text" 
-                    value={vendorSearch} 
-                    onChange={(e) => {
-                      setVendorSearch(e.target.value);
-                      setSelectedRecipientId('direct');
-                    }} 
-                    placeholder="수신처 명칭" 
-                    className="flex-1 outline-none font-bold bg-transparent" 
-                  />
-                  <span className="font-bold">귀중</span>
-                </div>
-              </div>
               <div className="flex items-center gap-2 border-b border-black pb-0">
                 <span className="font-bold whitespace-nowrap">참 조 :</span>
                 <input 
@@ -599,129 +555,111 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               </div>
             </div>
             <div className="space-y-1">
+              <div className="mb-2">
+                <div className="flex items-center gap-2 border-b border-black pb-0 relative">
+                  <div className="flex-1 flex gap-2 items-center relative">
+                    <select 
+                      className="border border-slate-200 rounded px-1 py-0.5 text-[10px] font-bold outline-none bg-slate-50"
+                      value={selectedRecipientId}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setSelectedRecipientId(val);
+                        if (val === 'direct') {
+                          setVendorSearch('');
+                          setPo2TelFax('');
+                          setPo2Reference('');
+                        } else {
+                          const r = recipients.find(item => item.id === val);
+                          if (r) {
+                            setVendorSearch(r.name);
+                            setPo2TelFax(r.telFax);
+                            setPo2Reference(r.reference);
+                          }
+                        }
+                      }}
+                    >
+                      <option value="direct">직접입력</option>
+                      {recipients.map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                    <input 
+                      type="text" 
+                      value={vendorSearch} 
+                      onChange={(e) => {
+                        setVendorSearch(e.target.value);
+                        setSelectedRecipientId('direct');
+                      }} 
+                      placeholder="수신처 명칭" 
+                      className="flex-1 outline-none font-black text-[27px] text-blue-600 bg-transparent leading-none" 
+                    />
+                    <span className="font-bold text-[27px]">귀중</span>
+                  </div>
+                </div>
+              </div>
               <div className="flex gap-4 border-b border-black pb-0">
                 <span className="w-16 font-bold">발 신 :</span>
-                <input 
-                  type="text" 
-                  value={po2SenderName} 
-                  onChange={(e) => setPo2SenderName(e.target.value)} 
-                  className="flex-1 outline-none font-bold bg-transparent" 
-                />
+                <input type="text" value={po2SenderName} onChange={(e) => setPo2SenderName(e.target.value)} className="flex-1 outline-none font-bold bg-transparent" />
               </div>
               <div className="flex gap-4 border-b border-black pb-0">
                 <span className="w-16 font-bold">담 당 :</span>
-                <input 
-                  type="text" 
-                  value={po2SenderPerson} 
-                  onChange={(e) => setPo2SenderPerson(e.target.value)} 
-                  className="flex-1 outline-none bg-transparent" 
-                />
+                <input type="text" value={po2SenderPerson} onChange={(e) => setPo2SenderPerson(e.target.value)} className="flex-1 outline-none bg-transparent" />
               </div>
               <div className="flex gap-4 items-center border-b border-black pb-0">
                 <span className="w-16 font-bold">작성일자 :</span>
-                <input 
-                  type="text" 
-                  value={po2Date} 
-                  onChange={(e) => setPo2Date(e.target.value)} 
-                  className="flex-1 outline-none bg-transparent" 
-                />
+                <input type="text" value={po2Date} onChange={(e) => setPo2Date(e.target.value)} className="flex-1 outline-none bg-transparent" />
               </div>
             </div>
           </div>
 
-          {/* Search Controls */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            {/* Model Search */}
-            <div className="flex items-center border-b border-black pb-1 relative">
-              <span className="font-black text-lg mr-2 uppercase whitespace-nowrap">기 종 :</span>
-              <div className="flex-1 relative">
-                <input 
-                  type="text" 
-                  value={searchTerm} 
-                  onChange={(e) => handleModelChange(e.target.value)} 
-                  onFocus={() => searchTerm && setShowPo1Suggestions(true)}
-                  onBlur={() => setTimeout(() => setShowPo1Suggestions(false), 200)}
-                  placeholder="기종 입력" 
-                  className="w-full outline-none text-lg font-bold placeholder:text-red-300 bg-transparent" 
-                />
-                {showPo1Suggestions && (
-                  <div className="absolute left-0 right-0 top-full bg-white border border-slate-200 shadow-xl rounded-xl mt-1 z-[100] overflow-hidden">
-                    {po1TitleSuggestions.map((s, i) => (
-                      <button 
-                        key={i} 
-                        type="button"
-                        onClick={() => { setSearchTerm(s); setShowPo1Suggestions(false); }}
-                        className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm font-bold border-b border-slate-50 last:border-0"
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+          {/* Injection Vendor Search Bar */}
+          <div className="mb-3 flex items-center border-b border-black pb-1 gap-4">
+            <span className="font-bold text-sm text-slate-500 w-24">사출업체 검색 :</span>
+            <div className="flex-1 flex gap-2">
+              <input 
+                type="text" 
+                value={vendorSearch} 
+                onChange={(e) => setVendorSearch(e.target.value)} 
+                placeholder="사출업체명을 입력하세요" 
+                className="flex-1 outline-none text-sm font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200" 
+                onKeyDown={(e) => e.key === 'Enter' && handleLoadData()}
+              />
+              <button 
+                onClick={handleLoadData}
+                className="px-4 py-1 bg-amber-600 text-white rounded text-xs font-black hover:bg-amber-700 transition-all shadow-sm"
+              >
+                데이터 불러오기
+              </button>
             </div>
+          </div>
 
-            {/* Recipient Search (Linked to Form) */}
-            <div className="flex items-center border-b border-black pb-1 relative">
-              <span className="font-black text-lg mr-2 uppercase whitespace-nowrap">수신처 :</span>
-              <div className="flex-1 flex gap-2 items-center">
-                <select 
-                  className="border border-slate-200 rounded px-1 py-0.5 text-[10px] font-bold outline-none bg-slate-50"
-                  value={selectedRecipientId}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setSelectedRecipientId(val);
-                    if (val === 'direct') {
-                      setVendorSearch('');
-                      setPo2TelFax('');
-                      setPo2Reference('');
-                    } else {
-                      const r = recipients.find(item => item.id === val);
-                      if (r) {
-                        setVendorSearch(r.name);
-                        setPo2TelFax(r.telFax);
-                        setPo2Reference(r.reference);
-                      }
-                    }
-                  }}
-                >
-                  <option value="direct">직접입력</option>
-                  {recipients.map(r => (
-                    <option key={r.id} value={r.id}>{r.name}</option>
+          {/* Model Input Line */}
+          <div className="mb-4 flex items-center border-b border-black pb-1 relative">
+            <span className="font-black text-2xl mr-4 uppercase">기 종 :</span>
+            <div className="flex-1 relative">
+              <input 
+                type="text" 
+                value={searchTerm} 
+                onChange={(e) => handleModelChange(e.target.value)} 
+                onFocus={() => searchTerm && setShowPo1Suggestions(true)}
+                onBlur={() => setTimeout(() => setShowPo1Suggestions(false), 200)}
+                placeholder="기종을 입력하십시오 (필수)" 
+                className="w-full outline-none text-2xl font-bold placeholder:text-red-300 bg-transparent" 
+              />
+              {showPo1Suggestions && (
+                <div className="absolute left-0 right-0 top-full bg-white border border-slate-200 shadow-xl rounded-xl mt-1 z-[100] overflow-hidden">
+                  {po1TitleSuggestions.map((s, i) => (
+                    <button 
+                      key={i} 
+                      type="button"
+                      onClick={() => { setSearchTerm(s); setShowPo1Suggestions(false); }}
+                      className="w-full text-left px-4 py-3 hover:bg-slate-50 text-lg font-bold border-b border-slate-50 last:border-0"
+                    >
+                      {s}
+                    </button>
                   ))}
-                </select>
-                <input 
-                  type="text" 
-                  value={vendorSearch} 
-                  onChange={(e) => {
-                    setVendorSearch(e.target.value);
-                    setSelectedRecipientId('direct');
-                  }} 
-                  placeholder="수신처 명칭" 
-                  className="flex-1 outline-none font-bold bg-transparent text-lg" 
-                />
-              </div>
-            </div>
-
-            {/* Injection Vendor Search (For Filtering Data) */}
-            <div className="flex items-center border-b border-black pb-1 relative">
-              <span className="font-black text-lg mr-2 uppercase whitespace-nowrap">사출업체 :</span>
-              <div className="flex-1 flex gap-2">
-                <input 
-                  type="text" 
-                  value={injectionVendorSearch} 
-                  onChange={(e) => setInjectionVendorSearch(e.target.value)} 
-                  placeholder="데이터 필터용" 
-                  className="flex-1 outline-none text-lg font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-200" 
-                  onKeyDown={(e) => e.key === 'Enter' && handleLoadData()}
-                />
-                <button 
-                  onClick={handleLoadData}
-                  className="px-4 py-1 bg-amber-600 text-white rounded text-xs font-black hover:bg-amber-700 transition-all shadow-sm whitespace-nowrap"
-                >
-                  불러오기
-                </button>
-              </div>
+                </div>
+              )}
             </div>
           </div>
 
