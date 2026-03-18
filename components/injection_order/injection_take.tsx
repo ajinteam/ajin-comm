@@ -296,7 +296,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           <style>
             @page { size: A4 portrait; margin: 10mm; }
             body { font-family: 'Gulim', sans-serif; }
-            table { border-collapse: collapse; width: 100%; }
+            table { border-collapse: collapse; width: 100%; border: 1px solid black; }
             th, td { border: 1px solid black; padding: 4px; font-size: 10px; }
             .no-border { border: none !important; }
           </style>
@@ -311,23 +311,27 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
             <div class="flex justify-between items-end mb-4">
               <div class="text-4xl font-bold tracking-[1rem] ml-10">발 주 서</div>
-              <table class="w-auto text-center">
-                <tr>
-                  <td rowspan="2" class="bg-gray-100 font-bold w-8">결재</td>
-                  <td class="bg-gray-100 font-bold w-16">담당</td>
-                  <td class="bg-gray-100 font-bold w-16">설계</td>
-                  <td class="bg-gray-100 font-bold w-16">이사</td>
+              <table class="w-auto text-center no-border">
+                <tr class="no-border">
+                  <td rowspan="2" class="bg-gray-100 font-bold w-8 border border-black">결재</td>
+                  <td class="bg-gray-100 font-bold w-16 border border-black">담당</td>
+                  <td class="bg-gray-100 font-bold w-16 border border-black">설계</td>
+                  <td class="bg-gray-100 font-bold w-16 border border-black">이사</td>
                 </tr>
-                <tr class="h-12">
-                  <td>${currentUser.initials}<br/><span class="text-[7px]">${new Date().toLocaleDateString()}</span></td>
-                  <td></td>
-                  <td></td>
+                <tr class="h-12 no-border">
+                  <td class="border border-black">${currentUser.initials}<br/><span class="text-[7px]">${new Date().toLocaleDateString()}</span></td>
+                  <td class="border border-black"></td>
+                  <td class="border border-black"></td>
                 </tr>
               </table>
             </div>
 
             <div class="grid grid-cols-2 gap-8 mb-4 text-sm">
               <div class="space-y-1">
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">수 신 :</span>
+                  <span>${vendorSearch} 귀중</span>
+                </div>
                 <div class="flex border-b border-black">
                   <span class="font-bold w-20">참 조 :</span>
                   <span>${po2Reference}</span>
@@ -338,12 +342,9 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 </div>
               </div>
               <div class="space-y-1">
-                <div class="mb-2">
-                  <p class="text-2xl font-black text-blue-600 leading-none mb-1">${vendorSearch} 귀중</p>
-                </div>
                 <div class="flex border-b border-black">
                   <span class="font-bold w-20">발 신 :</span>
-                  <span class="font-black text-blue-800">${po2SenderName}</span>
+                  <span>${po2SenderName}</span>
                 </div>
                 <div class="flex border-b border-black">
                   <span class="font-bold w-20">담 당 :</span>
@@ -357,6 +358,13 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             </div>
 
             <div class="mb-2 font-bold text-xl border-b-2 border-black pb-1">기 종 : ${searchTerm}</div>
+
+            ${loadedHeaders.length > 0 ? `
+              <div class="mb-4 p-2 border border-black bg-gray-50 text-[10px]">
+                <div class="font-bold border-b border-black mb-1 pb-1 uppercase tracking-tighter">[Excel Rows 3-5 Content]</div>
+                ${loadedHeaders.map(h => `<div>${Array.isArray(h) ? h.join(' ') : h}</div>`).join('')}
+              </div>
+            ` : ''}
 
             <table class="w-full text-[9px]">
               <thead>
@@ -390,6 +398,18 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     <td class="text-right">${row.price || ''}</td>
                   </tr>
                 `).join('')}
+                <tr class="bg-gray-50 font-bold">
+                  <td colspan="10" class="text-right">합계 (Subtotal)</td>
+                  <td class="text-right">${totalAmount.toLocaleString()}</td>
+                </tr>
+                <tr class="bg-gray-50 font-bold">
+                  <td colspan="10" class="text-right">부가세 (VAT 10%)</td>
+                  <td class="text-right">${vat.toLocaleString()}</td>
+                </tr>
+                <tr class="bg-blue-50 font-bold">
+                  <td colspan="10" class="text-right">총액 (Grand Total)</td>
+                  <td class="text-right">${grandTotal.toLocaleString()}</td>
+                </tr>
               </tbody>
             </table>
 
@@ -404,7 +424,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       </html>
     `);
     win.document.close();
-  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText]);
+  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText, loadedHeaders, totalAmount, vat, grandTotal]);
 
   const saveRecipient = async (r: Partial<Recipient>) => {
     let updated;
@@ -533,6 +553,47 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           {/* Recipient / Sender Info */}
           <div className="grid grid-cols-2 gap-x-20 mb-3 text-lg leading-tight">
             <div className="space-y-1">
+              <div className="flex items-center gap-2 border-b border-black pb-0 relative">
+                <span className="font-bold whitespace-nowrap">수 신 :</span>
+                <div className="flex-1 flex gap-2 items-center relative">
+                  <select 
+                    className="border border-slate-200 rounded px-1 py-0.5 text-xs font-bold outline-none bg-slate-50"
+                    value={selectedRecipientId}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setSelectedRecipientId(val);
+                      if (val === 'direct') {
+                        setVendorSearch('');
+                        setPo2TelFax('');
+                        setPo2Reference('');
+                      } else {
+                        const r = recipients.find(item => item.id === val);
+                        if (r) {
+                          setVendorSearch(r.name);
+                          setPo2TelFax(r.telFax);
+                          setPo2Reference(r.reference);
+                        }
+                      }
+                    }}
+                  >
+                    <option value="direct">직접입력</option>
+                    {recipients.map(r => (
+                      <option key={r.id} value={r.id}>{r.name}</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    value={vendorSearch} 
+                    onChange={(e) => {
+                      setVendorSearch(e.target.value);
+                      setSelectedRecipientId('direct');
+                    }} 
+                    placeholder="수신처 명칭" 
+                    className="flex-1 outline-none font-bold bg-transparent" 
+                  />
+                  <span className="font-bold">귀중</span>
+                </div>
+              </div>
               <div className="flex items-center gap-2 border-b border-black pb-0">
                 <span className="font-bold whitespace-nowrap">참 조 :</span>
                 <input 
@@ -555,59 +616,32 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               </div>
             </div>
             <div className="space-y-1">
-              <div className="mb-2">
-                <div className="flex items-center gap-2 border-b border-black pb-0 relative">
-                  <div className="flex-1 flex gap-2 items-center relative">
-                    <select 
-                      className="border border-slate-200 rounded px-1 py-0.5 text-[10px] font-bold outline-none bg-slate-50"
-                      value={selectedRecipientId}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setSelectedRecipientId(val);
-                        if (val === 'direct') {
-                          setVendorSearch('');
-                          setPo2TelFax('');
-                          setPo2Reference('');
-                        } else {
-                          const r = recipients.find(item => item.id === val);
-                          if (r) {
-                            setVendorSearch(r.name);
-                            setPo2TelFax(r.telFax);
-                            setPo2Reference(r.reference);
-                          }
-                        }
-                      }}
-                    >
-                      <option value="direct">직접입력</option>
-                      {recipients.map(r => (
-                        <option key={r.id} value={r.id}>{r.name}</option>
-                      ))}
-                    </select>
-                    <input 
-                      type="text" 
-                      value={vendorSearch} 
-                      onChange={(e) => {
-                        setVendorSearch(e.target.value);
-                        setSelectedRecipientId('direct');
-                      }} 
-                      placeholder="수신처 명칭" 
-                      className="flex-1 outline-none font-black text-[27px] text-blue-600 bg-transparent leading-none" 
-                    />
-                    <span className="font-bold text-[27px]">귀중</span>
-                  </div>
-                </div>
-              </div>
               <div className="flex gap-4 border-b border-black pb-0">
                 <span className="w-16 font-bold">발 신 :</span>
-                <input type="text" value={po2SenderName} onChange={(e) => setPo2SenderName(e.target.value)} className="flex-1 outline-none font-bold bg-transparent" />
+                <input 
+                  type="text" 
+                  value={po2SenderName} 
+                  onChange={(e) => setPo2SenderName(e.target.value)} 
+                  className="flex-1 outline-none font-bold bg-transparent" 
+                />
               </div>
               <div className="flex gap-4 border-b border-black pb-0">
                 <span className="w-16 font-bold">담 당 :</span>
-                <input type="text" value={po2SenderPerson} onChange={(e) => setPo2SenderPerson(e.target.value)} className="flex-1 outline-none bg-transparent" />
+                <input 
+                  type="text" 
+                  value={po2SenderPerson} 
+                  onChange={(e) => setPo2SenderPerson(e.target.value)} 
+                  className="flex-1 outline-none bg-transparent" 
+                />
               </div>
               <div className="flex gap-4 items-center border-b border-black pb-0">
                 <span className="w-16 font-bold">작성일자 :</span>
-                <input type="text" value={po2Date} onChange={(e) => setPo2Date(e.target.value)} className="flex-1 outline-none bg-transparent" />
+                <input 
+                  type="text" 
+                  value={po2Date} 
+                  onChange={(e) => setPo2Date(e.target.value)} 
+                  className="flex-1 outline-none bg-transparent" 
+                />
               </div>
             </div>
           </div>
