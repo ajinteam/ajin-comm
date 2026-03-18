@@ -137,19 +137,22 @@ export const pullStateFromCloud = async () => {
       return error ? [] : (data || []);
     };
 
-    const [orders, invoices, pOrders, vnOrders, nationalInvoices, injectionOrders, recipientsRes] = await Promise.all([
+    const [orders, invoices, pOrders, vnOrders, nationalInvoices, injectionOrders, injectionTakes, recipientsRes] = await Promise.all([
       fetchTable('orders'),
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
       fetchTable('vn_purchase_orders'),
       fetchTable('nationalinvoice'),
       fetchTable('Injection_Order'),
+      fetchTable('Injection_Take'),
       supabase.from('recipients').select('*')
     ]);
 
     // Supabase 데이터를 소스로 사용 (로컬 데이터와 병합하지 않고 클라우드 상태를 반영)
     const getCloudData = (cloudList: any[]) => cloudList.map(i => i.content).filter(Boolean);
     const recipients = recipientsRes.data || [];
+
+    const finalInjectionOrders = [...getCloudData(injectionOrders), ...getCloudData(injectionTakes)];
 
     // 1. 계정 데이터 매핑
     const cloudAccounts = recipients.filter(r => r.category === 'ACCOUNT').map(item => ({
@@ -197,7 +200,7 @@ export const pullStateFromCloud = async () => {
       purchase_orders: getCloudData(pOrders),
       vietnam_orders: getCloudData(vnOrders),
       national_invoices: getCloudData(nationalInvoices),
-      injection_orders: getCloudData(injectionOrders),
+      injection_orders: finalInjectionOrders,
       accounts: cloudAccounts,
       notices: cloudNotices,
       national_entities: cloudNationalEntities,

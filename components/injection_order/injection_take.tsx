@@ -48,6 +48,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [loadedAligns, setLoadedAligns] = useState<any>({});
   const [loadedWeights, setLoadedWeights] = useState<any>({});
   const [loadedHeaders, setLoadedHeaders] = useState<string[]>([]);
+  const [footerText, setFooterText] = useState('');
 
   useEffect(() => {
     const loadData = () => {
@@ -142,9 +143,9 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     let sourceHeaderRows: string[] = [];
 
     matchingDocs.forEach(doc => {
-      if (doc.headerRows) {
-        const relevantHeaders = doc.headerRows.slice(2, 5); 
-        sourceHeaderRows = [...new Set([...sourceHeaderRows, ...relevantHeaders])];
+      const info = (doc as any).headerInfoRows || (doc.headerRows ? doc.headerRows.slice(2, 5).map((h: any) => [h]) : []);
+      if (info.length > 0) {
+        sourceHeaderRows = info.map((row: any[]) => row.join(' '));
       }
 
       doc.rows.forEach((row, rIdx) => {
@@ -214,12 +215,13 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         merges: loadedMerges,
         aligns: loadedAligns,
         weights: loadedWeights,
-        headerRows: loadedHeaders,
+        headerInfoRows: loadedHeaders.map(h => [h]),
         recipient: vendorSearch,
         telFax: po2TelFax,
         reference: po2Reference,
         senderName: po2SenderName,
         senderPerson: po2SenderPerson,
+        footerText: [footerText],
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
@@ -239,7 +241,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         });
       }
 
-      await saveSingleDoc('Injection_Order', newPO);
+      await saveSingleDoc('Injection_Take', newPO);
       pushStateToCloud();
       
       sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${newPO.title}`, 'H-CHUN', now.toISOString().split('T')[0]);
@@ -368,12 +370,19 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 `).join('')}
               </tbody>
             </table>
+
+            ${footerText ? `
+              <div class="mt-4 p-2 border border-black min-h-[100px] text-[10px] whitespace-pre-wrap">
+                <div class="font-bold border-b border-black mb-1 pb-1">비고:</div>
+                ${footerText}
+              </div>
+            ` : ''}
           </div>
         </body>
       </html>
     `);
     win.document.close();
-  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser]);
+  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText]);
 
   const saveRecipient = async (r: Partial<Recipient>) => {
     let updated;
@@ -637,6 +646,72 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               )}
             </div>
           </div>
+
+          {/* Loaded Data Display (Excel 3-5 rows and Items) */}
+          {loadedRows.length > 0 && (
+            <div className="mt-6 border-t-2 border-black pt-4">
+              {/* Excel 3-5 rows */}
+              {loadedHeaders.length > 0 && (
+                <div className="mb-4 space-y-1 bg-slate-50 p-3 border border-slate-200 rounded">
+                  <p className="text-xs font-bold text-slate-400 mb-1 uppercase tracking-tighter">[Excel Rows 3-5 Content]</p>
+                  {loadedHeaders.map((h, i) => (
+                    <div key={i} className="text-sm font-medium border-b border-slate-100 pb-1 last:border-0">
+                      {Array.isArray(h) ? h.join(' ') : h}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Items Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px] border-collapse border-black border-[1px]">
+                  <thead>
+                    <tr className="bg-slate-100">
+                      <th className="border border-black p-1 w-[10%]">MOLD</th>
+                      <th className="border border-black p-1 w-[8%]">DN</th>
+                      <th className="border border-black p-1 w-[4%]">S</th>
+                      <th className="border border-black p-1 w-[20%]">PART NAME</th>
+                      <th className="border border-black p-1 w-[5%]">CTY</th>
+                      <th className="border border-black p-1 w-[5%]">QTY</th>
+                      <th className="border border-black p-1 w-[12%]">MATERIAL</th>
+                      <th className="border border-black p-1 w-[8%]">사출업체</th>
+                      <th className="border border-black p-1 w-[8%]">주문수량</th>
+                      <th className="border border-black p-1 w-[10%]">단가</th>
+                      <th className="border border-black p-1 w-[10%]">금액</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {loadedRows.map((row, idx) => (
+                      <tr key={idx}>
+                        <td className="border border-black p-1">{row.model || ''}</td>
+                        <td className="border border-black p-1">{row.dept || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.s || ''}</td>
+                        <td className="border border-black p-1">{row.itemName || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.cty || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.qty || ''}</td>
+                        <td className="border border-black p-1">{row.material || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.injectionVendor || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.orderQty || ''}</td>
+                        <td className="border border-black p-1 text-right">{row.unitPrice || ''}</td>
+                        <td className="border border-black p-1 text-right">{row.price || ''}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Editable Footer */}
+              <div className="mt-6">
+                <div className="font-bold text-sm mb-1 uppercase tracking-tighter">비고 (Footer)</div>
+                <textarea 
+                  value={footerText}
+                  onChange={(e) => setFooterText(e.target.value)}
+                  placeholder="발주서 하단에 표시될 내용을 입력하세요."
+                  className="w-full h-24 p-3 border border-slate-300 rounded-lg text-sm outline-none focus:border-blue-500 bg-slate-50 font-medium"
+                />
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
