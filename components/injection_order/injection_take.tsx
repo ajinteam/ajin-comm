@@ -50,6 +50,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [loadedHeaders, setLoadedHeaders] = useState<string[]>([]);
   const [footerText, setFooterText] = useState('');
 
+  // Totals
+  const [totalAmount, setTotalAmount] = useState(0);
+  const [vat, setVat] = useState(0);
+  const [grandTotal, setGrandTotal] = useState(0);
+
   useEffect(() => {
     const loadData = () => {
       setLoading(true);
@@ -187,6 +192,16 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     setLoadedAligns(foundAligns);
     setLoadedWeights(foundWeights);
     setLoadedHeaders(sourceHeaderRows);
+
+    // Calculate Totals
+    let sum = 0;
+    finalRows.forEach(row => {
+      const p = parseFloat(String(row.price || '0').replace(/,/g, ''));
+      if (!isNaN(p)) sum += p;
+    });
+    setTotalAmount(sum);
+    setVat(Math.floor(sum * 0.1));
+    setGrandTotal(sum + Math.floor(sum * 0.1));
     
     alert('데이터를 성공적으로 불러왔습니다.');
   };
@@ -221,7 +236,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         reference: po2Reference,
         senderName: po2SenderName,
         senderPerson: po2SenderPerson,
-        footerText: [footerText],
+        footerText: footerText.split('\n').filter(line => line.trim() !== ''),
         stamps: {
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
@@ -696,6 +711,19 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                         <td className="border border-black p-1 text-right">{row.price || ''}</td>
                       </tr>
                     ))}
+                    {/* Summary Rows */}
+                    <tr className="bg-slate-50 font-bold">
+                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
+                      <td className="border border-black p-2 text-right text-sm">{totalAmount.toLocaleString()}</td>
+                    </tr>
+                    <tr className="bg-slate-50 font-bold">
+                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
+                      <td className="border border-black p-2 text-right text-sm">{vat.toLocaleString()}</td>
+                    </tr>
+                    <tr className="bg-blue-50 font-black text-blue-700">
+                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
+                      <td className="border border-black p-2 text-right text-base">{grandTotal.toLocaleString()}</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>

@@ -165,6 +165,12 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(InjectionOrderSubCategory.CREATE, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.LOAD, 'INJECTION_ORDER_MAIN')}
+                <div className="mt-2 pl-2 border-l border-slate-800/50 space-y-0.5">
+                  {renderSubMenu(InjectionOrderSubCategory.LOAD_PENDING, 'INJECTION_ORDER_MAIN', true)}
+                  {renderSubMenu(InjectionOrderSubCategory.LOAD_REJECTED, 'INJECTION_ORDER_MAIN', true)}
+                  {renderSubMenu(InjectionOrderSubCategory.LOAD_APPROVED, 'INJECTION_ORDER_MAIN', true)}
+                </div>
+                <div className="h-[1px] bg-slate-800 my-2 mx-4" />
                 {renderSubMenu(InjectionOrderSubCategory.TEMPORARY, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.PENDING, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.REJECTED, 'INJECTION_ORDER_MAIN')}
