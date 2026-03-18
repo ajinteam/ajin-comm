@@ -884,7 +884,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 {/* Model Line */}
                 <div className="w-full flex items-center border-b-2 border-black pb-1 mb-4">
                   <span className="font-black text-lg mr-4 uppercase">기 종 :</span>
-                  <span className="text-lg font-black text-blue-600">{item}</span>
+                  <span className="text-lg font-black text-blue-600">{item.titl}</span>
                 </div>
 
                 {/* Excel Rows 3-5 Info */}
