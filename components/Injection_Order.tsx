@@ -22,6 +22,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [viewMode, setViewMode] = useState<'icon' | 'list'>('icon');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [showInjectionTake, setShowInjectionTake] = useState(false);
   
   // Load items from local storage
   useEffect(() => {
@@ -1138,39 +1139,37 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     );
   };
 
-  if (sub === InjectionOrderSubCategory.DESTINATION_ROOT) {
-    return (
-      <div className="h-full flex flex-col items-center justify-center bg-slate-50 rounded-xl border border-slate-200 shadow-sm p-12 text-center">
-        <div className="w-20 h-20 bg-white rounded-3xl border border-slate-200 flex items-center justify-center mb-6 shadow-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-          </svg>
-        </div>
-        <h2 className="text-xl font-black text-slate-900 mb-2">사출 수신처</h2>
-        <p className="text-slate-500 font-medium">하위 카테고리를 선택하여 문서를 확인하세요.</p>
-      </div>
-    );
-  }
-
-  if (sub === InjectionOrderSubCategory.LOAD) {
-    return (
-      <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
-        {activeItem ? renderDetail(activeItem) : (
-          <InjectionTake 
-            currentUser={currentUser} 
-            setView={setView} 
-            dataVersion={dataVersion}
-            onSelect={setActiveItem}
-          />
-        )}
-      </div>
-    );
-  }
-
   if (sub !== InjectionOrderSubCategory.CREATE) {
     return (
       <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
         {activeItem ? renderDetail(activeItem) : renderList()}
+      </div>
+    );
+  }
+
+  if (showInjectionTake) {
+    return (
+      <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+        <div className="p-4 bg-white border-b border-slate-200 flex justify-between items-center">
+          <button 
+            onClick={() => setShowInjectionTake(false)}
+            className="flex items-center text-slate-500 hover:text-slate-800 font-bold text-sm"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+            </svg>
+            뒤로가기
+          </button>
+          <h2 className="text-lg font-black text-slate-800">사출발주서 불러오기</h2>
+          <div className="w-20"></div>
+        </div>
+        <div className="flex-1 overflow-auto">
+          <InjectionTake 
+            currentUser={currentUser} 
+            setView={setView} 
+            dataVersion={dataVersion}
+          />
+        </div>
       </div>
     );
   }
@@ -1185,6 +1184,15 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <p className="text-sm text-slate-500 font-medium">엑셀 파일을 업로드하여 발주서를 작성하고 승인합니다.</p>
           </div>
           <div className="flex items-center gap-3">
+            <button 
+              onClick={() => setShowInjectionTake(true)}
+              className="flex items-center px-5 py-2.5 bg-slate-800 text-white rounded-xl hover:bg-slate-900 transition-all shadow-lg shadow-slate-500/20 font-bold text-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M7 3a1 1 0 000 2h6a1 1 0 100-2H7zM4 7a1 1 0 011-1h10a1 1 0 110 2H5a1 1 0 01-1-1zM2 11a2 2 0 012-2h12a2 2 0 012 2v4a2 2 0 01-2 2H4a2 2 0 01-2-2v-4z" />
+              </svg>
+              불러오기
+            </button>
             <label className="flex items-center px-5 py-2.5 bg-blue-600 text-white rounded-xl cursor-pointer hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20 font-bold text-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zM6.293 6.707a1 1 0 010-1.414l3-3a1 1 0 011.414 0l3 3a1 1 0 01-1.414 1.414L11 5.414V13a1 1 0 11-2 0V5.414L7.707 6.707a1 1 0 01-1.414 0z" clipRule="evenodd" />

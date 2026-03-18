@@ -15,10 +15,9 @@ interface InjectionTakeProps {
   currentUser: UserAccount;
   setView: (v: ViewState) => void;
   dataVersion: number;
-  onSelect: (item: any) => void;
 }
 
-const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dataVersion, onSelect }) => {
+const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dataVersion }) => {
   const [po1Items, setPo1Items] = useState<PurchaseOrderItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [vendorSearch, setVendorSearch] = useState('');
@@ -38,7 +37,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   // Form fields for display
   const [po2Reference, setPo2Reference] = useState('');
   const [po2TelFax, setPo2TelFax] = useState('');
-  const [po2SenderName, setPo2SenderName] = useState('주식회사 아진정공');
+  const [po2SenderName, setPo2SenderName] = useState('아진정공');
   const [po2SenderPerson, setPo2SenderPerson] = useState('김미숙 010-9252-1565');
   const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'));
 
@@ -132,14 +131,23 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const titleNormalized = searchTerm.trim().toLowerCase();
     const vendorNormalized = vendorSearch.trim().toLowerCase();
 
-    const matchingDocs = po1Items.filter(item => 
+    const allMatchingDocs = po1Items.filter(item => 
       (item.title || '').toLowerCase() === titleNormalized
     );
 
-    if (matchingDocs.length === 0) {
+    if (allMatchingDocs.length === 0) {
       alert('일치하는 기종의 문서를 찾을 수 없습니다.');
       return;
     }
+
+    // Only load from the most recent document to avoid duplicate rows
+    const matchingDocs = [
+      allMatchingDocs.sort((a, b) => {
+        const valA = a.createdAt || a.id || '';
+        const valB = b.createdAt || b.id || '';
+        return valB > valA ? 1 : -1;
+      })[0]
+    ];
 
     let finalRows: any[] = [];
     let foundMerges: any = {};
@@ -401,19 +409,27 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
   const saveRecipient = async (r: Partial<Recipient>) => {
     let updated;
-    const target = editingRecipient || {
-      id: `rec-${Date.now()}`,
-      name: r.name || '',
-      telFax: r.telFax || '',
-      reference: r.reference || '',
-      remarks: r.remarks || ''
-    };
+    let finalRecipient: Recipient;
 
-    const finalRecipient = { ...target, ...r };
-
-    if (editingRecipient) {
+    if (editingRecipient && editingRecipient.id) {
+      finalRecipient = { ...editingRecipient, ...r };
       updated = recipients.map(item => item.id === editingRecipient.id ? finalRecipient : item);
     } else {
+      // Sequential ID generation
+      const maxId = recipients.reduce((max, rec) => {
+        const idStr = rec.id.toString();
+        const num = parseInt(idStr.replace('rec-', ''));
+        return isNaN(num) ? max : Math.max(max, num);
+      }, 0);
+      const newId = `rec-${maxId + 1}`;
+      
+      finalRecipient = {
+        id: newId,
+        name: r.name || '',
+        telFax: r.telFax || '',
+        reference: r.reference || '',
+        remarks: r.remarks || ''
+      };
       updated = [finalRecipient, ...recipients];
     }
 
@@ -759,35 +775,63 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
               {/* Add/Edit Form */}
               <div className="bg-slate-50 p-4 rounded-xl space-y-3">
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 ml-1">ID</label>
+                    <input 
+                      type="text" 
+                      placeholder="ID" 
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold outline-none bg-slate-100 text-slate-500"
+                      value={editingRecipient?.id || `rec-${recipients.reduce((max, rec) => {
+                        const idStr = rec.id.toString();
+                        const num = parseInt(idStr.replace('rec-', ''));
+                        return isNaN(num) ? max : Math.max(max, num);
+                      }, 0) + 1}`}
+                      readOnly
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 ml-1">수신처명</label>
+                    <input 
+                      type="text" 
+                      placeholder="수신처명" 
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-blue-500"
+                      value={editingRecipient?.name || ''}
+                      onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), name: e.target.value }))}
+                    />
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <input 
-                    type="text" 
-                    placeholder="수신처명" 
-                    className="px-3 py-2 border border-slate-200 rounded-lg text-sm font-bold outline-none focus:border-blue-500"
-                    value={editingRecipient?.name || ''}
-                    onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), name: e.target.value }))}
-                  />
-                  <input 
-                    type="text" 
-                    placeholder="TEL/FAX" 
-                    className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
-                    value={editingRecipient?.telFax || ''}
-                    onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), telFax: e.target.value }))}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 ml-1">TEL/FAX</label>
+                    <input 
+                      type="text" 
+                      placeholder="TEL/FAX" 
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
+                      value={editingRecipient?.telFax || ''}
+                      onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), telFax: e.target.value }))}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] font-bold text-slate-400 ml-1">참고</label>
+                    <input 
+                      type="text" 
+                      placeholder="참고" 
+                      className="px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
+                      value={editingRecipient?.reference || ''}
+                      onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), reference: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold text-slate-400 ml-1">비고 (발주서에 미표시)</label>
+                  <textarea 
+                    placeholder="비고 (발주서에 미표시)" 
+                    className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 h-20"
+                    value={editingRecipient?.remarks || ''}
+                    onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), remarks: e.target.value }))}
                   />
                 </div>
-                <input 
-                  type="text" 
-                  placeholder="참고" 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500"
-                  value={editingRecipient?.reference || ''}
-                  onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), reference: e.target.value }))}
-                />
-                <textarea 
-                  placeholder="비고 (발주서에 미표시)" 
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:border-blue-500 h-20"
-                  value={editingRecipient?.remarks || ''}
-                  onChange={(e) => setEditingRecipient(prev => ({ ...(prev || { id: '', name: '', telFax: '', reference: '', remarks: '' }), remarks: e.target.value }))}
-                />
                 <div className="flex justify-end gap-2">
                   {editingRecipient && (
                     <button 

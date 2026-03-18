@@ -290,15 +290,10 @@ export enum NationalInvoiceSubCategory {
 
 export enum InjectionOrderSubCategory {
   CREATE = '사출발주서',
-  LOAD = '사출발주서 불러오기',
-  LOAD_PENDING = '사출(불러오기) 결재대기',
-  LOAD_REJECTED = '사출(불러오기) 반송',
-  LOAD_APPROVED = '사출(불러오기) 결재완료',
   TEMPORARY = '사출 임시',
   PENDING = '사출 결재대기',
   REJECTED = '사출 반송',
   APPROVED = '사출 결재완료',
-  DESTINATION_ROOT = '사출 수신처',
   DESTINATION = 'AJ사출발주'
 }
 
