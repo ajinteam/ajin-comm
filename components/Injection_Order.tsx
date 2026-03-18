@@ -506,7 +506,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20">완료 (AJ사출발주 이동)</button>
             )}
             <button onClick={() => {
-              const content = document.querySelector('.injection-order-print-detail-hidden')?.innerHTML;
+              const selector = item.id?.startsWith('po-') ? '.injection-order-print-detail-order' : '.injection-order-print-detail-hidden';
+              const content = document.querySelector(selector)?.innerHTML;
               if (!content) return;
               const win = window.open('', '_blank');
               if (win) {
@@ -769,7 +770,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             </div>
           )}
 
-          {/* Hidden Print Content (VN Style) */}
+          {/* Hidden Print Content (take Style) */}
           <div className="hidden">
             <div className="injection-order-print-detail-hidden">
               <div className="flex flex-col items-center">
@@ -906,6 +907,140 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         </tr>
                       );
                     })}
+                    <tr className="border-t-bold">
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
+                      <td className="border border-black px-0 py-1"></td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1"></td>
+                    </tr>
+                    <tr className="border-t-thin border-b-thin">
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{pVat.toLocaleString()}</td>
+                      <td className="border border-black px-0 py-1"></td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{eVat.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1"></td>
+                    </tr>
+                    <tr className="bg-slate-50 border-b-bold">
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td className="border border-black px-0 py-1"></td>
+                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1"></td>
+                    </tr>
+                  </tbody>
+                </table>
+
+                {/* Footer Text for Print */}
+                {footer.length > 0 && (
+                  <div className="w-full mt-4 text-[8px] space-y-1">
+                    {footer.map((line: string, idx: number) => (
+                      <p key={idx} className="font-medium">{line}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Hidden Print Content (order Style) */}
+          <div className="hidden">
+            <div className="injection-order-print-detail-order">
+              <div className="flex flex-col items-center">
+                <h1 className="text-xl font-black underline mb-8">사출 발주서 (INJECTION ORDER)</h1>
+                
+                <div className="w-full flex justify-between items-start mb-8">
+                  <div className="text-sm font-bold">
+                    <p>파일명: {item.title}</p>
+                    <p>작성일: {new Date().toLocaleDateString()}</p>
+                  </div>
+                  
+                  <div className="flex border border-black divide-x divide-black">
+                    {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
+                      const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
+                      const stamp = stamps[slot];
+                      return (
+                        <div key={idx} className="w-16 h-20 flex flex-col">
+                          <div className="h-6 border-b border-black flex items-center justify-center text-[7px] font-black bg-slate-50">{label}</div>
+                          <div className="flex-1 flex flex-col items-center justify-center leading-tight">
+                            {stamp && (
+                              <>
+                                <span className="font-black text-[10px] text-blue-700">{stamp.userId}</span>
+                                <span className="text-[6px] text-slate-500 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Excel Rows 3-5 Info */}
+                {headerInfo.length > 0 && (
+                  <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+                    {headerInfo.map((row: any[], idx: number) => (
+                      <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                        {row.map((cell, cIdx) => (
+                          <span key={cIdx}>{String(cell || '')}</span>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <table className="w-full border-collapse border border-black">
+                  <thead>
+                    <tr className="bg-slate-50 text-black">
+                      <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
+                      <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
+                      <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
+                      <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
+                      <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
+                      <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
+                      <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
+                      <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
+                      <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-black">
+                    {data.map((row: any, idx: number) => {
+                      const hasMold = !!row.model && row.model.trim() !== '';
+                      const nextRowHasMold = idx < data.length - 1 && !!data[idx + 1].model && data[idx + 1].model.trim() !== '';
+                      const isLastRow = idx === data.length - 1;
+                      
+                      const borderTopClass = hasMold ? 'border-t-bold' : '';
+                      const borderBottomClass = (nextRowHasMold || isLastRow) ? 'border-b-bold' : '';
+
+                      const unitPriceStr = row.unitPrice && row.unitPrice.trim() !== '' ? `@ ${formatNum(row.unitPrice)}` : '';
+
+                      return (
+                        <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
+                          <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
+                          <td className="px-1 py-1 text-[8px]">{row.dept}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
+                          <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-1 text-[8px]">{row.material}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
+                          <td className="px-1 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-1 text-[8px] italic">{row.remarksRSP}</td>
+                        </tr>
+                      );
+                    })}
+                    {/* Summary Rows for Print */}
                     <tr className="border-t-bold">
                       <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
                       <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
@@ -1373,7 +1508,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               </div>
             )}
 
-            {/* Hidden Print Content (VN Style) */}
+            {/* Hidden Print Content (order Style) */}
             <div className="hidden">
               <div className="injection-order-print">
                 <div className="flex flex-col items-center">
