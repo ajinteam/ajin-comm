@@ -628,14 +628,14 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
                   <tbody>
                     <tr>
-                      {['writer', 'design', 'director', 'ceo'].map(slot => (
+                      {['writer', 'design', 'director'].map(slot => (
                         <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[70px]">
-                          {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
+                          {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : '이 사'}
                         </td>
                       ))}
                     </tr>
                     <tr className="h-14">
-                      {['writer', 'design', 'director', 'ceo'].map(slot => {
+                      {['writer', 'design', 'director'].map(slot => {
                         const stamp = stamps[slot];
                         const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
                         return (
@@ -829,8 +829,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="w-full flex justify-between items-end mb-2 border-b border-black pb-1">
                   <div className="text-3xl font-black tracking-[1.5rem] uppercase leading-none ml-10">발 주 서</div>
                   <div className="flex border border-black divide-x divide-black">
-                    {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
-                      const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
+                    {['writer', 'design', 'director'].map((slot, idx) => {
+                      const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : '이사';
                       const stamp = stamps[slot];
                       return (
                         <div key={idx} className="w-14 h-16 flex flex-col">
@@ -850,7 +850,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 </div>
 
                 {/* Recipient / Sender Info */}
-                <div className="w-full grid grid-cols-2 gap-x-10 mb-2 text-[9px] leading-tight">
+                <div className="w-full grid grid-cols-2 gap-x-10 mb-2 text-[12px] leading-tight">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 border-b border-black pb-0.5">
                       <span className="font-bold">수 신 :</span>
@@ -868,7 +868,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <div className="space-y-1">
                     <div className="flex gap-2 border-b border-black pb-0.5">
                       <span className="w-10 font-bold">발 신 :</span>
-                      <span className="font-black">{item.senderName || '주식회사 아진정공'}</span>
+                      <span className="font-black">{item.senderName || '아진정공'}</span>
                     </div>
                     <div className="flex gap-2 border-b border-black pb-0.5">
                       <span className="w-10 font-bold">담 당 :</span>
@@ -884,7 +884,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 {/* Model Line */}
                 <div className="w-full flex items-center border-b-2 border-black pb-1 mb-4">
                   <span className="font-black text-lg mr-4 uppercase">기 종 :</span>
-                  <span className="text-lg font-black text-blue-600">{item.title}</span>
+                  <span className="text-lg font-black text-blue-600">{item}</span>
                 </div>
 
                 {/* Excel Rows 3-5 Info */}
