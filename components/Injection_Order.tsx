@@ -478,6 +478,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     const stamps = item.stamps || {};
     const headerInfo = item.headerInfoRows || [];
     const footer = item.footerText || [];
+    const isOrderStyle = item.id?.startsWith('po-');
     
     const itemTotals = data.reduce((acc: any, row: any) => {
       const p = parseFloat(String(row.price || '0').replace(/,/g, '')) || 0;
@@ -568,94 +569,138 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         </div>
 
         <div className="space-y-8">
-          {/* Form Header Section */}
-          <div className="bg-white border-[1px] border-slate-200 shadow-sm p-8 rounded-2xl">
-            {/* Company Info */}
-            <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4">
-              <h1 className="text-3xl font-black tracking-[0.5rem] mb-2 uppercase text-black">주 식 회 사 아 진 정 공</h1>
-              <p className="text-xs font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
-              <p className="text-xs font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">misuk.kim@ajinpre.net</span></p>
-            </div>
-
-            {/* Title & Approval */}
-            <div className="flex justify-between items-end mb-6 border-b border-black pb-4">
-              <div className="text-4xl font-black tracking-[2rem] uppercase leading-none ml-10 text-black">발 주 서</div>
-              <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
-                <tbody>
-                  <tr>
-                    <td rowSpan={2} className="border border-black px-2 py-4 bg-slate-50 font-black text-slate-500 w-10 uppercase tracking-tighter">결 재</td>
-                    {['writer', 'design', 'director', 'ceo'].map(slot => (
-                      <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[70px]">
-                        {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
-                      </td>
-                    ))}
-                  </tr>
-                  <tr className="h-14">
-                    {['writer', 'design', 'director', 'ceo'].map(slot => {
+          {isOrderStyle ? (
+            /* Order Style Header */
+            <div className="bg-white border-[1px] border-slate-200 shadow-sm p-8 rounded-2xl">
+              <div className="flex flex-col items-center">
+                <h1 className="text-2xl font-black underline mb-8 text-black">사출 발주서 (INJECTION ORDER)</h1>
+                
+                <div className="w-full flex justify-between items-start mb-8">
+                  <div className="text-sm font-bold text-black">
+                    <p>파일명: {item.title}</p>
+                    <p>작성일: {item.date || new Date().toLocaleDateString()}</p>
+                  </div>
+                  
+                  <div className="flex border border-black divide-x divide-black">
+                    {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
+                      const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
                       const stamp = stamps[slot];
                       const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
                       return (
-                        <td 
-                          key={slot}
+                        <div 
+                          key={idx} 
+                          className={`w-20 h-24 flex flex-col border-black ${isClickable ? 'cursor-pointer hover:bg-blue-50 transition-colors' : ''}`}
                           onClick={() => isClickable && handleApprove(slot)}
-                          className={`border border-black p-1 align-middle relative ${isClickable ? 'cursor-pointer hover:bg-blue-50 transition-colors' : ''}`}
                         >
-                          {stamp ? (
-                            <div className="flex flex-col items-center justify-center leading-tight">
-                              <span className="font-black text-[11px] text-blue-700">{stamp.userId}</span>
-                              <span className="text-[7px] text-slate-400 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center justify-center h-full text-center">
-                              <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
-                            </div>
-                          )}
-                        </td>
+                          <div className="h-7 border-b border-black flex items-center justify-center text-[10px] font-black bg-slate-50 text-black">{label}</div>
+                          <div className="flex-1 flex flex-col items-center justify-center leading-tight">
+                            {stamp ? (
+                              <div className="flex flex-col items-center justify-center leading-tight">
+                                <span className="font-black text-[11px] text-blue-700">{stamp.userId}</span>
+                                <span className="text-[7px] text-slate-400 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-center">
+                                <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       );
                     })}
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Recipient / Sender Info */}
-            <div className="grid grid-cols-2 gap-x-12 mb-6 text-sm leading-tight text-black">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2 border-b border-black pb-1">
-                  <span className="font-bold whitespace-nowrap">수 신 :</span>
-                  <span className="font-black text-lg">{item.recipient || ''} 귀중</span>
-                </div>
-                <div className="flex items-center gap-2 border-b border-black pb-1">
-                  <span className="font-bold whitespace-nowrap">참 조 :</span>
-                  <span className="font-medium">{item.reference || ''}</span>
-                </div>
-                <div className="flex items-center gap-2 border-b border-black pb-1">
-                  <span className="font-bold whitespace-nowrap">TEL / FAX :</span>
-                  <span className="font-medium">{item.telFax || ''}</span>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <div className="flex gap-4 border-b border-black pb-1">
-                  <span className="w-16 font-bold">발 신 :</span>
-                  <span className="font-black">{item.senderName || '주식회사 아진정공'}</span>
-                </div>
-                <div className="flex gap-4 border-b border-black pb-1">
-                  <span className="w-16 font-bold">담 당 :</span>
-                  <span className="font-medium">{item.senderPerson || ''}</span>
-                </div>
-                <div className="flex gap-4 items-center border-b border-black pb-1">
-                  <span className="w-16 font-bold">작성일자 :</span>
-                  <span className="font-medium">{item.date || ''}</span>
+                  </div>
                 </div>
               </div>
             </div>
+          ) : (
+            /* Take Style Header */
+            <div className="bg-white border-[1px] border-slate-200 shadow-sm p-8 rounded-2xl">
+              {/* Company Info */}
+              <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4">
+                <h1 className="text-3xl font-black tracking-[0.5rem] mb-2 uppercase text-black">주 식 회 사 아 진 정 공</h1>
+                <p className="text-xs font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
+                <p className="text-xs font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">misuk.kim@ajinpre.net</span></p>
+              </div>
 
-            {/* Model Line */}
-            <div className="flex items-center border-b-2 border-black pb-2 mb-6">
-              <span className="font-black text-2xl mr-4 uppercase text-black">기 종 :</span>
-              <span className="text-2xl font-black text-blue-600">{item.title || ''}</span>
+              {/* Title & Approval */}
+              <div className="flex justify-between items-end mb-6 border-b border-black pb-4">
+                <div className="text-4xl font-black tracking-[2rem] uppercase leading-none ml-10 text-black">발 주 서</div>
+                <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
+                  <tbody>
+                    <tr>
+                      {['writer', 'design', 'director', 'ceo'].map(slot => (
+                        <td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold text-slate-600 min-w-[70px]">
+                          {slot === 'writer' ? '담 당' : slot === 'design' ? '설 계' : slot === 'director' ? '이 사' : '대 표'}
+                        </td>
+                      ))}
+                    </tr>
+                    <tr className="h-14">
+                      {['writer', 'design', 'director', 'ceo'].map(slot => {
+                        const stamp = stamps[slot];
+                        const isClickable = !stamp && slot !== 'writer' && sub === InjectionOrderSubCategory.PENDING;
+                        return (
+                          <td 
+                            key={slot}
+                            onClick={() => isClickable && handleApprove(slot)}
+                            className={`border border-black p-1 align-middle relative ${isClickable ? 'cursor-pointer hover:bg-blue-50 transition-colors' : ''}`}
+                          >
+                            {stamp ? (
+                              <div className="flex flex-col items-center justify-center leading-tight">
+                                <span className="font-black text-[11px] text-blue-700">{stamp.userId}</span>
+                                <span className="text-[7px] text-slate-400 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
+                              </div>
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-center">
+                                <span className="text-[10px] text-slate-200 font-bold italic">승인대기</span>
+                              </div>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Recipient / Sender Info */}
+              <div className="grid grid-cols-2 gap-x-12 mb-6 text-sm leading-tight text-black">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                    <span className="font-bold whitespace-nowrap">수 신 :</span>
+                    <span className="font-black text-lg">{item.recipient || ''} 귀중</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                    <span className="font-bold whitespace-nowrap">참 조 :</span>
+                    <span className="font-medium">{item.reference || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                    <span className="font-bold whitespace-nowrap">TEL / FAX :</span>
+                    <span className="font-medium">{item.telFax || ''}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex gap-4 border-b border-black pb-1">
+                    <span className="w-16 font-bold">발 신 :</span>
+                    <span className="font-black">{item.senderName || '주식회사 아진정공'}</span>
+                  </div>
+                  <div className="flex gap-4 border-b border-black pb-1">
+                    <span className="w-16 font-bold">담 당 :</span>
+                    <span className="font-medium">{item.senderPerson || ''}</span>
+                  </div>
+                  <div className="flex gap-4 items-center border-b border-black pb-1">
+                    <span className="w-16 font-bold">작성일자 :</span>
+                    <span className="font-medium">{item.date || ''}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Model Line */}
+              <div className="flex items-center border-b-2 border-black pb-2 mb-6">
+                <span className="font-black text-2xl mr-4 uppercase text-black">기 종 :</span>
+                <span className="text-2xl font-black text-blue-600">{item.title || ''}</span>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Header Info Section */}
           {headerInfo.length > 0 && (
@@ -784,7 +829,6 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="w-full flex justify-between items-end mb-2 border-b border-black pb-1">
                   <div className="text-3xl font-black tracking-[1.5rem] uppercase leading-none ml-10">발 주 서</div>
                   <div className="flex border border-black divide-x divide-black">
-                    <div className="w-8 flex items-center justify-center bg-slate-50 text-[8px] font-black border-r border-black">결재</div>
                     {['writer', 'design', 'director', 'ceo'].map((slot, idx) => {
                       const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : slot === 'director' ? '이사' : '대표';
                       const stamp = stamps[slot];
