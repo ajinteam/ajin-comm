@@ -469,7 +469,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       <title>Injection_Order_${fileName || 'Document'}</title>
       <script src="https://cdn.tailwindcss.com"></script>
       <style>
-        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+        @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
 
         body {
           font-family: 'Inter', sans-serif;
@@ -548,7 +548,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           bottom: 0;
           left: 0;
           right: 0;
-          height: 12mm;
+          height: 5mm;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -635,7 +635,7 @@ win.document.close();
       <title>Injection_Order_${item.item || item.title || 'Document'}</title>
       <script src="https://cdn.tailwindcss.com"></script>
       <style>
-        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+        @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
 
         body {
           font-family: 'Inter', sans-serif;
@@ -714,7 +714,7 @@ win.document.close();
           bottom: 0;
           left: 0;
           right: 0;
-          height: 12mm;
+          height: 5mm;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -1157,15 +1157,12 @@ win.document.close();
                 </table>
 
                 {/* Footer Text for Print */}
-                {footer.length > 0 && (
-                  <div className="print-footer-remarks">
-                    <div className="title">비고:</div>
-                    <div className="space-y-1">
-                      {footer.map((line: string, idx: number) => (
+                  {footerText.length > 0 && (
+                    <div className="w-full mt-4 text-[8px] space-y-1">
+                      {footerText.map((line, idx) => (
                         <p key={idx} className="font-medium">{line}</p>
                       ))}
                     </div>
-                  </div>
                 )}
               </div>
             </div>
@@ -1293,16 +1290,13 @@ win.document.close();
                   </tbody>
                 </table>
 
-                {/* Footer Text for Print */}
-                {footer.length > 0 && (
-                  <div className="print-footer-remarks">
-                    <div className="title">비고:</div>
-                    <div className="space-y-1">
-                      {footer.map((line: string, idx: number) => (
+               {/* Footer Text for Print */}
+                  {footerText.length > 0 && (
+                    <div className="w-full mt-4 text-[8px] space-y-1">
+                      {footerText.map((line, idx) => (
                         <p key={idx} className="font-medium">{line}</p>
                       ))}
                     </div>
-                  </div>
                 )}
               </div>
             </div>
