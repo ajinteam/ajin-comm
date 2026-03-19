@@ -48,6 +48,102 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [loadedWeights, setLoadedWeights] = useState<any>({});
   const [loadedHeaders, setLoadedHeaders] = useState<string[]>([]);
   const [footerText, setFooterText] = useState('');
+  const [selectedCell, setSelectedCell] = useState<{ rowIndex: number; field: string } | null>(null);
+
+  const handleCellClick = (rowIndex: number, field: string) => {
+    setSelectedCell({ rowIndex, field });
+  };
+
+  const updateRowData = (rowIndex: number, field: string, value: any) => {
+    const updated = [...loadedRows];
+    updated[rowIndex] = { ...updated[rowIndex], [field]: value };
+    setLoadedRows(updated);
+    
+    // Recalculate totals if price changed
+    if (field === 'price' || field === 'unitPrice' || field === 'orderQty') {
+      let sum = 0;
+      updated.forEach(row => {
+        const p = parseFloat(String(row.price || '0').replace(/,/g, ''));
+        if (!isNaN(p)) sum += p;
+      });
+      setTotalAmount(sum);
+      setVat(Math.floor(sum * 0.1));
+      setGrandTotal(sum + Math.floor(sum * 0.1));
+    }
+  };
+
+  const addRowBelow = () => {
+    if (!selectedCell) {
+      // If no selection, add at the end
+      const newRow = { id: `manual-${Date.now()}` };
+      setLoadedRows([...loadedRows, newRow]);
+      return;
+    }
+    const { rowIndex } = selectedCell;
+    const newRow = { id: `manual-${Date.now()}` };
+    const updated = [...loadedRows];
+    updated.splice(rowIndex + 1, 0, newRow);
+    setLoadedRows(updated);
+    
+    // Shift merges, aligns, weights
+    const shiftIndices = (obj: any, threshold: number, delta: number) => {
+      const newObj: any = {};
+      Object.entries(obj).forEach(([key, val]) => {
+        const [r, c] = key.split('-').map(Number);
+        if (r > threshold) {
+          newObj[`${r + delta}-${c}`] = val;
+        } else {
+          newObj[key] = val;
+        }
+      });
+      return newObj;
+    };
+    
+    setLoadedMerges(prev => shiftIndices(prev, rowIndex, 1));
+    setLoadedAligns(prev => shiftIndices(prev, rowIndex, 1));
+    setLoadedWeights(prev => shiftIndices(prev, rowIndex, 1));
+    
+    setSelectedCell({ rowIndex: rowIndex + 1, field: selectedCell.field });
+  };
+
+  const deleteRow = () => {
+    if (!selectedCell) return;
+    const { rowIndex } = selectedCell;
+    const updated = [...loadedRows];
+    updated.splice(rowIndex, 1);
+    setLoadedRows(updated);
+    
+    // Shift merges, aligns, weights
+    const shiftIndices = (obj: any, threshold: number, delta: number) => {
+      const newObj: any = {};
+      Object.entries(obj).forEach(([key, val]) => {
+        const [r, c] = key.split('-').map(Number);
+        if (r === threshold) return; // Delete
+        if (r > threshold) {
+          newObj[`${r + delta}-${c}`] = val;
+        } else {
+          newObj[key] = val;
+        }
+      });
+      return newObj;
+    };
+
+    setLoadedMerges(prev => shiftIndices(prev, rowIndex, -1));
+    setLoadedAligns(prev => shiftIndices(prev, rowIndex, -1));
+    setLoadedWeights(prev => shiftIndices(prev, rowIndex, -1));
+
+    setSelectedCell(null);
+
+    // Recalculate totals
+    let sum = 0;
+    updated.forEach(row => {
+      const p = parseFloat(String(row.price || '0').replace(/,/g, ''));
+      if (!isNaN(p)) sum += p;
+    });
+    setTotalAmount(sum);
+    setVat(Math.floor(sum * 0.1));
+    setGrandTotal(sum + Math.floor(sum * 0.1));
+  };
 
   // Totals
   const [totalAmount, setTotalAmount] = useState(0);
@@ -289,7 +385,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             @page { size: A4 portrait; margin: 10mm; }
             body { font-family: 'Gulim', sans-serif; }
             table { border-collapse: collapse; width: 100%; }
-            th, td { border: 1px solid black; padding: 4px; font-size: 10px; }
+            th, td { border: 1px solid black; padding: 4px; font-size: 11px; }
             .no-border { border: none !important; }
           </style>
         </head>
@@ -351,17 +447,16 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
             <div class="mb-2 font-bold text-xl border-b-2 border-black pb-1">기 종 : ${searchTerm}</div>
 
-            <table class="w-full text-[9px]">
+            <table class="w-full text-[10px]">
               <thead>
                 <tr class="bg-gray-50">
                   <th class="w-[10%]">MOLD</th>
                   <th class="w-[8%]">DN</th>
                   <th class="w-[4%]">S</th>
-                  <th class="w-[20%]">PART NAME</th>
+                  <th class="w-[25%]">PART NAME</th>
                   <th class="w-[5%]">CTY</th>
                   <th class="w-[5%]">QTY</th>
-                  <th class="w-[12%]">MATERIAL</th>
-                  <th class="w-[8%]">사출업체</th>
+                  <th class="w-[15%]">MATERIAL</th>
                   <th class="w-[8%]">주문수량</th>
                   <th class="w-[10%]">단가</th>
                   <th class="w-[10%]">금액</th>
@@ -377,7 +472,6 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     <td class="text-center">${row.cty || ''}</td>
                     <td class="text-center">${row.qty || ''}</td>
                     <td>${row.material || ''}</td>
-                    <td class="text-center">${row.injectionVendor || ''}</td>
                     <td class="text-center">${row.orderQty || ''}</td>
                     <td class="text-right">${row.unitPrice || ''}</td>
                     <td class="text-right">${row.price || ''}</td>
@@ -686,7 +780,35 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               )}
 
               {/* Items Table */}
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto relative">
+                {/* Table Actions Toolbar */}
+                <div className="flex gap-2 mb-2">
+                  <button 
+                    onClick={addRowBelow}
+                    className="px-3 py-1 bg-emerald-600 text-white rounded text-[10px] font-black hover:bg-emerald-700 transition-all shadow-sm flex items-center gap-1"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+                    </svg>
+                    행 추가
+                  </button>
+                  <button 
+                    onClick={deleteRow}
+                    disabled={!selectedCell}
+                    className={`px-3 py-1 rounded text-[10px] font-black transition-all shadow-sm flex items-center gap-1 ${selectedCell ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-100 text-slate-400 cursor-not-allowed'}`}
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <path fillRule="evenodd" d="M3 10a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clipRule="evenodd" />
+                    </svg>
+                    행 삭제
+                  </button>
+                  {selectedCell && (
+                    <span className="text-[10px] text-slate-400 font-bold self-center ml-2">
+                      선택됨: {selectedCell.rowIndex + 1}행
+                    </span>
+                  )}
+                </div>
+
                 <table className="w-full text-[11px] border-collapse border-black border-[1px]">
                   <thead>
                     <tr className="bg-slate-100">
@@ -705,18 +827,36 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                   </thead>
                   <tbody>
                     {loadedRows.map((row, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-black p-1">{row.model || ''}</td>
-                        <td className="border border-black p-1">{row.dept || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.s || ''}</td>
-                        <td className="border border-black p-1">{row.itemName || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.cty || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.qty || ''}</td>
-                        <td className="border border-black p-1">{row.material || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.injectionVendor || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.orderQty || ''}</td>
-                        <td className="border border-black p-1 text-right">{row.unitPrice || ''}</td>
-                        <td className="border border-black p-1 text-right">{row.price || ''}</td>
+                      <tr key={row.id || idx}>
+                        {[
+                          { field: 'model', width: 'w-[10%]' },
+                          { field: 'dept', width: 'w-[8%]' },
+                          { field: 's', width: 'w-[4%]', align: 'text-center' },
+                          { field: 'itemName', width: 'w-[20%]' },
+                          { field: 'cty', width: 'w-[5%]', align: 'text-center' },
+                          { field: 'qty', width: 'w-[5%]', align: 'text-center' },
+                          { field: 'material', width: 'w-[12%]' },
+                          { field: 'injectionVendor', width: 'w-[8%]', align: 'text-center' },
+                          { field: 'orderQty', width: 'w-[8%]', align: 'text-center' },
+                          { field: 'unitPrice', width: 'w-[10%]', align: 'text-right' },
+                          { field: 'price', width: 'w-[10%]', align: 'text-right' }
+                        ].map((col) => {
+                          const isSelected = selectedCell?.rowIndex === idx && selectedCell?.field === col.field;
+                          return (
+                            <td 
+                              key={col.field}
+                              className={`border border-black p-0 relative ${col.align || ''} ${isSelected ? 'bg-sky-100' : ''}`}
+                              onClick={() => handleCellClick(idx, col.field)}
+                            >
+                              <input 
+                                type="text"
+                                value={row[col.field] || ''}
+                                onChange={(e) => updateRowData(idx, col.field, e.target.value)}
+                                className={`w-full h-full p-1 bg-transparent outline-none ${col.align || ''} focus:bg-white transition-colors`}
+                              />
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                     {/* Summary Rows */}

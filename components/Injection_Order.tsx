@@ -1367,7 +1367,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">
                   {item.item || item.title}
                   {item.id?.startsWith('inj-') && (item.recipient || item.title) && (
-                    <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[13px] font-black align-middle">
+                    <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[15px] font-black align-middle">
                       {item.recipient || item.title}
                     </span>
                   )}
