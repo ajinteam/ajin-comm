@@ -497,13 +497,10 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             th, td { border: 1px solid black; padding: 4px; font-size: 10px; }
             .no-border { border: none !important; }
             .footer {
-              position: fixed;
-              bottom: 5mm;
-              left: 0;
-              right: 0;
               text-align: center;
               font-size: 9px;
-              padding: 5px 0;
+              padding: 10px 0;
+              margin-top: 20px;
               border-top: 1px solid #eee;
             }
             .print-footer-remarks {
@@ -772,7 +769,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           </button>
           <button 
             onClick={handleTemporarySave}
-            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
+            className="px-4 py-2 bg-bg-pink-50 border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
           >
             사출임시
           </button>

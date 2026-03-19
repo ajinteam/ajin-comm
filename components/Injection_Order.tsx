@@ -469,8 +469,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 25mm 10mm; }
-              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+              @page { size: A4 portrait; margin: 15mm 10mm 35mm 10mm; }
+              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; padding-bottom: 30mm; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -485,29 +485,40 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               
               /* Page numbering footer */
               .footer {
-                position: fixed;
-                bottom: 10mm;
-                left: 0;
-                right: 0;
                 text-align: center;
                 font-size: 9px;
-                padding: 5px 0;
-                display: none;
+                padding: 10px 0;
+                margin-top: 20px;
+                border-top: 1px solid #eee;
               }
-              .document-wrapper {padding-bottom: 5mm; width: 100%
-             }
-                @media print {
-               .footer { display: block; }
+              .print-footer-remarks {
+                position: fixed;
+                bottom: 10mm;
+                left: 10mm;
+                right: 10mm;
+                border: 1px solid black;
+                padding: 8px;
+                font-size: 10px;
+                background: white;
+                min-height: 80px;
               }
-                table { 
+              .print-footer-remarks .title {
+                font-weight: bold;
+                border-bottom: 1px solid black;
+                margin-bottom: 4px;
+                padding-bottom: 2px;
+              }
+              .document-wrapper { width: 100% }
+              @media print {
+                .footer { display: block; }
+              }
+              table { 
                 page-break-inside: auto; 
               }
-                tr { 
+              tr { 
                 page-break-inside: avoid; 
                 page-break-after: auto; 
-                }
               }
-              
             </style>
           </head>
           <body onload="window.print(); window.close();">
@@ -578,8 +589,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.item || item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 25mm 10mm; }
-                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+                        @page { size: A4 portrait; margin: 15mm 10mm 35mm 10mm; }
+                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; padding-bottom: 30mm; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
                         table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -594,28 +605,40 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         
                         /* Page numbering footer */
                         .footer {
-                          position: fixed;
-                          bottom: 10mm;
-                          left: 0;
-                          right: 0;
                           text-align: center;
                           font-size: 9px;
-                          padding: 5px 0;
-                          display: none;
+                          padding: 10px 0;
+                          margin-top: 20px;
+                          border-top: 1px solid #eee;
                         }
-                        .document-wrapper {padding-bottom: 5mm; width: 100%
+                        .print-footer-remarks {
+                          position: fixed;
+                          bottom: 10mm;
+                          left: 10mm;
+                          right: 10mm;
+                          border: 1px solid black;
+                          padding: 8px;
+                          font-size: 10px;
+                          background: white;
+                          min-height: 80px;
                         }
+                        .print-footer-remarks .title {
+                          font-weight: bold;
+                          border-bottom: 1px solid black;
+                          margin-bottom: 4px;
+                          padding-bottom: 2px;
+                        }
+                        .document-wrapper { width: 100% }
                         @media print {
                           .footer { display: block; }
                         }
                         table { 
-                        page-break-inside: auto; 
+                          page-break-inside: auto; 
                         }
                         tr { 
-                        page-break-inside: avoid; 
-                        page-break-after: auto; 
+                          page-break-inside: avoid; 
+                          page-break-after: auto; 
                         }
-                       }
                       </style>
                     </head>
                     <body onload="window.print(); window.close();">
@@ -1046,10 +1069,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                 {/* Footer Text for Print */}
                 {footer.length > 0 && (
-                  <div className="w-full mt-4 text-[9px] space-y-1">
-                    {footer.map((line: string, idx: number) => (
-                      <p key={idx} className="font-medium">{line}</p>
-                    ))}
+                  <div className="print-footer-remarks">
+                    <div className="title">비고:</div>
+                    <div className="space-y-1">
+                      {footer.map((line: string, idx: number) => (
+                        <p key={idx} className="font-medium">{line}</p>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1180,10 +1206,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                 {/* Footer Text for Print */}
                 {footer.length > 0 && (
-                  <div className="w-full mt-4 text-[9px] space-y-1">
-                    {footer.map((line: string, idx: number) => (
-                      <p key={idx} className="font-medium">{line}</p>
-                    ))}
+                  <div className="print-footer-remarks">
+                    <div className="title">비고:</div>
+                    <div className="space-y-1">
+                      {footer.map((line: string, idx: number) => (
+                        <p key={idx} className="font-medium">{line}</p>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1857,10 +1886,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                   {/* Footer Text for Print */}
                   {footerText.length > 0 && (
-                    <div className="w-full mt-4 text-[9px] space-y-1">
-                      {footerText.map((line, idx) => (
-                        <p key={idx} className="font-medium">{line}</p>
-                      ))}
+                    <div className="print-footer-remarks">
+                      <div className="title">비고:</div>
+                      <div className="space-y-1">
+                        {footerText.map((line, idx) => (
+                          <p key={idx} className="font-medium">{line}</p>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
