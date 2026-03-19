@@ -60,14 +60,34 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number, field: string } | null>(null);
 
+  const fields = ['model', 'dept', 's', 'itemName', 'cty', 'qty', 'material', 'injectionVendor', 'orderQty', 'unitPrice', 'price', 'extra', 'extraAmount', 'remarks', 'remarksRSP'];
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, rowIndex: number, fieldIndex: number) => {
+    if (e.key === 'ArrowUp') {
+      if (rowIndex > 0) setSelectedCell({ rowIndex: rowIndex - 1, field: fields[fieldIndex] });
+    } else if (e.key === 'ArrowDown') {
+      if (rowIndex < loadedRows.length - 1) setSelectedCell({ rowIndex: rowIndex + 1, field: fields[fieldIndex] });
+    } else if (e.key === 'ArrowLeft') {
+      if (fieldIndex > 0) setSelectedCell({ rowIndex, field: fields[fieldIndex - 1] });
+    } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      if (fieldIndex < fields.length - 1) {
+        setSelectedCell({ rowIndex, field: fields[fieldIndex + 1] });
+      } else if (rowIndex < loadedRows.length - 1) {
+        setSelectedCell({ rowIndex: rowIndex + 1, field: fields[0] });
+      }
+      if (e.key === 'Enter') e.preventDefault();
+    }
+  }, [loadedRows.length, fields]);
+
   const updateCellValue = (rowIndex: number, field: string, value: any) => {
     const newRows = [...loadedRows];
     newRows[rowIndex] = { ...newRows[rowIndex], [field]: value };
     setLoadedRows(newRows);
   };
 
-  const addRowBelow = () => {
-    if (selectedCell === null) return;
+  const addRowBelow = (index?: number) => {
+    const targetIndex = index !== undefined ? index : selectedCell?.rowIndex;
+    if (targetIndex === undefined) return;
     const newRows = [...loadedRows];
     const emptyRow = {
       id: `new-${Date.now()}-${Math.random()}`,
@@ -75,14 +95,15 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       injectionVendor: '', orderQty: '', unitPrice: '', price: '',
       extra: '', extraAmount: '', remarks: '', remarksRSP: ''
     };
-    newRows.splice(selectedCell.rowIndex + 1, 0, emptyRow);
+    newRows.splice(targetIndex + 1, 0, emptyRow);
     setLoadedRows(newRows);
   };
 
-  const deleteRow = () => {
-    if (selectedCell === null) return;
+  const deleteRow = (index?: number) => {
+    const targetIndex = index !== undefined ? index : selectedCell?.rowIndex;
+    if (targetIndex === undefined) return;
     const newRows = [...loadedRows];
-    newRows.splice(selectedCell.rowIndex, 1);
+    newRows.splice(targetIndex, 1);
     setLoadedRows(newRows);
     setSelectedCell(null);
   };
@@ -162,6 +183,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       setPo2TelFax(recipient.telFax);
       setPo2Reference(recipient.reference);
       setSelectedRecipientId(recipient.id);
+      setFooterText(recipient.remarks || '');
     } else {
       setSelectedRecipientId('direct');
     }
@@ -245,6 +267,14 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     setLoadedAligns(foundAligns);
     setLoadedWeights(foundWeights);
     setLoadedHeaders(sourceHeaderRows);
+
+    // Sync recipient info if found
+    const recipient = recipients.find(r => r.name.toLowerCase() === vendorNormalized);
+    if (recipient) {
+      if (!po2TelFax) setPo2TelFax(recipient.telFax);
+      if (!po2Reference) setPo2Reference(recipient.reference);
+      if (!footerText) setFooterText(recipient.remarks || '');
+    }
 
     // Calculate Totals
     let sum = 0;
@@ -628,12 +658,14 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                         setVendorSearch('');
                         setPo2TelFax('');
                         setPo2Reference('');
+                        setFooterText('');
                       } else {
                         const r = recipients.find(item => item.id === val);
                         if (r) {
                           setVendorSearch(r.name);
                           setPo2TelFax(r.telFax);
                           setPo2Reference(r.reference);
+                          setFooterText(r.remarks || '');
                         }
                       }
                     }}
@@ -647,8 +679,17 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     type="text" 
                     value={vendorSearch} 
                     onChange={(e) => {
-                      setVendorSearch(e.target.value);
-                      setSelectedRecipientId('direct');
+                      const val = e.target.value;
+                      setVendorSearch(val);
+                      const r = recipients.find(item => item.name === val);
+                      if (r) {
+                        setSelectedRecipientId(r.id);
+                        setPo2TelFax(r.telFax);
+                        setPo2Reference(r.reference);
+                        if (!footerText) setFooterText(r.remarks || '');
+                      } else {
+                        setSelectedRecipientId('direct');
+                      }
                     }} 
                     placeholder="수신처 명칭" 
                     className="flex-1 outline-none font-bold bg-transparent" 
@@ -797,6 +838,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 <table className="w-full text-[11px] border-collapse border-black border-[1px]">
                   <thead>
                     <tr className="bg-slate-100">
+                      <th className="border border-black p-1 w-[30px]">+/-</th>
                       <th className="border border-black p-1 w-[8%]">MOLD</th>
                       <th className="border border-black p-1 w-[6%]">DN</th>
                       <th className="border border-black p-1 w-[3%]">S</th>
@@ -817,6 +859,24 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                   <tbody>
                     {loadedRows.map((row, idx) => (
                       <tr key={row.id || idx}>
+                        <td className="border border-black p-1 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1">
+                            <button 
+                              onClick={() => addRowBelow(idx)} 
+                              className="w-5 h-5 flex items-center justify-center bg-blue-50 text-blue-600 rounded border border-blue-200 hover:bg-blue-600 hover:text-white transition-all text-xs font-bold"
+                              title="아래에 행 추가"
+                            >
+                              +
+                            </button>
+                            <button 
+                              onClick={() => deleteRow(idx)} 
+                              className="w-5 h-5 flex items-center justify-center bg-red-50 text-red-600 rounded border border-red-200 hover:bg-red-600 hover:text-white transition-all text-xs font-bold"
+                              title="행 삭제"
+                            >
+                              -
+                            </button>
+                          </div>
+                        </td>
                         <td 
                           className={`border border-black p-1 cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'model' ? 'bg-sky-100' : ''}`}
                           onClick={() => setSelectedCell({ rowIndex: idx, field: 'model' })}
@@ -824,9 +884,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'model' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none"
                               value={row.model || ''}
                               onChange={(e) => updateCellValue(idx, 'model', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 0)}
                             />
                           ) : (
                             row.model || ''
@@ -839,9 +901,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'dept' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none"
                               value={row.dept || ''}
                               onChange={(e) => updateCellValue(idx, 'dept', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 1)}
                             />
                           ) : (
                             row.dept || ''
@@ -854,9 +918,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 's' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.s || ''}
                               onChange={(e) => updateCellValue(idx, 's', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 2)}
                             />
                           ) : (
                             row.s || ''
@@ -869,9 +935,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'itemName' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none"
                               value={row.itemName || ''}
                               onChange={(e) => updateCellValue(idx, 'itemName', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 3)}
                             />
                           ) : (
                             row.itemName || ''
@@ -884,9 +952,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'cty' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.cty || ''}
                               onChange={(e) => updateCellValue(idx, 'cty', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 4)}
                             />
                           ) : (
                             row.cty || ''
@@ -899,9 +969,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'qty' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.qty || ''}
                               onChange={(e) => updateCellValue(idx, 'qty', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 5)}
                             />
                           ) : (
                             row.qty || ''
@@ -914,9 +986,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'material' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none"
                               value={row.material || ''}
                               onChange={(e) => updateCellValue(idx, 'material', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 6)}
                             />
                           ) : (
                             row.material || ''
@@ -929,9 +1003,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'injectionVendor' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.injectionVendor || ''}
                               onChange={(e) => updateCellValue(idx, 'injectionVendor', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 7)}
                             />
                           ) : (
                             row.injectionVendor || ''
@@ -944,9 +1020,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'orderQty' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.orderQty || ''}
                               onChange={(e) => updateCellValue(idx, 'orderQty', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 8)}
                             />
                           ) : (
                             row.orderQty || ''
@@ -959,9 +1037,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'unitPrice' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-right"
                               value={row.unitPrice || ''}
                               onChange={(e) => updateCellValue(idx, 'unitPrice', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 9)}
                             />
                           ) : (
                             row.unitPrice || ''
@@ -974,9 +1054,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'price' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-right"
                               value={row.price || ''}
                               onChange={(e) => updateCellValue(idx, 'price', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 10)}
                             />
                           ) : (
                             row.price || ''
@@ -989,9 +1071,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'extra' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.extra || ''}
                               onChange={(e) => updateCellValue(idx, 'extra', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 11)}
                             />
                           ) : (
                             row.extra || ''
@@ -1004,9 +1088,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'extraAmount' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-right"
                               value={row.extraAmount || ''}
                               onChange={(e) => updateCellValue(idx, 'extraAmount', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 12)}
                             />
                           ) : (
                             row.extraAmount || ''
@@ -1019,9 +1105,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'remarks' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none"
                               value={row.remarks || ''}
                               onChange={(e) => updateCellValue(idx, 'remarks', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 13)}
                             />
                           ) : (
                             row.remarks || ''
@@ -1034,9 +1122,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           {selectedCell?.rowIndex === idx && selectedCell?.field === 'remarksRSP' ? (
                             <input 
                               autoFocus
+                              onFocus={(e) => e.target.select()}
                               className="w-full bg-transparent outline-none text-center"
                               value={row.remarksRSP || ''}
                               onChange={(e) => updateCellValue(idx, 'remarksRSP', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, idx, 14)}
                             />
                           ) : (
                             row.remarksRSP || ''
@@ -1046,21 +1136,21 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     ))}
                     {/* Summary Rows */}
                     <tr className="bg-slate-50 font-bold">
-                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
+                      <td colSpan={11} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
                       <td className="border border-black p-2 text-right text-sm">{totalAmount.toLocaleString()}</td>
                       <td className="border border-black p-2"></td>
                       <td className="border border-black p-2 text-right text-sm">{extraTotalAmount.toLocaleString()}</td>
                       <td colSpan={2} className="border border-black p-2"></td>
                     </tr>
                     <tr className="bg-slate-50 font-bold">
-                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
+                      <td colSpan={11} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
                       <td className="border border-black p-2 text-right text-sm">{vat.toLocaleString()}</td>
                       <td className="border border-black p-2"></td>
                       <td className="border border-black p-2 text-right text-sm">{extraVat.toLocaleString()}</td>
                       <td colSpan={2} className="border border-black p-2"></td>
                     </tr>
                     <tr className="bg-blue-50 font-black text-blue-700">
-                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
+                      <td colSpan={11} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
                       <td className="border border-black p-2 text-right text-base">{grandTotal.toLocaleString()}</td>
                       <td className="border border-black p-2"></td>
                       <td className="border border-black p-2 text-right text-base">{extraGrandTotal.toLocaleString()}</td>
