@@ -450,14 +450,23 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 bottom: 0mm;
                 left: 0;
                 right: 0;
-                height: 2mm;
                 text-align: center;
-                font-size: 8px;
+                font-size: 9px;
                 padding: 5px 0;
                 display: none;
               }
-              @media print {
-                .footer { display: block; }
+              .document-wrapper {padding-bottom: 10mm; width: 100%
+             }
+                @media print {
+               .footer { display: block; }
+              }
+                table { 
+                page-break-inside: auto; 
+              }
+                tr { 
+                page-break-inside: avoid; 
+                page-break-after: auto; 
+                }
               }
               
             </style>
@@ -540,16 +549,24 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                           bottom: 0mm;
                           left: 0;
                           right: 0;
-                          height: 2mm;
                           text-align: center;
-                          font-size: 8px;
+                          font-size: 9px;
                           padding: 5px 0;
                           display: none;
+                        }
+                        .document-wrapper {padding-bottom: 10mm; width: 100%
                         }
                         @media print {
                           .footer { display: block; }
                         }
-                        
+                        table { 
+                        page-break-inside: auto; 
+                        }
+                        tr { 
+                        page-break-inside: avoid; 
+                        page-break-after: auto; 
+                        }
+                       }
                       </style>
                     </head>
                     <body onload="window.print(); window.close();">
@@ -1198,7 +1215,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="absolute top-0 left-0 w-1 h-full bg-blue-500 opacity-0 group-hover:opacity-100 transition-all" />
                 <div className="flex justify-between items-start mb-4">
                   <div className={`p-3 rounded-2xl transition-colors ${
-                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 'bg-blue-50 text-blue-600'
+                    item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 
+                    item.id?.startsWith('inj-') ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                   }`}>
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
@@ -1225,9 +1243,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   </div>
                 )}
                 
-                <div className="flex items-center gap-1.5 mt-auto pt-4 border-t border-slate-50">
-                  {['writer', 'design', 'director', 'ceo'].map(slot => (
-                    <div key={slot} className={`w-3.5 h-3.5 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} title={slot} />
+                <div className="flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
+                  {(item.id?.startsWith('inj-') ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => (
+                    <div key={slot} className={`w-14 h-14 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} title={slot} />
                   ))}
                 </div>
 
@@ -1268,7 +1286,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.title}</span>
+                        <div className="flex items-center gap-2">
+                          <div className={`w-2 h-2 rounded-full ${item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                          <span className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.title}</span>
+                        </div>
                         {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
                           <span className="text-[10px] text-rose-500 font-bold mt-1">반송: {item.rejectReason}</span>
                         )}
@@ -1277,9 +1298,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <td className="px-6 py-4 text-sm font-bold text-slate-600">{item.authorId}</td>
                     <td className="px-6 py-4 text-sm font-bold text-slate-400">{item.date}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
-                        {['writer', 'design', 'director', 'ceo'].map(slot => (
-                          <div key={slot} className={`w-2.5 h-2.5 rounded-full ${item.stamps?.[slot] ? 'bg-blue-500' : 'bg-slate-100'}`} />
+                      <div className="flex items-center gap-2">
+                        {(item.id?.startsWith('inj-') ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => (
+                          <div key={slot} className={`w-6 h-6 rounded-full ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} />
                         ))}
                       </div>
                     </td>
