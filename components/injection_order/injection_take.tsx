@@ -772,7 +772,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           </button>
           <button 
             onClick={handleTemporarySave}
-            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
+            className="px-4 py-2 bg-bg-pink-50 border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
           >
             사출임시
           </button>

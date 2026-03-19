@@ -464,59 +464,118 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(`
-        <html>
-          <head>
-            <title>Injection_Order_${fileName || 'Document'}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
-              body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; padding-bottom: 30mm; }
-              * { color: black !important; border-color: black !important; print-color-adjust: exact; }
-              .no-print { display: none !important; }
-              table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-              th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
-              td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 600; }
-              .document-wrapper { padding: 0; box-sizing: border-box; }
-              .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-              .border-t-bold { border-top: 1.5px solid black !important; }
-              .border-b-bold { border-bottom: 1.5px solid black !important; }
-              .border-t-thin { border-top: 0.5px solid black !important; }
-              .border-b-thin { border-bottom: 0.5px solid black !important; }
-              
-              /* Page numbering footer */
-              .footer {
-                position: fixed;
-                bottom: 0mm;
-                left: 0;
-                right: 0;
-                text-align: center;
-                font-size: 9px;
-                padding: 5px 0;
-                border-top: 1px solid #eee;
-              }
-              
-              .document-wrapper { width: 100% }
-              @media print {
-                .footer { display: block; }
-              }
-              table { 
-                page-break-inside: auto; 
-              }
-              tr { 
-                page-break-inside: avoid; 
-                page-break-after: auto; 
-              }
-            </style>
-          </head>
-          <body onload="window.print(); window.close();">
-            <div class="document-wrapper">${content}</div>
-            <div class="footer">
-              ${fileName}
-            </div>
-          </body>
-        </html>
-      `);
-      win.document.close();
+  <html>
+    <head>
+      <title>Injection_Order_${fileName || 'Document'}</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>
+        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+
+        body {
+          font-family: 'Inter', sans-serif;
+          background: white;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+        }
+
+        * {
+          color: black !important;
+          border-color: black !important;
+          print-color-adjust: exact;
+        }
+
+        .no-print { display: none !important; }
+
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          border: 1.5px solid black;
+          table-layout: fixed;
+          page-break-inside: auto;
+        }
+
+        th {
+          border: 0.5px solid black;
+          padding: 4px 2px;
+          vertical-align: middle;
+          word-break: break-all;
+          font-size: 9px;
+          font-weight: 900;
+          background-color: #f8fafc !important;
+        }
+
+        td {
+          border-left: 0.5px solid black;
+          border-right: 0.5px solid black;
+          border-top: none;
+          border-bottom: none;
+          padding: 4px 2px;
+          vertical-align: middle;
+          word-break: break-all;
+          font-size: 9px;
+          font-weight: 600;
+        }
+
+        tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+
+        .document-wrapper {
+          width: 100%;
+          box-sizing: border-box;
+          padding-bottom: 18mm; /* footer 공간 확보 */
+        }
+
+        .approval-box {
+          width: 80px;
+          height: 80px;
+          border: 1px solid black;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .border-t-bold { border-top: 1.5px solid black !important; }
+        .border-b-bold { border-bottom: 1.5px solid black !important; }
+        .border-t-thin { border-top: 0.5px solid black !important; }
+        .border-b-thin { border-bottom: 0.5px solid black !important; }
+
+        .footer {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 12mm;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          font-size: 9px;
+          background: white;
+          border-top: 1px solid #eee;
+          z-index: 9999;
+        }
+
+        @media print {
+          .footer { display: flex; }
+        }
+      </style>
+    </head>
+    <body onload="window.print(); window.close();">
+      <div class="document-wrapper">
+        ${content}
+      </div>
+
+      <div class="footer">
+        ${fileName}
+      </div>
+    </body>
+  </html>
+`);
+win.document.close();
   
     }
   }, [fileName]);
@@ -571,59 +630,115 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               const win = window.open('', '_blank');
               if (win) {
                 win.document.write(`
-                  <html>
-                    <head>
-                      <title>Injection_Order_${item.item || item.title || 'Document'}</title>
-                      <script src="https://cdn.tailwindcss.com"></script>
-                      <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
-                        body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; padding-bottom: 30mm; }
-                        * { color: black !important; border-color: black !important; print-color-adjust: exact; }
-                        .no-print { display: none !important; }
-                        table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
-                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 600; }
-                        .document-wrapper { padding: 0; box-sizing: border-box; }
-                        .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-                        .border-t-bold { border-top: 1.5px solid black !important; }
-                        .border-b-bold { border-bottom: 1.5px solid black !important; }
-                        .border-t-thin { border-top: 0.5px solid black !important; }
-                        .border-b-thin { border-bottom: 0.5px solid black !important; }
-                        
-                        /* Page numbering footer */
-                        .footer {
-                          position: fixed;
-                          bottom: 0mm;
-                          left: 0;
-                          right: 0;
-                          text-align: center;
-                          font-size: 9px;
-                          padding: 5px 0;
-                          border-top: 1px solid #eee;
-                        }
-                        
-                        .document-wrapper { width: 100% }
-                        @media print {
-                          .footer { display: block; }
-                        }
-                        table { 
-                          page-break-inside: auto; 
-                        }
-                        tr { 
-                          page-break-inside: avoid; 
-                          page-break-after: auto; 
-                        }
-                      </style>
-                    </head>
-                    <body onload="window.print(); window.close();">
-                      <div class="document-wrapper">${content}</div>
-                      <div class="footer">
-                        ${item.item || item.title} 
-                      </div>
-                    </body>
-                  </html>
-                `);
-                win.document.close();
+  <html>
+    <head>
+      <title>Injection_Order_${item.item || item.title || 'Document'}</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <style>
+        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
+
+        body {
+          font-family: 'Inter', sans-serif;
+          background: white;
+          width: 100%;
+          margin: 0;
+          padding: 0;
+        }
+
+        * {
+          color: black !important;
+          border-color: black !important;
+          print-color-adjust: exact;
+        }
+
+        .no-print { display: none !important; }
+
+        table {
+          border-collapse: collapse;
+          width: 100%;
+          border: 1.5px solid black;
+          table-layout: fixed;
+          page-break-inside: auto;
+        }
+
+        th {
+          border: 0.5px solid black;
+          padding: 4px 2px;
+          vertical-align: middle;
+          word-break: break-all;
+          font-size: 9px;
+          font-weight: 900;
+          background-color: #f8fafc !important;
+        }
+
+        td {
+          border-left: 0.5px solid black;
+          border-right: 0.5px solid black;
+          border-top: none;
+          border-bottom: none;
+          padding: 4px 2px;
+          vertical-align: middle;
+          word-break: break-all;
+          font-size: 9px;
+          font-weight: 600;
+        }
+
+        tr {
+          page-break-inside: avoid;
+          page-break-after: auto;
+        }
+
+        .document-wrapper {
+          width: 100%;
+          box-sizing: border-box;
+          padding-bottom: 18mm; /* footer 공간 확보 */
+        }
+
+        .approval-box {
+          width: 80px;
+          height: 80px;
+          border: 1px solid black;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .border-t-bold { border-top: 1.5px solid black !important; }
+        .border-b-bold { border-bottom: 1.5px solid black !important; }
+        .border-t-thin { border-top: 0.5px solid black !important; }
+        .border-b-thin { border-bottom: 0.5px solid black !important; }
+
+        .footer {
+          position: fixed;
+          bottom: 0;
+          left: 0;
+          right: 0;
+          height: 12mm;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          text-align: center;
+          font-size: 9px;
+          background: white;
+          border-top: 1px solid #eee;
+          z-index: 9999;
+        }
+
+        @media print {
+          .footer { display: flex; }
+        }
+      </style>
+    </head>
+    <body onload="window.print(); window.close();">
+      <div class="document-wrapper">${content}</div>
+      <div class="footer">
+        ${item.item || item.title}
+      </div>
+    </body>
+  </html>
+`);
+win.document.close();
               }
             }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center shadow-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
