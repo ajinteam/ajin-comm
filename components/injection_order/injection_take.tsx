@@ -58,6 +58,54 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [extraVat, setExtraVat] = useState(0);
   const [extraGrandTotal, setExtraGrandTotal] = useState(0);
 
+  const [selectedCell, setSelectedCell] = useState<{ rowIndex: number, field: string } | null>(null);
+
+  const updateCellValue = (rowIndex: number, field: string, value: any) => {
+    const newRows = [...loadedRows];
+    newRows[rowIndex] = { ...newRows[rowIndex], [field]: value };
+    setLoadedRows(newRows);
+  };
+
+  const addRowBelow = () => {
+    if (selectedCell === null) return;
+    const newRows = [...loadedRows];
+    const emptyRow = {
+      id: `new-${Date.now()}-${Math.random()}`,
+      model: '', dept: '', s: '', itemName: '', cty: '', qty: '', material: '',
+      injectionVendor: '', orderQty: '', unitPrice: '', price: '',
+      extra: '', extraAmount: '', remarks: '', remarksRSP: ''
+    };
+    newRows.splice(selectedCell.rowIndex + 1, 0, emptyRow);
+    setLoadedRows(newRows);
+  };
+
+  const deleteRow = () => {
+    if (selectedCell === null) return;
+    const newRows = [...loadedRows];
+    newRows.splice(selectedCell.rowIndex, 1);
+    setLoadedRows(newRows);
+    setSelectedCell(null);
+  };
+
+  // Recalculate totals when loadedRows changes
+  useEffect(() => {
+    let sum = 0;
+    let extraSum = 0;
+    loadedRows.forEach(row => {
+      const p = parseFloat(String(row.price || '0').replace(/,/g, ''));
+      if (!isNaN(p)) sum += p;
+      const e = parseFloat(String(row.extraAmount || '0').replace(/,/g, ''));
+      if (!isNaN(e)) extraSum += e;
+    });
+    setTotalAmount(sum);
+    setVat(Math.floor(sum * 0.1));
+    setGrandTotal(sum + Math.floor(sum * 0.1));
+
+    setExtraTotalAmount(extraSum);
+    setExtraVat(Math.floor(extraSum * 0.1));
+    setExtraGrandTotal(extraSum + Math.floor(extraSum * 0.1));
+  }, [loadedRows]);
+
   useEffect(() => {
     const loadData = () => {
       setLoading(true);
@@ -727,6 +775,24 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               )}
 
               {/* Items Table */}
+              {/* Table Toolbar */}
+              {selectedCell && (
+                <div className="flex gap-2 mb-2">
+                  <button 
+                    onClick={addRowBelow}
+                    className="px-3 py-1 bg-sky-500 text-white text-[10px] font-bold rounded hover:bg-sky-600 transition-colors"
+                  >
+                    선택행 아래 행 추가
+                  </button>
+                  <button 
+                    onClick={deleteRow}
+                    className="px-3 py-1 bg-rose-500 text-white text-[10px] font-bold rounded hover:bg-rose-600 transition-colors"
+                  >
+                    선택행 삭제
+                  </button>
+                </div>
+              )}
+
               <div className="overflow-x-auto">
                 <table className="w-full text-[11px] border-collapse border-black border-[1px]">
                   <thead>
@@ -750,22 +816,232 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                   </thead>
                   <tbody>
                     {loadedRows.map((row, idx) => (
-                      <tr key={idx}>
-                        <td className="border border-black p-1">{row.model || ''}</td>
-                        <td className="border border-black p-1">{row.dept || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.s || ''}</td>
-                        <td className="border border-black p-1">{row.itemName || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.cty || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.qty || ''}</td>
-                        <td className="border border-black p-1">{row.material || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.injectionVendor || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.orderQty || ''}</td>
-                        <td className="border border-black p-1 text-right">{row.unitPrice || ''}</td>
-                        <td className="border border-black p-1 text-right">{row.price || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.extra || ''}</td>
-                        <td className="border border-black p-1 text-right">{row.extraAmount || ''}</td>
-                        <td className="border border-black p-1">{row.remarks || ''}</td>
-                        <td className="border border-black p-1 text-center">{row.remarksRSP || ''}</td>
+                      <tr key={row.id || idx}>
+                        <td 
+                          className={`border border-black p-1 cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'model' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'model' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'model' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none"
+                              value={row.model || ''}
+                              onChange={(e) => updateCellValue(idx, 'model', e.target.value)}
+                            />
+                          ) : (
+                            row.model || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'dept' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'dept' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'dept' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none"
+                              value={row.dept || ''}
+                              onChange={(e) => updateCellValue(idx, 'dept', e.target.value)}
+                            />
+                          ) : (
+                            row.dept || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 's' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 's' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 's' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.s || ''}
+                              onChange={(e) => updateCellValue(idx, 's', e.target.value)}
+                            />
+                          ) : (
+                            row.s || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'itemName' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'itemName' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'itemName' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none"
+                              value={row.itemName || ''}
+                              onChange={(e) => updateCellValue(idx, 'itemName', e.target.value)}
+                            />
+                          ) : (
+                            row.itemName || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'cty' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'cty' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'cty' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.cty || ''}
+                              onChange={(e) => updateCellValue(idx, 'cty', e.target.value)}
+                            />
+                          ) : (
+                            row.cty || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'qty' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'qty' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'qty' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.qty || ''}
+                              onChange={(e) => updateCellValue(idx, 'qty', e.target.value)}
+                            />
+                          ) : (
+                            row.qty || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'material' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'material' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'material' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none"
+                              value={row.material || ''}
+                              onChange={(e) => updateCellValue(idx, 'material', e.target.value)}
+                            />
+                          ) : (
+                            row.material || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'injectionVendor' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'injectionVendor' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'injectionVendor' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.injectionVendor || ''}
+                              onChange={(e) => updateCellValue(idx, 'injectionVendor', e.target.value)}
+                            />
+                          ) : (
+                            row.injectionVendor || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'orderQty' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'orderQty' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'orderQty' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.orderQty || ''}
+                              onChange={(e) => updateCellValue(idx, 'orderQty', e.target.value)}
+                            />
+                          ) : (
+                            row.orderQty || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-right cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'unitPrice' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'unitPrice' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'unitPrice' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-right"
+                              value={row.unitPrice || ''}
+                              onChange={(e) => updateCellValue(idx, 'unitPrice', e.target.value)}
+                            />
+                          ) : (
+                            row.unitPrice || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-right cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'price' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'price' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'price' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-right"
+                              value={row.price || ''}
+                              onChange={(e) => updateCellValue(idx, 'price', e.target.value)}
+                            />
+                          ) : (
+                            row.price || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'extra' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'extra' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'extra' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.extra || ''}
+                              onChange={(e) => updateCellValue(idx, 'extra', e.target.value)}
+                            />
+                          ) : (
+                            row.extra || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-right cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'extraAmount' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'extraAmount' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'extraAmount' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-right"
+                              value={row.extraAmount || ''}
+                              onChange={(e) => updateCellValue(idx, 'extraAmount', e.target.value)}
+                            />
+                          ) : (
+                            row.extraAmount || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'remarks' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'remarks' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'remarks' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none"
+                              value={row.remarks || ''}
+                              onChange={(e) => updateCellValue(idx, 'remarks', e.target.value)}
+                            />
+                          ) : (
+                            row.remarks || ''
+                          )}
+                        </td>
+                        <td 
+                          className={`border border-black p-1 text-center cursor-pointer ${selectedCell?.rowIndex === idx && selectedCell?.field === 'remarksRSP' ? 'bg-sky-100' : ''}`}
+                          onClick={() => setSelectedCell({ rowIndex: idx, field: 'remarksRSP' })}
+                        >
+                          {selectedCell?.rowIndex === idx && selectedCell?.field === 'remarksRSP' ? (
+                            <input 
+                              autoFocus
+                              className="w-full bg-transparent outline-none text-center"
+                              value={row.remarksRSP || ''}
+                              onChange={(e) => updateCellValue(idx, 'remarksRSP', e.target.value)}
+                            />
+                          ) : (
+                            row.remarksRSP || ''
+                          )}
+                        </td>
                       </tr>
                     ))}
                     {/* Summary Rows */}
