@@ -212,7 +212,6 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           <StatCard title="사출 결재대기" count={counts.injection.pending} colorClass="orange" statusLabel={InjectionOrderSubCategory.PENDING} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.PENDING })} />
           <StatCard title="사출 결재반송" count={counts.injection.rejected} colorClass="rose" statusLabel={InjectionOrderSubCategory.REJECTED} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.REJECTED })} />
           <StatCard title="사출 결재완료" count={counts.injection.approved} colorClass="amber" statusLabel={InjectionOrderSubCategory.APPROVED} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED })} />
-          <StatCard title="사출 수신함" count={counts.injection.inbox} colorClass="orange" statusLabel={InjectionOrderSubCategory.INBOX} onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.INBOX })} />
         </CategorySection>
 
         {/* 주문서 섹션 */}

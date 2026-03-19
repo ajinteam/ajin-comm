@@ -398,6 +398,57 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     }
   };
 
+  const handleTemporarySave = async () => {
+    if (loadedRows.length === 0) {
+      alert('불러온 데이터가 없습니다. 먼저 데이터를 불러와주세요.');
+      return;
+    }
+
+    if (!window.confirm('사출임시 목록으로 저장하시겠습니까?')) return;
+
+    try {
+      const now = new Date();
+      const timestamp = now.toLocaleString();
+      
+      const newPO: any = {
+        id: `inj-temp-${Date.now()}`,
+        title: vendorSearch.trim(),
+        item: searchTerm.trim(),
+        type: 'INJECTION_PARTHER',
+        status: InjectionOrderSubCategory.TEMPORARY,
+        authorId: currentUser.initials,
+        date: now.toISOString().split('T')[0],
+        createdAt: now.toISOString(),
+        rows: loadedRows,
+        merges: loadedMerges,
+        aligns: loadedAligns,
+        weights: loadedWeights,
+        headerInfoRows: loadedHeaders.map(h => [h]),
+        recipient: vendorSearch,
+        telFax: po2TelFax,
+        reference: po2Reference,
+        senderName: po2SenderName,
+        senderPerson: po2SenderPerson,
+        footerText: footerText.split('\n').filter(line => line.trim() !== ''),
+        stamps: {
+          writer: { userId: currentUser.initials, timestamp: timestamp }
+        }
+      };
+
+      const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      localStorage.setItem('ajin_injection_orders', JSON.stringify([newPO, ...existingInjections]));
+
+      await saveSingleDoc('Injection_Take', newPO);
+      pushStateToCloud();
+      
+      alert('사출임시 목록으로 저장되었습니다.');
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.TEMPORARY });
+    } catch (err) {
+      console.error('Error saving temporary injection order:', err);
+      alert('저장 중 오류가 발생했습니다.');
+    }
+  };
+
   const handlePrint = useCallback(() => {
     if (loadedRows.length === 0) {
       alert('인쇄할 데이터가 없습니다.');
@@ -652,10 +703,10 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             수신처관리
           </button>
           <button 
-            onClick={handlePrint}
+            onClick={handleTemporarySave}
             className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
           >
-            PDF 저장 / 인쇄
+            사출임시
           </button>
         </div>
       </div>

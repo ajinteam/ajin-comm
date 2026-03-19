@@ -975,12 +975,12 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <th className="w-[55px] border border-black px-1 py-1 text-[9px] font-black">MOLD</th>
                       <th className="w-[40px] border border-black px-1 py-1 text-[9px] font-black">DN</th>
                       <th className="w-[15px] border border-black px-0 py-1 text-[9px] font-black">S</th>
-                      <th className="w-[120px] border border-black px-1 py-1 text-[9px] font-black">PART NAME</th>
+                      <th className="w-[155px] border border-black px-1 py-1 text-[9px] font-black">PART NAME</th>
                       <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">CTY</th>
                       <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">QTY</th>
                       <th className="w-[60px] border border-black px-1 py-1 text-[9px] font-black">MATERIAL</th>
                       <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">금형<br/>업체</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">사출<br/>업체</th>
+                      
                       <th className="w-[40px] border border-black px-0 py-1 text-[9px] font-black leading-tight">주문<br/>수량</th>
                       <th className="w-[50px] border border-black px-1 py-1 text-[9px] font-black">단가</th>
                       <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">금액</th>
@@ -1010,7 +1010,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                           <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.qty)}</td>
                           <td className="px-1 py-1 text-[9px]">{row.material}</td>
                           <td className="px-0 py-1 text-[9px] text-center">{row.vendor}</td>
-                          <td className="px-0 py-1 text-[9px] text-center">{row.injectionVendor}</td>
+                          
                           <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.orderQty)}</td>
                           <td className="px-1 py-1 text-[9px] text-right whitespace-normal break-all">{unitPriceStr}</td>
                           <td className="px-1 py-1 text-[9px] font-bold text-right">{formatNum(row.price)}</td>
@@ -1021,21 +1021,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       );
                     })}
                     <tr className="border-t-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
+                      <td colSpan={10} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
                       <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
                       <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="border-t-thin border-b-thin">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td colSpan={10} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
                       <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{pVat.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
                       <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{eVat.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="bg-slate-50 border-b-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
+                      <td colSpan={10} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
                       <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
                       <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>

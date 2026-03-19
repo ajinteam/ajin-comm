@@ -168,7 +168,6 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {renderSubMenu(InjectionOrderSubCategory.REJECTED, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.APPROVED, 'INJECTION_ORDER_MAIN')}
                 {renderSubMenu(InjectionOrderSubCategory.DESTINATION, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.INBOX, 'INJECTION_ORDER_MAIN')}
               </div>
             </div>
           )}
