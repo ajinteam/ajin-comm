@@ -431,7 +431,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             </div>
 
             <div class="flex justify-between items-end mb-4">
-              <div class="text-4xl font-bold tracking-[1rem] ml-10">발 주 서</div>
+              <div class="text-4xl font-bold tracking-[1rem] ml-10">사 출 발 주 서</div>
               <table class="w-auto text-center">
                 <tr>
                   <td rowspan="2" class="bg-gray-100 font-bold w-8">결재</td>
@@ -449,29 +449,29 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
             <div class="grid grid-cols-2 gap-8 mb-4 text-sm">
               <div class="space-y-1">
-                <div class="flex border-b border-black">
+                <div class="flex">
                   <span class="font-bold w-20">수 신 :</span>
                   <span>${vendorSearch} 귀중</span>
                 </div>
-                <div class="flex border-b border-black">
+                <div class="flex">
                   <span class="font-bold w-20">참 조 :</span>
                   <span>${po2Reference}</span>
                 </div>
-                <div class="flex border-b border-black">
+                <div class="flex">
                   <span class="font-bold w-20">TEL/FAX :</span>
                   <span>${po2TelFax}</span>
                 </div>
               </div>
               <div class="space-y-1">
-                <div class="flex border-b border-black">
+                <div class="flex">
                   <span class="font-bold w-20">발 신 :</span>
                   <span>${po2SenderName}</span>
                 </div>
-                <div class="flex border-b border-black">
+                <div class="flex">
                   <span class="font-bold w-20">담 당 :</span>
                   <span>${po2SenderPerson}</span>
                 </div>
-                <div class="flex border-b border-black">
+                <div class="flex">
                   <span class="font-bold w-20">작성일자 :</span>
                   <span>${po2Date}</span>
                 </div>
@@ -479,6 +479,16 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             </div>
 
             <div class="mb-2 font-bold text-xl border-b-2 border-black pb-1">기 종 : ${searchTerm}</div>
+
+            ${loadedHeaders.length > 0 ? `
+              <div class="w-full mb-4 p-2 bg-gray-50/30 text-[9px]">
+                ${loadedHeaders.map(row => `
+                  <div class="flex gap-4 font-medium py-0.5">
+                    ${Array.isArray(row) ? row.map(cell => `<span>${cell}</span>`).join('') : `<span>${row}</span>`}
+                  </div>
+                `).join('')}
+              </div>
+            ` : ''}
 
                 <table class="w-full text-[9px]">
                   <thead>

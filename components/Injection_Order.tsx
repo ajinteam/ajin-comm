@@ -958,7 +958,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                 {/* Excel Rows 3-5 Info */}
                 {headerInfo.length > 0 && (
-                  <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+                  <div className="w-full mb-4 p-2 bg-slate-50/30">
                     {headerInfo.map((row: any[], idx: number) => (
                       <div key={idx} className="flex gap-4 text-[9px] font-medium py-0.5">
                         {row.map((cell, cIdx) => (
@@ -1091,7 +1091,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                 {/* Excel Rows 3-5 Info */}
                 {headerInfo.length > 0 && (
-                  <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+                  <div className="w-full mb-4 p-2 bg-slate-50/30">
                     {headerInfo.map((row: any[], idx: number) => (
                       <div key={idx} className="flex gap-4 text-[9px] font-medium py-0.5">
                         {row.map((cell, cIdx) => (
@@ -1755,7 +1755,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                   {/* Excel Rows 3-5 Info */}
                   {headerInfoRows.length > 0 && (
-                    <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
+                    <div className="w-full mb-4 p-2 bg-slate-50/30">
                       {headerInfoRows.map((row, idx) => (
                         <div key={idx} className="flex gap-4 text-[9px] font-medium py-0.5">
                           {row.map((cell, cIdx) => (
