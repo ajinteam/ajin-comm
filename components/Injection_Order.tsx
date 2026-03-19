@@ -736,27 +736,27 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 border-b border-black pb-1">
                     <span className="font-bold whitespace-nowrap">수 신 :</span>
-                    <span className="font-black text-lg">{item.recipient || ''} 귀중</span>
+                    <span className="font-black text-x1">{item.recipient || ''} 귀중</span>
                   </div>
-                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                  <div className="flex items-center gap-2 pb-1">
                     <span className="font-bold whitespace-nowrap">참 조 :</span>
                     <span className="font-medium">{item.reference || ''}</span>
                   </div>
-                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                  <div className="flex items-center gap-2 pb-1">
                     <span className="font-bold whitespace-nowrap">TEL / FAX :</span>
                     <span className="font-medium">{item.telFax || ''}</span>
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <div className="flex gap-4 border-b border-black pb-1">
+                  <div className="flex gap-4 pb-1">
                     <span className="w-16 font-bold">발 신 :</span>
                     <span className="font-black">{item.senderName || '아진정공'}</span>
                   </div>
-                  <div className="flex gap-4 border-b border-black pb-1">
+                  <div className="flex gap-4 pb-1">
                     <span className="w-16 font-bold">담 당 :</span>
                     <span className="font-medium">{item.senderPerson || ''}</span>
                   </div>
-                  <div className="flex gap-4 items-center border-b border-black pb-1">
+                  <div className="flex gap-4 items-center pb-1">
                     <span className="w-16 font-bold">작성일자 :</span>
                     <span className="font-medium">{item.date || ''}</span>
                   </div>
@@ -919,31 +919,31 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 </div>
 
                 {/* Recipient / Sender Info */}
-                <div className="w-full grid grid-cols-2 gap-x-10 mb-2 text-[12px] leading-tight">
+                <div className="w-full grid grid-cols-2 gap-x-10 mb-2 text-[13px] leading-tight">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 border-b border-black pb-0.5">
                       <span className="font-bold">수 신 :</span>
                       <span className="font-black">{item.recipient} 귀중</span>
                     </div>
-                    <div className="flex items-center gap-2 border-b border-black pb-0.5">
+                    <div className="flex items-center gap-2 pb-0.5">
                       <span className="font-bold">참 조 :</span>
                       <span>{item.reference}</span>
                     </div>
-                    <div className="flex items-center gap-2 border-b border-black pb-0.5">
+                    <div className="flex items-center gap-2 pb-0.5">
                       <span className="font-bold">TEL/FAX :</span>
                       <span>{item.telFax}</span>
                     </div>
                   </div>
                   <div className="space-y-1">
-                    <div className="flex gap-2 border-b border-black pb-0.5">
+                    <div className="flex gap-2 pb-0.5">
                       <span className="w-10 font-bold">발 신 :</span>
                       <span className="font-black">{item.senderName || '아진정공'}</span>
                     </div>
-                    <div className="flex gap-2 border-b border-black pb-0.5">
+                    <div className="flex gap-2 pb-0.5">
                       <span className="w-10 font-bold">담 당 :</span>
                       <span>{item.senderPerson}</span>
                     </div>
-                    <div className="flex gap-2 items-center border-b border-black pb-0.5">
+                    <div className="flex gap-2 items-center pb-0.5">
                       <span className="w-10 font-bold">작성일자 :</span>
                       <span>{item.date}</span>
                     </div>
@@ -960,7 +960,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 {headerInfo.length > 0 && (
                   <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
                     {headerInfo.map((row: any[], idx: number) => (
-                      <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                      <div key={idx} className="flex gap-4 text-[9px] font-medium py-0.5">
                         {row.map((cell, cIdx) => (
                           <span key={cIdx}>{String(cell || '')}</span>
                         ))}
@@ -1093,7 +1093,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 {headerInfo.length > 0 && (
                   <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
                     {headerInfo.map((row: any[], idx: number) => (
-                      <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                      <div key={idx} className="flex gap-4 text-[9px] font-medium py-0.5">
                         {row.map((cell, cIdx) => (
                           <span key={cIdx}>{String(cell || '')}</span>
                         ))}
@@ -1757,7 +1757,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   {headerInfoRows.length > 0 && (
                     <div className="w-full mb-4 border border-black p-2 bg-slate-50/30">
                       {headerInfoRows.map((row, idx) => (
-                        <div key={idx} className="flex gap-4 text-[9px] font-medium border-b border-black/5 last:border-0 py-0.5">
+                        <div key={idx} className="flex gap-4 text-[9px] font-medium py-0.5">
                           {row.map((cell, cIdx) => (
                             <span key={cIdx}>{String(cell || '')}</span>
                           ))}

@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { Undo2, Redo2 } from 'lucide-react';
 import { UserAccount, ViewState, InjectionOrderSubCategory, PurchaseOrderSubCategory, PurchaseOrderItem } from '../../types';
 import { saveSingleDoc, pushStateToCloud, sendJandiNotification, saveRecipient as supabaseSaveRecipient, deleteRecipient as supabaseDeleteRecipient } from '../../supabase';
 
@@ -43,6 +44,8 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
   // Loaded Data
   const [loadedRows, setLoadedRows] = useState<any[]>([]);
+  const [history, setHistory] = useState<any[][]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
   const [loadedMerges, setLoadedMerges] = useState<any>({});
   const [loadedAligns, setLoadedAligns] = useState<any>({});
   const [loadedWeights, setLoadedWeights] = useState<any>({});
@@ -61,6 +64,36 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [selectedCell, setSelectedCell] = useState<{ rowIndex: number, field: string } | null>(null);
 
   const fields = ['model', 'dept', 's', 'itemName', 'cty', 'qty', 'material', 'injectionVendor', 'orderQty', 'unitPrice', 'price', 'extra', 'extraAmount', 'remarks', 'remarksRSP'];
+
+  const pushToHistory = (newRows: any[]) => {
+    const nextHistory = history.slice(0, historyIndex + 1);
+    nextHistory.push(JSON.parse(JSON.stringify(newRows)));
+    
+    if (nextHistory.length > 50) {
+      nextHistory.shift();
+    }
+    
+    setHistory(nextHistory);
+    setHistoryIndex(nextHistory.length - 1);
+  };
+
+  const undo = () => {
+    if (historyIndex > 0) {
+      const prevIndex = historyIndex - 1;
+      const prevState = JSON.parse(JSON.stringify(history[prevIndex]));
+      setLoadedRows(prevState);
+      setHistoryIndex(prevIndex);
+    }
+  };
+
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      const nextIndex = historyIndex + 1;
+      const nextState = JSON.parse(JSON.stringify(history[nextIndex]));
+      setLoadedRows(nextState);
+      setHistoryIndex(nextIndex);
+    }
+  };
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent, rowIndex: number, fieldIndex: number) => {
     if (e.key === 'ArrowUp') {
@@ -83,6 +116,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const newRows = [...loadedRows];
     newRows[rowIndex] = { ...newRows[rowIndex], [field]: value };
     setLoadedRows(newRows);
+    pushToHistory(newRows);
   };
 
   const addRowBelow = (index?: number) => {
@@ -97,6 +131,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     };
     newRows.splice(targetIndex + 1, 0, emptyRow);
     setLoadedRows(newRows);
+    pushToHistory(newRows);
   };
 
   const deleteRow = (index?: number) => {
@@ -106,6 +141,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     newRows.splice(targetIndex, 1);
     setLoadedRows(newRows);
     setSelectedCell(null);
+    pushToHistory(newRows);
   };
 
   // Recalculate totals when loadedRows changes
@@ -263,6 +299,8 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     }
 
     setLoadedRows(finalRows);
+    setHistory([JSON.parse(JSON.stringify(finalRows))]);
+    setHistoryIndex(0);
     setLoadedMerges(foundMerges);
     setLoadedAligns(foundAligns);
     setLoadedWeights(foundWeights);
@@ -589,25 +627,27 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   return (
     <div className="flex flex-col h-full bg-slate-200 overflow-y-auto custom-scrollbar relative">
       {/* Top Action Buttons */}
-      <div className="sticky top-0 z-[110] bg-slate-200/80 backdrop-blur-sm p-4 flex justify-end gap-2 max-w-[1000px] mx-auto w-full">
-        <button 
-          onClick={handleComplete}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg font-black text-sm shadow-lg hover:bg-blue-700 transition-all"
-        >
-          작성완료
-        </button>
-        <button 
-          onClick={() => setShowRecipientManager(true)}
-          className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
-        >
-          수신처관리
-        </button>
-        <button 
-          onClick={handlePrint}
-          className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
-        >
-          PDF 저장 / 인쇄
-        </button>
+      <div className="sticky top-0 z-[110] bg-slate-200/80 backdrop-blur-sm p-4 flex justify-end items-center max-w-[1000px] mx-auto w-full">
+        <div className="flex gap-2">
+          <button 
+            onClick={handleComplete}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-black text-sm shadow-lg hover:bg-blue-700 transition-all"
+          >
+            작성완료
+          </button>
+          <button 
+            onClick={() => setShowRecipientManager(true)}
+            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
+          >
+            수신처관리
+          </button>
+          <button 
+            onClick={handlePrint}
+            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
+          >
+            PDF 저장 / 인쇄
+          </button>
+        </div>
       </div>
 
       {/* PO Form Style Header */}
@@ -817,22 +857,42 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
               {/* Items Table */}
               {/* Table Toolbar */}
-              {selectedCell && (
-                <div className="flex gap-2 mb-2">
+              <div className="flex justify-between items-center mb-2">
+                <div className="flex gap-2">
                   <button 
-                    onClick={addRowBelow}
-                    className="px-3 py-1 bg-sky-500 text-white text-[10px] font-bold rounded hover:bg-sky-600 transition-colors"
+                    onClick={undo}
+                    disabled={historyIndex <= 0}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold transition-all"
+                    title="되돌리기 (Undo)"
                   >
-                    선택행 아래 행 추가
+                    <Undo2 size={14} /> 되돌리기
                   </button>
                   <button 
-                    onClick={deleteRow}
-                    className="px-3 py-1 bg-rose-500 text-white text-[10px] font-bold rounded hover:bg-rose-600 transition-colors"
+                    onClick={redo}
+                    disabled={historyIndex >= history.length - 1}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold transition-all"
+                    title="다시실행 (Redo)"
                   >
-                    선택행 삭제
+                    <Redo2 size={14} /> 다시실행
                   </button>
                 </div>
-              )}
+                {selectedCell && (
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={addRowBelow}
+                      className="px-3 py-1.5 bg-sky-500 text-white text-[11px] font-bold rounded hover:bg-sky-600 transition-colors shadow-sm"
+                    >
+                      선택행 아래 행 추가
+                    </button>
+                    <button 
+                      onClick={deleteRow}
+                      className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded hover:bg-rose-600 transition-colors shadow-sm"
+                    >
+                      선택행 삭제
+                    </button>
+                  </div>
+                )}
+              </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-[11px] border-collapse border-black border-[1px]">
