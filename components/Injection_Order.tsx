@@ -231,7 +231,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       }
 
       // Update Supabase
-      await saveSingleDoc('Injection_Order', updatedItem);
+      const tableName = activeItem.id?.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await saveSingleDoc(tableName, updatedItem);
       
       // JANDI Notification
       let nextRecipient = '';
@@ -272,7 +273,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
       // Update Supabase
-      await saveSingleDoc('Injection_Order', updatedItem);
+      const tableName = activeItem.id?.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await saveSingleDoc(tableName, updatedItem);
       
       alert('최종 확인되었습니다. 사출 결재완료 목록으로 이동합니다.');
       setActiveItem(null);
@@ -301,7 +303,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
       // Update Supabase
-      await saveSingleDoc('Injection_Order', updatedItem);
+      const tableName = activeItem.id?.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await saveSingleDoc(tableName, updatedItem);
       
       alert('AJ사출발주 목록으로 이동되었습니다.');
       setActiveItem(null);
@@ -330,7 +333,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
       // Update Supabase
-      await saveSingleDoc('Injection_Order', updatedItem);
+      const tableName = activeItem.id?.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await saveSingleDoc(tableName, updatedItem);
       
       alert('사출 수신함 목록으로 이동되었습니다.');
       setActiveItem(null);
@@ -362,7 +366,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
-      await saveSingleDoc('Injection_Order', updatedItem);
+      const tableName = activeItem.id?.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await saveSingleDoc(tableName, updatedItem);
       
       alert('반송되었습니다.');
       setActiveItem(null);
@@ -389,8 +394,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.filter((item: any) => item.id !== id);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
       
-      await deleteSingleDoc('Injection_Order', id);
-      await deleteSingleDoc('Injection_Take', id);
+      const tableName = id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await deleteSingleDoc(tableName, id);
+      
       setItems(prev => prev.filter(item => item.id !== id));
       alert('삭제되었습니다.');
     } catch (err) {
@@ -1369,7 +1375,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 
                 <div className="flex items-center gap-2 mt-auto pt-4 border-t border-slate-50">
                   {(item.id?.startsWith('inj-') ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => (
-                    <div key={slot} className={`w-14 h-14 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} title={slot} />
+                    <div key={slot} className={`w-5 h-5 rounded-full border-2 border-white shadow-sm ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} title={slot} />
                   ))}
                 </div>
 
