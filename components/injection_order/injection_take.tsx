@@ -54,28 +54,25 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   const [vat, setVat] = useState(0);
   const [grandTotal, setGrandTotal] = useState(0);
 
+  const [extraTotalAmount, setExtraTotalAmount] = useState(0);
+  const [extraVat, setExtraVat] = useState(0);
+  const [extraGrandTotal, setExtraGrandTotal] = useState(0);
+
   useEffect(() => {
     const loadData = () => {
       setLoading(true);
       try {
-        // Load PO1 (Original source)
-        const savedPo1 = localStorage.getItem('ajin_purchase_orders');
-        let allSourceItems: any[] = [];
-        if (savedPo1) {
-          const parsed: PurchaseOrderItem[] = JSON.parse(savedPo1);
-          const po1s = parsed.filter(item => 
-            item.stamps?.final && 
-            (item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서')
-          );
-          allSourceItems = [...po1s];
-        }
-
-        // Load AJ Injection Orders (New requested source from Supabase/Local)
+        // Load AJ Injection Orders (Source from Supabase/Local)
         const savedInjections = localStorage.getItem('ajin_injection_orders');
+        let allSourceItems: any[] = [];
         if (savedInjections) {
           const parsed = JSON.parse(savedInjections);
-          const ajInjections = parsed.filter((item: any) => item.status === InjectionOrderSubCategory.DESTINATION);
-          allSourceItems = [...allSourceItems, ...ajInjections];
+          // Only load approved or destination items as source
+          const ajInjections = parsed.filter((item: any) => 
+            item.status === InjectionOrderSubCategory.DESTINATION || 
+            item.status === InjectionOrderSubCategory.APPROVED
+          );
+          allSourceItems = [...ajInjections];
         }
         
         setPo1Items(allSourceItems);
@@ -147,7 +144,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     let sourceHeaderRows: string[] = [];
 
     matchingDocs.forEach(doc => {
-      const info = (doc as any).headerInfoRows || (doc.headerRows ? doc.headerRows.slice(2, 5).map((h: any) => [h]) : []);
+      const info = (doc as any).headerInfoRows || [];
       if (info.length > 0) {
         sourceHeaderRows = info.map((row: any[]) => row.join(' '));
       }
@@ -157,7 +154,16 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         if (rowVendor.includes(vendorNormalized)) {
           const newRowId = `load-${Date.now()}-${Math.random()}`;
           const currentRowIdx = finalRows.length;
-          finalRows.push({ ...row, id: newRowId });
+          
+          // Ensure all fields are explicitly mapped to avoid missing data
+          finalRows.push({ 
+            ...row, 
+            id: newRowId,
+            extra: row.extra || '',
+            extraAmount: row.extraAmount || '',
+            remarks: row.remarks || '',
+            remarksRSP: row.remarksRSP || ''
+          });
 
           if (doc.merges) {
             Object.entries(doc.merges).forEach(([key, m]) => {
@@ -194,13 +200,20 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
     // Calculate Totals
     let sum = 0;
+    let extraSum = 0;
     finalRows.forEach(row => {
       const p = parseFloat(String(row.price || '0').replace(/,/g, ''));
       if (!isNaN(p)) sum += p;
+      const e = parseFloat(String(row.extraAmount || '0').replace(/,/g, ''));
+      if (!isNaN(e)) extraSum += e;
     });
     setTotalAmount(sum);
     setVat(Math.floor(sum * 0.1));
     setGrandTotal(sum + Math.floor(sum * 0.1));
+
+    setExtraTotalAmount(extraSum);
+    setExtraVat(Math.floor(extraSum * 0.1));
+    setExtraGrandTotal(extraSum + Math.floor(extraSum * 0.1));
     
     alert('데이터를 성공적으로 불러왔습니다.');
   };
@@ -351,48 +364,68 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
             <div class="mb-2 font-bold text-xl border-b-2 border-black pb-1">기 종 : ${searchTerm}</div>
 
-            <table class="w-full text-[9px]">
-              <thead>
-                <tr class="bg-gray-50">
-                  <th class="w-[8%]">MOLD</th>
-                  <th class="w-[6%]">DN</th>
-                  <th class="w-[3%]">S</th>
-                  <th class="w-[15%]">PART NAME</th>
-                  <th class="w-[4%]">CTY</th>
-                  <th class="w-[4%]">QTY</th>
-                  <th class="w-[10%]">MATERIAL</th>
-                  <th class="w-[7%]">사출업체</th>
-                  <th class="w-[7%]">주문수량</th>
-                  <th class="w-[7%]">단가</th>
-                  <th class="w-[7%]">금액</th>
-                  <th class="w-[5%]">추가</th>
-                  <th class="w-[7%]">추가금액</th>
-                  <th class="w-[5%]">비고</th>
-                  <th class="w-[5%]">R.S/P</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${loadedRows.map(row => `
-                  <tr>
-                    <td>${row.model || ''}</td>
-                    <td>${row.dept || ''}</td>
-                    <td class="text-center">${row.s || ''}</td>
-                    <td>${row.itemName || ''}</td>
-                    <td class="text-center">${row.cty || ''}</td>
-                    <td class="text-center">${row.qty || ''}</td>
-                    <td>${row.material || ''}</td>
-                    <td class="text-center">${row.injectionVendor || ''}</td>
-                    <td class="text-center">${row.orderQty || ''}</td>
-                    <td class="text-right">${row.unitPrice || ''}</td>
-                    <td class="text-right">${row.price || ''}</td>
-                    <td class="text-center">${row.extra || ''}</td>
-                    <td class="text-right">${row.extraAmount || ''}</td>
-                    <td>${row.remarks || ''}</td>
-                    <td class="text-center">${row.remarksRSP || ''}</td>
-                  </tr>
-                `).join('')}
-              </tbody>
-            </table>
+                <table class="w-full text-[9px]">
+                  <thead>
+                    <tr class="bg-gray-50">
+                      <th class="w-[55px]">MOLD</th>
+                      <th class="w-[40px]">DN</th>
+                      <th class="w-[15px]">S</th>
+                      <th class="w-[120px]">PART NAME</th>
+                      <th class="w-[25px]">CTY</th>
+                      <th class="w-[25px]">QTY</th>
+                      <th class="w-[60px]">MATERIAL</th>
+                      <th class="w-[35px]">사출업체</th>
+                      <th class="w-[40px]">주문수량</th>
+                      <th class="w-[50px]">단가</th>
+                      <th class="w-[65px]">금액</th>
+                      <th class="w-[25px]">추가</th>
+                      <th class="w-[65px]">추가금액</th>
+                      <th class="w-[45px]">비고 R.S/P</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${loadedRows.map(row => `
+                      <tr>
+                        <td>${row.model || ''}</td>
+                        <td>${row.dept || ''}</td>
+                        <td class="text-center">${row.s || ''}</td>
+                        <td>${row.itemName || ''}</td>
+                        <td class="text-center">${row.cty || ''}</td>
+                        <td class="text-center">${row.qty || ''}</td>
+                        <td>${row.material || ''}</td>
+                        <td class="text-center">${row.injectionVendor || ''}</td>
+                        <td class="text-center">${row.orderQty || ''}</td>
+                        <td class="text-right">${row.unitPrice || ''}</td>
+                        <td class="text-right">${row.price || ''}</td>
+                        <td class="text-center">${row.extra || ''}</td>
+                        <td class="text-right">${row.extraAmount || ''}</td>
+                        <td class="italic">${row.remarksRSP || ''}</td>
+                      </tr>
+                    `).join('')}
+                    <!-- Summary Rows -->
+                    <tr class="border-t-2 border-black">
+                      <td colspan="10" class="text-right font-bold px-2">합계 (Subtotal)</td>
+                      <td class="text-right font-bold">${totalAmount.toLocaleString()}</td>
+                      <td></td>
+                      <td class="text-right font-bold">${extraTotalAmount.toLocaleString()}</td>
+                      <td></td>
+                    </tr>
+                    <tr>
+                      <td colspan="10" class="text-right font-bold px-2">부가세 (VAT 10%)</td>
+                      <td class="text-right font-bold">${vat.toLocaleString()}</td>
+                      <td></td>
+                      <td class="text-right font-bold">${extraVat.toLocaleString()}</td>
+                      <td></td>
+                    </tr>
+                    <tr class="bg-gray-50 border-b-2 border-black">
+                      <td colspan="10" class="text-right font-black px-2">총액 (Grand Total)</td>
+                      <td class="text-right font-black">${grandTotal.toLocaleString()}</td>
+                      <td></td>
+                      <td class="text-right font-black">${extraGrandTotal.toLocaleString()}</td>
+                      <td></td>
+                    </tr>
+                  </tbody>
+                </table>
 
             ${footerText ? `
               <div class="mt-4 p-2 border border-black min-h-[100px] text-[10px] whitespace-pre-wrap">
@@ -737,16 +770,25 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     ))}
                     {/* Summary Rows */}
                     <tr className="bg-slate-50 font-bold">
-                      <td colSpan={14} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
+                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
                       <td className="border border-black p-2 text-right text-sm">{totalAmount.toLocaleString()}</td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2 text-right text-sm">{extraTotalAmount.toLocaleString()}</td>
+                      <td colSpan={2} className="border border-black p-2"></td>
                     </tr>
                     <tr className="bg-slate-50 font-bold">
-                      <td colSpan={14} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
+                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
                       <td className="border border-black p-2 text-right text-sm">{vat.toLocaleString()}</td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2 text-right text-sm">{extraVat.toLocaleString()}</td>
+                      <td colSpan={2} className="border border-black p-2"></td>
                     </tr>
                     <tr className="bg-blue-50 font-black text-blue-700">
-                      <td colSpan={14} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
+                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
                       <td className="border border-black p-2 text-right text-base">{grandTotal.toLocaleString()}</td>
+                      <td className="border border-black p-2"></td>
+                      <td className="border border-black p-2 text-right text-base">{extraGrandTotal.toLocaleString()}</td>
+                      <td colSpan={2} className="border border-black p-2"></td>
                     </tr>
                   </tbody>
                 </table>
