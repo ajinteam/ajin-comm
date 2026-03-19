@@ -221,7 +221,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         id: `inj-${Date.now()}`,
         title: vendorSearch.trim(),
         item: searchTerm.trim(),
-        type: 'INJECTION',
+        type: 'INJECTION_PARTHER',
         status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
         date: now.toISOString().split('T')[0],
@@ -354,17 +354,21 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             <table class="w-full text-[9px]">
               <thead>
                 <tr class="bg-gray-50">
-                  <th class="w-[10%]">MOLD</th>
-                  <th class="w-[8%]">DN</th>
-                  <th class="w-[4%]">S</th>
-                  <th class="w-[20%]">PART NAME</th>
-                  <th class="w-[5%]">CTY</th>
-                  <th class="w-[5%]">QTY</th>
-                  <th class="w-[12%]">MATERIAL</th>
-                  <th class="w-[8%]">사출업체</th>
-                  <th class="w-[8%]">주문수량</th>
-                  <th class="w-[10%]">단가</th>
-                  <th class="w-[10%]">금액</th>
+                  <th class="w-[8%]">MOLD</th>
+                  <th class="w-[6%]">DN</th>
+                  <th class="w-[3%]">S</th>
+                  <th class="w-[15%]">PART NAME</th>
+                  <th class="w-[4%]">CTY</th>
+                  <th class="w-[4%]">QTY</th>
+                  <th class="w-[10%]">MATERIAL</th>
+                  <th class="w-[7%]">사출업체</th>
+                  <th class="w-[7%]">주문수량</th>
+                  <th class="w-[7%]">단가</th>
+                  <th class="w-[7%]">금액</th>
+                  <th class="w-[5%]">추가</th>
+                  <th class="w-[7%]">추가금액</th>
+                  <th class="w-[5%]">비고</th>
+                  <th class="w-[5%]">R.S/P</th>
                 </tr>
               </thead>
               <tbody>
@@ -381,6 +385,10 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     <td class="text-center">${row.orderQty || ''}</td>
                     <td class="text-right">${row.unitPrice || ''}</td>
                     <td class="text-right">${row.price || ''}</td>
+                    <td class="text-center">${row.extra || ''}</td>
+                    <td class="text-right">${row.extraAmount || ''}</td>
+                    <td>${row.remarks || ''}</td>
+                    <td class="text-center">${row.remarksRSP || ''}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -690,17 +698,21 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 <table className="w-full text-[11px] border-collapse border-black border-[1px]">
                   <thead>
                     <tr className="bg-slate-100">
-                      <th className="border border-black p-1 w-[10%]">MOLD</th>
-                      <th className="border border-black p-1 w-[8%]">DN</th>
-                      <th className="border border-black p-1 w-[4%]">S</th>
-                      <th className="border border-black p-1 w-[20%]">PART NAME</th>
-                      <th className="border border-black p-1 w-[5%]">CTY</th>
-                      <th className="border border-black p-1 w-[5%]">QTY</th>
-                      <th className="border border-black p-1 w-[12%]">MATERIAL</th>
-                      <th className="border border-black p-1 w-[8%]">사출업체</th>
-                      <th className="border border-black p-1 w-[8%]">주문수량</th>
-                      <th className="border border-black p-1 w-[10%]">단가</th>
-                      <th className="border border-black p-1 w-[10%]">금액</th>
+                      <th className="border border-black p-1 w-[8%]">MOLD</th>
+                      <th className="border border-black p-1 w-[6%]">DN</th>
+                      <th className="border border-black p-1 w-[3%]">S</th>
+                      <th className="border border-black p-1 w-[15%]">PART NAME</th>
+                      <th className="border border-black p-1 w-[4%]">CTY</th>
+                      <th className="border border-black p-1 w-[4%]">QTY</th>
+                      <th className="border border-black p-1 w-[10%]">MATERIAL</th>
+                      <th className="border border-black p-1 w-[7%]">사출업체</th>
+                      <th className="border border-black p-1 w-[7%]">주문수량</th>
+                      <th className="border border-black p-1 w-[7%]">단가</th>
+                      <th className="border border-black p-1 w-[7%]">금액</th>
+                      <th className="border border-black p-1 w-[5%]">추가</th>
+                      <th className="border border-black p-1 w-[7%]">추가금액</th>
+                      <th className="border border-black p-1 w-[5%]">비고</th>
+                      <th className="border border-black p-1 w-[5%]">R.S/P</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -717,19 +729,23 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                         <td className="border border-black p-1 text-center">{row.orderQty || ''}</td>
                         <td className="border border-black p-1 text-right">{row.unitPrice || ''}</td>
                         <td className="border border-black p-1 text-right">{row.price || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.extra || ''}</td>
+                        <td className="border border-black p-1 text-right">{row.extraAmount || ''}</td>
+                        <td className="border border-black p-1">{row.remarks || ''}</td>
+                        <td className="border border-black p-1 text-center">{row.remarksRSP || ''}</td>
                       </tr>
                     ))}
                     {/* Summary Rows */}
                     <tr className="bg-slate-50 font-bold">
-                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
+                      <td colSpan={14} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
                       <td className="border border-black p-2 text-right text-sm">{totalAmount.toLocaleString()}</td>
                     </tr>
                     <tr className="bg-slate-50 font-bold">
-                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
+                      <td colSpan={14} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">부가세 (VAT 10%)</td>
                       <td className="border border-black p-2 text-right text-sm">{vat.toLocaleString()}</td>
                     </tr>
                     <tr className="bg-blue-50 font-black text-blue-700">
-                      <td colSpan={10} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
+                      <td colSpan={14} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">총액 (Grand Total)</td>
                       <td className="border border-black p-2 text-right text-base">{grandTotal.toLocaleString()}</td>
                     </tr>
                   </tbody>

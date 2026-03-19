@@ -1280,14 +1280,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const archivedVendors = useMemo(() => {
     const vendorsSet = new Set<string>();
     archivedItems.forEach(item => {
-      if (item.recipient) {
+      if (item.recipient && item.recipient !== 'AJ사출발주서') {
         vendorsSet.add(item.recipient);
       }
     });
     const result = Array.from(vendorsSet).sort();
-    if (sub === PurchaseOrderSubCategory.ARCHIVE && !vendorsSet.has('AJ사출발주서')) {
-      result.unshift('AJ사출발주서');
-    }
     return result;
   }, [archivedItems, sub]);
   const getPOTheme = (type: string) => { switch(type) { case PurchaseOrderSubCategory.PO1: case PurchaseOrderSubCategory.PO1_TEMP: return 'amber'; case PurchaseOrderSubCategory.PO2: case PurchaseOrderSubCategory.PO2_TEMP: return 'blue'; case PurchaseOrderSubCategory.PO3: case PurchaseOrderSubCategory.PO3_TEMP: return 'emerald'; default: return 'slate'; } };
@@ -2241,16 +2238,13 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     return (
       <div className="space-y-8 py-12 animate-in fade-in zoom-in duration-500">
         <div className="text-center max-w-2xl mx-auto"><h2 className="text-3xl md:text-4xl font-black text-black mb-3 tracking-tight">수신처별 보관함</h2><p className="text-slate-500 font-medium text-lg px-4">보관된 발주서가 있는 수신처 목록입니다.</p></div>
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 max-w-6xl mx-auto px-4 mt-12">{archivedVendors.length === 0 ? (<div className="col-span-full py-20 text-center text-slate-400 font-bold italic">보관된 내역이 없습니다.</div>) : (archivedVendors.map(vendor => (<button key={vendor} onClick={() => setSelectedArchiveVendor(vendor)} className="group bg-white p-6 rounded-3xl border-2 border-slate-100 hover:border-amber-500 hover:shadow-xl transition-all flex flex-col items-center gap-3 relative"><div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all text-amber-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 012-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg></div><span className="font-black text-black text-sm truncate w-full text-center">{vendor}</span><span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{vendor === 'AJ사출발주서' ? archivedItems.filter(i => i.type === PurchaseOrderSubCategory.PO1 || i.type === '사출발주서').length : archivedItems.filter(i => i.recipient === vendor).length} Documents</span></button>)))}</div>
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6 max-w-6xl mx-auto px-4 mt-12">{archivedVendors.length === 0 ? (<div className="col-span-full py-20 text-center text-slate-400 font-bold italic">보관된 내역이 없습니다.</div>) : (archivedVendors.map(vendor => (<button key={vendor} onClick={() => setSelectedArchiveVendor(vendor)} className="group bg-white p-6 rounded-3xl border-2 border-slate-100 hover:border-amber-500 hover:shadow-xl transition-all flex flex-col items-center gap-3 relative"><div className="w-16 h-16 bg-amber-50 rounded-2xl flex items-center justify-center group-hover:bg-amber-500 group-hover:text-white transition-all text-amber-600"><svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 012-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg></div><span className="font-black text-black text-sm truncate w-full text-center">{vendor}</span><span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{archivedItems.filter(i => i.recipient === vendor).length} Documents</span></button>)))}</div>
       </div>
     );
   }
 
   const filtered = isArchiveView 
     ? archivedItems.filter(item => {
-        if (selectedArchiveVendor === 'AJ사출발주서') {
-          return item.type === PurchaseOrderSubCategory.PO1 || item.type === '사출발주서';
-        }
         return item.recipient === selectedArchiveVendor;
       })
     : items.filter(item => (item.status as any) === sub && !item.stamps.final);
