@@ -469,7 +469,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 15mm 10mm 35mm 10mm; }
+              @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
               body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; padding-bottom: 30mm; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
@@ -485,29 +485,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               
               /* Page numbering footer */
               .footer {
+                position: fixed;
+                bottom: 0mm;
+                left: 0;
+                right: 0;
                 text-align: center;
                 font-size: 9px;
-                padding: 10px 0;
-                margin-top: 20px;
+                padding: 5px 0;
                 border-top: 1px solid #eee;
               }
-              .print-footer-remarks {
-                position: fixed;
-                bottom: 10mm;
-                left: 10mm;
-                right: 10mm;
-                border: 1px solid black;
-                padding: 8px;
-                font-size: 10px;
-                background: white;
-                min-height: 80px;
-              }
-              .print-footer-remarks .title {
-                font-weight: bold;
-                border-bottom: 1px solid black;
-                margin-bottom: 4px;
-                padding-bottom: 2px;
-              }
+              
               .document-wrapper { width: 100% }
               @media print {
                 .footer { display: block; }
@@ -589,7 +576,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <title>Injection_Order_${item.item || item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 15mm 10mm 35mm 10mm; }
+                        @page { size: A4 portrait; margin: 20mm 10mm 20mm 10mm; }
                         body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; padding-bottom: 30mm; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
@@ -605,29 +592,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         
                         /* Page numbering footer */
                         .footer {
+                          position: fixed;
+                          bottom: 0mm;
+                          left: 0;
+                          right: 0;
                           text-align: center;
                           font-size: 9px;
-                          padding: 10px 0;
-                          margin-top: 20px;
+                          padding: 5px 0;
                           border-top: 1px solid #eee;
                         }
-                        .print-footer-remarks {
-                          position: fixed;
-                          bottom: 10mm;
-                          left: 10mm;
-                          right: 10mm;
-                          border: 1px solid black;
-                          padding: 8px;
-                          font-size: 10px;
-                          background: white;
-                          min-height: 80px;
-                        }
-                        .print-footer-remarks .title {
-                          font-weight: bold;
-                          border-bottom: 1px solid black;
-                          margin-bottom: 4px;
-                          padding-bottom: 2px;
-                        }
+                        
                         .document-wrapper { width: 100% }
                         @media print {
                           .footer { display: block; }
