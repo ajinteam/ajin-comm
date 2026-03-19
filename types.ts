@@ -294,7 +294,8 @@ export enum InjectionOrderSubCategory {
   PENDING = '사출 결재대기',
   REJECTED = '사출 반송',
   APPROVED = '사출 결재완료',
-  DESTINATION = 'AJ사출발주'
+  DESTINATION = 'AJ사출발주',
+  INBOX = '사출 수신함'
 }
 
 export interface NationalInvoiceRow {

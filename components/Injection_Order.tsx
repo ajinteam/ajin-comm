@@ -23,6 +23,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const [showInjectionTake, setShowInjectionTake] = useState(false);
+  const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   
   // Load items from local storage
   useEffect(() => {
@@ -37,6 +38,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   useEffect(() => {
     setCurrentPage(1);
     setActiveItem(null);
+    setSelectedRoom(null);
   }, [sub, searchTerm]);
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
@@ -225,7 +227,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
       } else {
         alert('승인되었습니다.');
-        setActiveItem(null);
+        setActiveItem(updatedItem);
       }
 
       // Update Supabase
@@ -307,6 +309,35 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       pushStateToCloud();
     } catch (err) {
       console.error('Error moving to destination:', err);
+      alert('이동 처리 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleMoveToInbox = async () => {
+    if (!activeItem) return;
+    if (!window.confirm('사출 수신함 목록으로 이동하시겠습니까?')) return;
+
+    try {
+      const now = new Date();
+      const updatedItem = {
+        ...activeItem,
+        status: InjectionOrderSubCategory.INBOX,
+      };
+
+      // Update Local Storage
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      // Update Supabase
+      await saveSingleDoc('Injection_Order', updatedItem);
+      
+      alert('사출 수신함 목록으로 이동되었습니다.');
+      setActiveItem(null);
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.INBOX });
+      pushStateToCloud();
+    } catch (err) {
+      console.error('Error moving to inbox:', err);
       alert('이동 처리 중 오류가 발생했습니다.');
     }
   };
@@ -512,10 +543,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           
           <div className="flex gap-2">
             {sub === InjectionOrderSubCategory.PENDING && (
-              <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20">반송</button>
+              <>
+                {stamps.director && (
+                  <button onClick={handleFinalConfirm} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20 animate-pulse">최종 확인 (결재완료 이동)</button>
+                )}
+                <button onClick={handleReject} className="px-4 py-2 bg-rose-500 text-white rounded-lg hover:bg-rose-600 font-bold text-sm shadow-lg shadow-rose-500/20">반송</button>
+              </>
             )}
             {sub === InjectionOrderSubCategory.APPROVED && (
-              <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20">완료 (AJ사출발주 이동)</button>
+              <>
+                <button onClick={handleMoveToInbox} className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-black text-sm shadow-lg shadow-orange-500/20">확인 (사출 수신함 이동)</button>
+                <button onClick={handleMoveToDestination} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-black text-sm shadow-lg shadow-blue-500/20 ml-2">AJ사출발주 이동</button>
+              </>
+            )}
+            {sub === InjectionOrderSubCategory.DESTINATION && (
+              <button onClick={handleMoveToInbox} className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-black text-sm shadow-lg shadow-orange-500/20">수신 (사출 수신함 이동)</button>
             )}
             <button onClick={() => {
               const selector = item.id?.startsWith('po-') ? '.injection-order-print-detail-order' : '.injection-order-print-detail-hidden';
@@ -1147,12 +1189,79 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
   const renderList = () => {
     const filteredItems = items
-      .filter(item => 
-        (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.item || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.authorId || '').toLowerCase().includes(searchTerm.toLowerCase())
-      )
+      .filter(item => {
+        const matchesSearch = (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.item || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.authorId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (item.recipient || '').toLowerCase().includes(searchTerm.toLowerCase());
+        
+        if (sub === InjectionOrderSubCategory.INBOX && selectedRoom) {
+          return matchesSearch && (item.recipient || 'Unknown') === selectedRoom;
+        }
+        return matchesSearch;
+      })
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+
+    if (sub === InjectionOrderSubCategory.INBOX && !selectedRoom) {
+      const rooms = Array.from(new Set(filteredItems.map(item => item.recipient || 'Unknown')));
+      return (
+        <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-slate-50">
+          <div className="flex items-center justify-between mb-8">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight">사출 수신함 (Rooms)</h2>
+              <p className="text-slate-500 font-bold mt-1">수신처별로 분류된 발주서 보관함입니다.</p>
+            </div>
+            <div className="relative w-80">
+              <input 
+                type="text"
+                placeholder="수신처 검색..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-4 pr-10 py-2.5 bg-white border border-slate-200 rounded-full text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-sm"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {rooms.map(room => {
+              const roomItems = filteredItems.filter(item => (item.recipient || 'Unknown') === room);
+              return (
+                <div 
+                  key={room} 
+                  onClick={() => setSelectedRoom(room)}
+                  className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 w-full h-2 bg-orange-500" />
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="p-4 bg-orange-50 text-orange-600 rounded-2xl group-hover:scale-110 transition-transform">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                      </svg>
+                    </div>
+                    <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-xs font-black">{roomItems.length} ITEMS</span>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 mb-2 group-hover:text-orange-600 transition-colors">{room}</h3>
+                  <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">수신처 방</p>
+                  
+                  <div className="mt-6 flex -space-x-2 overflow-hidden">
+                    {roomItems.slice(0, 4).map((item, i) => (
+                      <div key={i} className="inline-block h-8 w-8 rounded-full ring-2 ring-white bg-slate-200 flex items-center justify-center text-[10px] font-bold text-slate-500">
+                        {item.authorId?.charAt(0)}
+                      </div>
+                    ))}
+                    {roomItems.length > 4 && (
+                      <div className="flex items-center justify-center h-8 w-8 rounded-full ring-2 ring-white bg-slate-100 text-[10px] font-bold text-slate-400">
+                        +{roomItems.length - 4}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      );
+    }
 
     const itemsPerPage = 10;
     const totalPages = Math.ceil(filteredItems.length / itemsPerPage);
@@ -1162,7 +1271,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       <div className="flex-1 overflow-y-auto p-8 space-y-6 custom-scrollbar bg-white">
         {/* Header Section */}
         <div className="space-y-6">
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">{sub}</h2>
+          <div className="flex items-center gap-4">
+            {sub === InjectionOrderSubCategory.INBOX && selectedRoom && (
+              <button 
+                onClick={() => setSelectedRoom(null)}
+                className="p-2 bg-slate-100 text-slate-600 rounded-full hover:bg-slate-200 transition-all"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+                </svg>
+              </button>
+            )}
+            <h2 className="text-3xl font-black text-slate-900 tracking-tight">
+              {sub === InjectionOrderSubCategory.INBOX && selectedRoom ? `${selectedRoom} 수신함` : sub}
+            </h2>
+          </div>
           
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
@@ -1219,7 +1342,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 
                     item.id?.startsWith('inj-') ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                   }`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -1301,7 +1424,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {(item.id?.startsWith('inj-') ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => (
-                          <div key={slot} className={`w-4.5 h-4.5 rounded-full ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} />
+                          <div key={slot} className={`w-4 h-4 rounded-full ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} />
                         ))}
                       </div>
                     </td>
