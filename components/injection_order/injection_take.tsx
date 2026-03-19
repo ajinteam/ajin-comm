@@ -491,35 +491,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           <title>사출발주서_${title}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
-            @page { size: A4 portrait; margin: 15mm 10mm 35mm 10mm; }
-            body { font-family: 'Gulim', sans-serif; margin: 0; padding: 0; padding-bottom: 30mm; }
+            @page { size: A4 portrait; margin: 10mm; }
+            body { font-family: 'Gulim', sans-serif; }
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid black; padding: 4px; font-size: 10px; }
             .no-border { border: none !important; }
-            .footer {
-              text-align: center;
-              font-size: 9px;
-              padding: 10px 0;
-              margin-top: 20px;
-              border-top: 1px solid #eee;
-            }
-            .print-footer-remarks {
-              position: fixed;
-              bottom: 10mm;
-              left: 10mm;
-              right: 10mm;
-              border: 1px solid black;
-              padding: 8px;
-              font-size: 10px;
-              background: white;
-              min-height: 80px;
-            }
-            .print-footer-remarks .title {
-              font-weight: bold;
-              border-bottom: 1px solid black;
-              margin-bottom: 4px;
-              padding-bottom: 2px;
-            }
           </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -654,14 +630,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                 </table>
 
             ${footerText ? `
-              <div class="print-footer-remarks">
-                <div class="title">비고:</div>
+              <div class="mt-4 p-2 border border-black min-h-[100px] text-[10px] whitespace-pre-wrap">
+                <div class="font-bold border-b border-black mb-1 pb-1">비고:</div>
                 ${footerText}
               </div>
             ` : ''}
-            <div class="footer">
-              사출발주서_${title} - Page <span class="pageNumber"></span>
-            </div>
           </div>
         </body>
       </html>
@@ -769,7 +742,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           </button>
           <button 
             onClick={handleTemporarySave}
-            className="px-4 py-2 bg-pink border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
+            className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all"
           >
             사출임시
           </button>
