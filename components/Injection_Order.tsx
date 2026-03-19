@@ -229,8 +229,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       }
 
       // Update Supabase
-      const tableName = activeItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(tableName, updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       // JANDI Notification
       let nextRecipient = '';
@@ -271,8 +270,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
       // Update Supabase
-      const tableName = activeItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(tableName, updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       alert('최종 확인되었습니다. 사출 결재완료 목록으로 이동합니다.');
       setActiveItem(null);
@@ -301,8 +299,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
       // Update Supabase
-      const tableName = activeItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await saveSingleDoc(tableName, updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       alert('AJ사출발주 목록으로 이동되었습니다.');
       setActiveItem(null);
@@ -334,7 +331,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
 
-      await saveSingleDoc(activeItem.id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order', updatedItem);
+      await saveSingleDoc('Injection_Order', updatedItem);
       
       alert('반송되었습니다.');
       setActiveItem(null);
@@ -361,13 +358,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       const updatedItems = allItems.filter((item: any) => item.id !== id);
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
       
-      const tableName = id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await deleteSingleDoc(tableName, id);
-      // For Take Style documents, also try to delete from Injection_Order in case of duplicates
-      if (id.startsWith('inj-')) {
-        await deleteSingleDoc('Injection_Order', id);
-      }
-
+      await deleteSingleDoc('Injection_Order', id);
+      await deleteSingleDoc('Injection_Take', id);
       setItems(prev => prev.filter(item => item.id !== id));
       alert('삭제되었습니다.');
     } catch (err) {
@@ -458,7 +450,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 bottom: 0mm;
                 left: 0;
                 right: 0;
-                height: 5mm;
+                height: 2mm;
                 text-align: center;
                 font-size: 8px;
                 padding: 5px 0;
@@ -548,7 +540,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                           bottom: 0mm;
                           left: 0;
                           right: 0;
-                          height: 5mm;
+                          height: 2mm;
                           text-align: center;
                           font-size: 8px;
                           padding: 5px 0;
@@ -671,6 +663,38 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </tr>
                   </tbody>
                 </table>
+              </div>
+
+              {/* Recipient / Sender Info */}
+              <div className="grid grid-cols-2 gap-x-12 mb-6 text-sm leading-tight text-black">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                    <span className="font-bold whitespace-nowrap">수 신 :</span>
+                    <span className="font-black text-lg">{item.recipient || ''} 귀중</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                    <span className="font-bold whitespace-nowrap">참 조 :</span>
+                    <span className="font-medium">{item.reference || ''}</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-b border-black pb-1">
+                    <span className="font-bold whitespace-nowrap">TEL / FAX :</span>
+                    <span className="font-medium">{item.telFax || ''}</span>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex gap-4 border-b border-black pb-1">
+                    <span className="w-16 font-bold">발 신 :</span>
+                    <span className="font-black">{item.senderName || '주식회사 아진정공'}</span>
+                  </div>
+                  <div className="flex gap-4 border-b border-black pb-1">
+                    <span className="w-16 font-bold">담 당 :</span>
+                    <span className="font-medium">{item.senderPerson || ''}</span>
+                  </div>
+                  <div className="flex gap-4 items-center border-b border-black pb-1">
+                    <span className="w-16 font-bold">작성일자 :</span>
+                    <span className="font-medium">{item.date || ''}</span>
+                  </div>
+                </div>
               </div>
 
               {/* Model Line */}
@@ -828,10 +852,42 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   </div>
                 </div>
 
+                {/* Recipient / Sender Info */}
+                <div className="w-full grid grid-cols-2 gap-x-10 mb-2 text-[12px] leading-tight">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 border-b border-black pb-0.5">
+                      <span className="font-bold">수 신 :</span>
+                      <span className="font-black">{item.recipient} 귀중</span>
+                    </div>
+                    <div className="flex items-center gap-2 border-b border-black pb-0.5">
+                      <span className="font-bold">참 조 :</span>
+                      <span>{item.reference}</span>
+                    </div>
+                    <div className="flex items-center gap-2 border-b border-black pb-0.5">
+                      <span className="font-bold">TEL/FAX :</span>
+                      <span>{item.telFax}</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex gap-2 border-b border-black pb-0.5">
+                      <span className="w-10 font-bold">발 신 :</span>
+                      <span className="font-black">{item.senderName || '아진정공'}</span>
+                    </div>
+                    <div className="flex gap-2 border-b border-black pb-0.5">
+                      <span className="w-10 font-bold">담 당 :</span>
+                      <span>{item.senderPerson}</span>
+                    </div>
+                    <div className="flex gap-2 items-center border-b border-black pb-0.5">
+                      <span className="w-10 font-bold">작성일자 :</span>
+                      <span>{item.date}</span>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Model Line */}
                 <div className="w-full flex items-center border-b-2 border-black pb-1 mb-4">
                   <span className="font-black text-lg mr-4 uppercase">기 종 :</span>
-                  <span className="text-lg font-black text-blue-600">{item.title}</span>
+                  <span className="text-lg font-black text-blue-600">{item.titl}</span>
                 </div>
 
                 {/* Excel Rows 3-5 Info */}

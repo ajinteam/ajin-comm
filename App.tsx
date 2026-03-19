@@ -84,8 +84,13 @@ const App: React.FC = () => {
     };
 
     window.addEventListener('focus', handleSync);
+    
+    // Background Sync every 10 seconds
+    const interval = setInterval(handleSync, 10000);
+
     return () => {
       window.removeEventListener('focus', handleSync);
+      clearInterval(interval);
     };
   }, [currentUser]);
 

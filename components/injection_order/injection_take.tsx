@@ -219,7 +219,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       
       const newPO: any = {
         id: `inj-${Date.now()}`,
-        title: searchTerm.trim(),
+        title: `${searchTerm} ${vendorSearch}`.trim(),
         type: 'INJECTION',
         status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
@@ -277,7 +277,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const win = window.open('', '_blank');
     if (!win) return;
 
-    const title = searchTerm.trim();
+    const title = `${searchTerm} ${vendorSearch}`.trim();
 
     win.document.write(`
       <html>
@@ -315,6 +315,37 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                   <td></td>
                 </tr>
               </table>
+            </div>
+
+            <div class="grid grid-cols-2 gap-8 mb-4 text-sm">
+              <div class="space-y-1">
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">수 신 :</span>
+                  <span>${vendorSearch} 귀중</span>
+                </div>
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">참 조 :</span>
+                  <span>${po2Reference}</span>
+                </div>
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">TEL/FAX :</span>
+                  <span>${po2TelFax}</span>
+                </div>
+              </div>
+              <div class="space-y-1">
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">발 신 :</span>
+                  <span>${po2SenderName}</span>
+                </div>
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">담 당 :</span>
+                  <span>${po2SenderPerson}</span>
+                </div>
+                <div class="flex border-b border-black">
+                  <span class="font-bold w-20">작성일자 :</span>
+                  <span>${po2Date}</span>
+                </div>
+              </div>
             </div>
 
             <div class="mb-2 font-bold text-xl border-b-2 border-black pb-1">기 종 : ${searchTerm}</div>
