@@ -853,12 +853,12 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           {/* Loaded Data Display (Excel 3-5 rows and Items) */}
           {loadedRows.length > 0 && (
             <div className="mt-6 border-t-2 border-black pt-4">
-              {/* Excel 3-5 rows */}
+              {/* Excel Rows 3-5 Content */}
               {loadedHeaders.length > 0 && (
-                <div className="mb-4 space-y-1 bg-slate-50 p-3 border border-slate-200 rounded">
-                  <p className="text-xs font-bold text-slate-400 mb-1 uppercase tracking-tighter">[Excel Rows 3-5 Content]</p>
+                <div className="mb-4 p-4 bg-slate-100/50 border border-slate-200 rounded text-slate-700 whitespace-pre-wrap leading-relaxed">
+                  <div className="text-[10px] font-bold text-slate-400 mb-2 uppercase">[EXCEL ROWS 3-5 CONTENT]</div>
                   {loadedHeaders.map((h, i) => (
-                    <div key={i} className="text-sm font-medium border-b border-slate-100 pb-1 last:border-0">
+                    <div key={i} className="text-[12px] font-medium">
                       {Array.isArray(h) ? h.join(' ') : h}
                     </div>
                   ))}
@@ -867,41 +867,37 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
               {/* Items Table */}
               {/* Table Toolbar */}
-              <div className="flex justify-between items-center mb-2">
-                <div className="flex gap-2">
-                  <button 
-                    onClick={undo}
-                    disabled={historyIndex <= 0}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold transition-all"
-                    title="되돌리기 (Undo)"
-                  >
-                    <Undo2 size={14} /> 되돌리기
-                  </button>
-                  <button 
-                    onClick={redo}
-                    disabled={historyIndex >= history.length - 1}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white border border-slate-300 text-slate-700 rounded shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold transition-all"
-                    title="다시실행 (Redo)"
-                  >
-                    <Redo2 size={14} /> 다시실행
-                  </button>
-                </div>
-                {selectedCell && (
-                  <div className="flex gap-2">
-                    <button 
-                      onClick={addRowBelow}
-                      className="px-3 py-1.5 bg-sky-500 text-white text-[11px] font-bold rounded hover:bg-sky-600 transition-colors shadow-sm"
-                    >
-                      선택행 아래 행 추가
-                    </button>
-                    <button 
-                      onClick={deleteRow}
-                      className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded hover:bg-rose-600 transition-colors shadow-sm"
-                    >
-                      선택행 삭제
-                    </button>
-                  </div>
-                )}
+              <div className="flex gap-2 mb-2">
+                <button 
+                  onClick={addRowBelow}
+                  disabled={!selectedCell}
+                  className="px-3 py-1.5 bg-sky-500 text-white text-[11px] font-bold rounded hover:bg-sky-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  선택행 아래 행 추가
+                </button>
+                <button 
+                  onClick={deleteRow}
+                  disabled={!selectedCell}
+                  className="px-3 py-1.5 bg-rose-500 text-white text-[11px] font-bold rounded hover:bg-rose-600 transition-colors shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  선택행 삭제
+                </button>
+                <button 
+                  onClick={undo}
+                  disabled={historyIndex <= 0}
+                  className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 rounded shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold transition-all"
+                  title="되돌리기 (Undo)"
+                >
+                  UNDO
+                </button>
+                <button 
+                  onClick={redo}
+                  disabled={historyIndex >= history.length - 1}
+                  className="px-4 py-1.5 bg-white border border-slate-300 text-slate-700 rounded shadow-sm hover:bg-slate-50 disabled:opacity-30 disabled:cursor-not-allowed text-[11px] font-bold transition-all"
+                  title="다시실행 (Redo)"
+                >
+                  REDO
+                </button>
               </div>
 
               <div className="overflow-x-auto">
