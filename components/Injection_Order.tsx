@@ -1488,6 +1488,19 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   };
 
   if (sub !== InjectionOrderSubCategory.CREATE) {
+    if (activeItem && sub === InjectionOrderSubCategory.TEMPORARY) {
+      return (
+        <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
+          <InjectionTake 
+            currentUser={currentUser} 
+            setView={setView} 
+            dataVersion={dataVersion} 
+            initialData={activeItem}
+            onClose={() => setActiveItem(null)}
+          />
+        </div>
+      );
+    }
     return (
       <div className="h-full flex flex-col overflow-hidden bg-slate-50 rounded-xl border border-slate-200 shadow-sm">
         {activeItem ? renderDetail(activeItem) : renderList()}

@@ -16,12 +16,12 @@ interface InjectionTakeProps {
   currentUser: UserAccount;
   setView: (v: ViewState) => void;
   dataVersion: number;
+  initialData?: any;
+  onClose?: () => void;
 }
 
-const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dataVersion }) => {
+const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dataVersion, initialData, onClose }) => {
   const [po1Items, setPo1Items] = useState<PurchaseOrderItem[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [vendorSearch, setVendorSearch] = useState('');
   const [loading, setLoading] = useState(true);
   
   // Suggestions
@@ -35,22 +35,25 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
   const [selectedRecipientId, setSelectedRecipientId] = useState('direct');
 
-  // Form fields for display
-  const [po2Reference, setPo2Reference] = useState('');
-  const [po2TelFax, setPo2TelFax] = useState('');
-  const [po2SenderName, setPo2SenderName] = useState('아진정공');
-  const [po2SenderPerson, setPo2SenderPerson] = useState('김미숙 010-9252-1565');
-  const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'));
-
   // Loaded Data
-  const [loadedRows, setLoadedRows] = useState<any[]>([]);
-  const [history, setHistory] = useState<any[][]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [loadedMerges, setLoadedMerges] = useState<any>({});
-  const [loadedAligns, setLoadedAligns] = useState<any>({});
-  const [loadedWeights, setLoadedWeights] = useState<any>({});
-  const [loadedHeaders, setLoadedHeaders] = useState<string[]>([]);
-  const [footerText, setFooterText] = useState('');
+  const [loadedRows, setLoadedRows] = useState<any[]>(initialData?.rows || []);
+  const [history, setHistory] = useState<any[][]>(initialData?.rows ? [JSON.parse(JSON.stringify(initialData.rows))] : []);
+  const [historyIndex, setHistoryIndex] = useState(initialData?.rows ? 0 : -1);
+  const [loadedMerges, setLoadedMerges] = useState<any>(initialData?.merges || {});
+  const [loadedAligns, setLoadedAligns] = useState<any>(initialData?.aligns || {});
+  const [loadedWeights, setLoadedWeights] = useState<any>(initialData?.weights || {});
+  const [loadedHeaders, setLoadedHeaders] = useState<string[]>(initialData?.headerInfoRows?.map((h: any[]) => h.join(' ')) || []);
+  const [footerText, setFooterText] = useState(initialData?.footerText?.join('\n') || '');
+
+  // Form fields for display
+  const [po2Reference, setPo2Reference] = useState(initialData?.reference || '');
+  const [po2TelFax, setPo2TelFax] = useState(initialData?.telFax || '');
+  const [po2SenderName, setPo2SenderName] = useState(initialData?.senderName || '아진정공');
+  const [po2SenderPerson, setPo2SenderPerson] = useState(initialData?.senderPerson || '김미숙 010-9252-1565');
+  const [po2Date, setPo2Date] = useState(initialData?.date || new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'));
+
+  const [searchTerm, setSearchTerm] = useState(initialData?.item || '');
+  const [vendorSearch, setVendorSearch] = useState(initialData?.recipient || '');
 
   // Totals
   const [totalAmount, setTotalAmount] = useState(0);
@@ -347,14 +350,15 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       const timestamp = now.toLocaleString();
       
       const newPO: any = {
-        id: `inj-${Date.now()}`,
+        ...initialData,
+        id: initialData?.id || `inj-${Date.now()}`,
         title: vendorSearch.trim(),
         item: searchTerm.trim(),
         type: 'INJECTION_PARTHER',
         status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
         date: now.toISOString().split('T')[0],
-        createdAt: now.toISOString(),
+        createdAt: initialData?.createdAt || now.toISOString(),
         rows: loadedRows,
         merges: loadedMerges,
         aligns: loadedAligns,
@@ -367,12 +371,19 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         senderPerson: po2SenderPerson,
         footerText: footerText.split('\n').filter(line => line.trim() !== ''),
         stamps: {
+          ...(initialData?.stamps || {}),
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
       };
 
       const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
-      localStorage.setItem('ajin_injection_orders', JSON.stringify([newPO, ...existingInjections]));
+      let updatedInjections;
+      if (initialData?.id) {
+        updatedInjections = existingInjections.map((item: any) => item.id === initialData.id ? newPO : item);
+      } else {
+        updatedInjections = [newPO, ...existingInjections];
+      }
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedInjections));
 
       // Auto-save recipient if new
       const existingRecipient = recipients.find(r => r.name === vendorSearch);
@@ -391,6 +402,9 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${newPO.title}`, 'H-CHUN', now.toISOString().split('T')[0]);
 
       alert('작성완료 되었습니다. 사출 결재대기 목록으로 이동합니다.');
+      if (onClose) {
+        onClose();
+      }
       setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.PENDING });
     } catch (err) {
       console.error('Error completing injection order:', err);
@@ -411,14 +425,15 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       const timestamp = now.toLocaleString();
       
       const newPO: any = {
-        id: `inj-temp-${Date.now()}`,
+        ...initialData,
+        id: initialData?.id || `inj-temp-${Date.now()}`,
         title: vendorSearch.trim(),
         item: searchTerm.trim(),
         type: 'INJECTION_PARTHER',
         status: InjectionOrderSubCategory.TEMPORARY,
         authorId: currentUser.initials,
         date: now.toISOString().split('T')[0],
-        createdAt: now.toISOString(),
+        createdAt: initialData?.createdAt || now.toISOString(),
         rows: loadedRows,
         merges: loadedMerges,
         aligns: loadedAligns,
@@ -431,17 +446,27 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         senderPerson: po2SenderPerson,
         footerText: footerText.split('\n').filter(line => line.trim() !== ''),
         stamps: {
+          ...(initialData?.stamps || {}),
           writer: { userId: currentUser.initials, timestamp: timestamp }
         }
       };
 
       const existingInjections = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
-      localStorage.setItem('ajin_injection_orders', JSON.stringify([newPO, ...existingInjections]));
+      let updatedInjections;
+      if (initialData?.id) {
+        updatedInjections = existingInjections.map((item: any) => item.id === initialData.id ? newPO : item);
+      } else {
+        updatedInjections = [newPO, ...existingInjections];
+      }
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedInjections));
 
       await saveSingleDoc('Injection_Take', newPO);
       pushStateToCloud();
       
       alert('사출임시 목록으로 저장되었습니다.');
+      if (onClose) {
+        onClose();
+      }
       setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.TEMPORARY });
     } catch (err) {
       console.error('Error saving temporary injection order:', err);
@@ -688,7 +713,20 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   return (
     <div className="flex flex-col h-full bg-slate-200 overflow-y-auto custom-scrollbar relative">
       {/* Top Action Buttons */}
-      <div className="sticky top-0 z-[110] bg-slate-200/80 backdrop-blur-sm p-4 flex justify-end items-center max-w-[1000px] mx-auto w-full">
+      <div className="sticky top-0 z-[110] bg-slate-200/80 backdrop-blur-sm p-4 flex justify-between items-center max-w-[1000px] mx-auto w-full">
+        <div className="flex items-center">
+          {onClose && (
+            <button 
+              onClick={onClose}
+              className="px-4 py-2 bg-white border border-slate-300 text-slate-700 rounded-lg font-black text-sm shadow-sm hover:bg-slate-50 transition-all flex items-center gap-1"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              뒤로가기
+            </button>
+          )}
+        </div>
         <div className="flex gap-2">
           <button 
             onClick={handleComplete}
