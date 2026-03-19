@@ -219,7 +219,8 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       
       const newPO: any = {
         id: `inj-${Date.now()}`,
-        title: `${searchTerm} ${vendorSearch}`.trim(),
+        title: vendorSearch.trim(),
+        item: searchTerm.trim(),
         type: 'INJECTION',
         status: InjectionOrderSubCategory.PENDING,
         authorId: currentUser.initials,
@@ -277,7 +278,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const win = window.open('', '_blank');
     if (!win) return;
 
-    const title = `${searchTerm} ${vendorSearch}`.trim();
+    const title = `${searchTerm}`.trim();
 
     win.document.write(`
       <html>

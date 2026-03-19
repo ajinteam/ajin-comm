@@ -526,7 +526,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 win.document.write(`
                   <html>
                     <head>
-                      <title>Injection_Order_${item.title || 'Document'}</title>
+                      <title>Injection_Order_${item.item || item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
                         @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
@@ -572,7 +572,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <body onload="window.print(); window.close();">
                       <div class="document-wrapper">${content}</div>
                       <div class="footer">
-                        ${item.title} 
+                        ${item.item || item.title} 
                       </div>
                     </body>
                   </html>
@@ -597,7 +597,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 
                 <div className="w-full flex justify-between items-start mb-8">
                   <div className="text-sm font-bold text-black">
-                    <p>파일명: {item.title}</p>
+                    <p>파일명: {item.item || item.title}</p>
                     <p>작성일: {item.date || new Date().toLocaleDateString()}</p>
                   </div>
                   
@@ -717,7 +717,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               {/* Model Line */}
               <div className="flex items-center border-b-2 border-black pb-2 mb-6">
                 <span className="font-black text-2xl mr-4 uppercase text-black">기 종 :</span>
-                <span className="text-2xl font-black text-blue-600">{item.title || ''}</span>
+                <span className="text-2xl font-black text-blue-600">{item.item || item.title || ''}</span>
               </div>
             </div>
           )}
@@ -904,7 +904,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 {/* Model Line */}
                 <div className="w-full flex items-center border-b-2 border-black pb-1 mb-4">
                   <span className="font-black text-lg mr-4 uppercase">기 종 :</span>
-                  <span className="text-lg font-black text-blue-600">{item.titl}</span>
+                  <span className="text-lg font-black text-blue-600">{item.item || item.title}</span>
                 </div>
 
                 {/* Excel Rows 3-5 Info */}
@@ -1015,7 +1015,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 
                 <div className="w-full flex justify-between items-start mb-8">
                   <div className="text-lg font-bold">
-                    <p>파일명: {item.title}</p>
+                    <p>파일명: {item.item || item.title}</p>
                     <p>작성일: {new Date().toLocaleDateString()}</p>
                   </div>
                   
@@ -1149,6 +1149,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     const filteredItems = items
       .filter(item => 
         (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (item.item || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (item.authorId || '').toLowerCase().includes(searchTerm.toLowerCase())
       )
       .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
@@ -1218,7 +1219,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     item.status === InjectionOrderSubCategory.REJECTED ? 'bg-rose-50 text-rose-600' : 
                     item.id?.startsWith('inj-') ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                   }`}>
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A1 1 0 0111.293 2.707l3 3a1 1 0 01.293.707V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clipRule="evenodd" />
                     </svg>
                   </div>
@@ -1233,7 +1234,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     </span>
                   </div>
                 </div>
-                <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">{item.title}</h3>
+                <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">{item.item || item.title}</h3>
                 <p className="text-xs text-slate-500 font-bold mb-4">작성자: {item.authorId}</p>
                 
                 {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
@@ -1288,7 +1289,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <div className="flex flex-col">
                         <div className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full ${item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500'}`} />
-                          <span className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.title}</span>
+                          <span className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.item || item.title}</span>
                         </div>
                         {item.status === InjectionOrderSubCategory.REJECTED && item.rejectReason && (
                           <span className="text-[10px] text-rose-500 font-bold mt-1">반송: {item.rejectReason}</span>
@@ -1300,7 +1301,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2">
                         {(item.id?.startsWith('inj-') ? ['writer', 'design', 'director'] : ['writer', 'design', 'director', 'ceo']).map(slot => (
-                          <div key={slot} className={`w-6 h-6 rounded-full ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} />
+                          <div key={slot} className={`w-4.5 h-4.5 rounded-full ${item.stamps?.[slot] ? (item.id?.startsWith('inj-') ? 'bg-amber-500' : 'bg-blue-500') : 'bg-slate-100'}`} />
                         ))}
                       </div>
                     </td>
