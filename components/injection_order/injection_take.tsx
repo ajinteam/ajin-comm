@@ -37,7 +37,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   // Form fields for display
   const [po2Reference, setPo2Reference] = useState('');
   const [po2TelFax, setPo2TelFax] = useState('');
-  const [po2SenderName, setPo2SenderName] = useState('주식회사 아진정공');
+  const [po2SenderName, setPo2SenderName] = useState('아진정공');
   const [po2SenderPerson, setPo2SenderPerson] = useState('김미숙 010-9252-1565');
   const [po2Date, setPo2Date] = useState(new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' }).replace(/년 |월 /g, '. ').replace('일', '.'));
 

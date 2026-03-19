@@ -474,8 +474,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-              th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
-              td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
+              th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
+              td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 600; }
               .document-wrapper { padding: 0; box-sizing: border-box; }
               .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
               .border-t-bold { border-top: 1.5px solid black !important; }
@@ -583,8 +583,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
                         table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 900; background-color: #f8fafc !important; }
-                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 8px; font-weight: 600; }
+                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
+                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 600; }
                         .document-wrapper { padding: 0; box-sizing: border-box; }
                         .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
                         .border-t-bold { border-top: 1.5px solid black !important; }
@@ -693,7 +693,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
               {/* Title & Approval */}
               <div className="flex justify-between items-end mb-6 border-b border-black pb-4">
-                <div className="text-4xl font-black tracking-[2rem] uppercase leading-none ml-10 text-black">발 주 서</div>
+                <div className="text-4xl font-black tracking-[2rem] uppercase leading-none ml-10 text-black">사출 발주서</div>
                 <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
                   <tbody>
                     <tr>
@@ -750,7 +750,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <div className="space-y-2">
                   <div className="flex gap-4 border-b border-black pb-1">
                     <span className="w-16 font-bold">발 신 :</span>
-                    <span className="font-black">{item.senderName || '주식회사 아진정공'}</span>
+                    <span className="font-black">{item.senderName || '아진정공'}</span>
                   </div>
                   <div className="flex gap-4 border-b border-black pb-1">
                     <span className="w-16 font-bold">담 당 :</span>
@@ -891,12 +891,12 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 {/* Company Info */}
                 <div className="w-full flex flex-col items-center mb-1 border-b-2 border-black pb-1">
                   <h1 className="text-2xl font-black tracking-[0.3rem] mb-1 uppercase">주 식 회 사 아 진 정 공</h1>
-                  <p className="text-[8px] font-bold text-slate-500">서울시 금천구 디지털로9길 99, 스타밸리 806호 / ☎ (02) 894-2611 FAX (02) 802-9941</p>
+                  <p className="text-[9px] font-bold text-slate-500">서울시 금천구 디지털로9길 99, 스타밸리 806호 / ☎ (02) 894-2611 FAX (02) 802-9941</p>
                 </div>
 
                 {/* Title & Approval */}
                 <div className="w-full flex justify-between items-end mb-2 border-b border-black pb-1">
-                  <div className="text-3xl font-black tracking-[1.5rem] uppercase leading-none ml-10">발 주 서</div>
+                  <div className="text-3xl font-black tracking-[1.5rem] uppercase leading-none ml-10">사출 발주서</div>
                   <div className="flex border border-black divide-x divide-black">
                     {['writer', 'design', 'director'].map((slot, idx) => {
                       const label = slot === 'writer' ? '담당' : slot === 'design' ? '설계' : '이사';
@@ -972,21 +972,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <table className="w-full border-collapse border border-black">
                   <thead>
                     <tr className="bg-slate-50 text-black">
-                      <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
-                      <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
-                      <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
-                      <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
-                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
-                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
-                      <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
-                      <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
-                      <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
-                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
-                      <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
-                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
-                      <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                      <th className="w-[55px] border border-black px-1 py-1 text-[9px] font-black">MOLD</th>
+                      <th className="w-[40px] border border-black px-1 py-1 text-[9px] font-black">DN</th>
+                      <th className="w-[15px] border border-black px-0 py-1 text-[9px] font-black">S</th>
+                      <th className="w-[120px] border border-black px-1 py-1 text-[9px] font-black">PART NAME</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">CTY</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">QTY</th>
+                      <th className="w-[60px] border border-black px-1 py-1 text-[9px] font-black">MATERIAL</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">금형<br/>업체</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">사출<br/>업체</th>
+                      <th className="w-[40px] border border-black px-0 py-1 text-[9px] font-black leading-tight">주문<br/>수량</th>
+                      <th className="w-[50px] border border-black px-1 py-1 text-[9px] font-black">단가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">금액</th>
+                      <th className="w-[25px] border border-black px-1 py-1 text-[9px] font-black">추가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">추가금액</th>
+                      <th className="w-[45px] border border-black px-1 py-1 text-[9px] font-black">비고 R.S/P</th>
                     </tr>
                   </thead>
                   <tbody className="text-black">
@@ -1002,43 +1002,43 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                       return (
                         <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
-                          <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
-                          <td className="px-1 py-1 text-[8px]">{row.dept}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
-                          <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
-                          <td className="px-1 py-1 text-[8px]">{row.material}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
-                          <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
-                          <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
-                          <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
-                          <td className="px-1 py-1 text-[8px] italic text-slate-500">{row.remarksRSP}</td>
+                          <td className="px-1 py-1 text-[9px] font-bold">{row.model}</td>
+                          <td className="px-1 py-1 text-[9px]">{row.dept}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.s}</td>
+                          <td className="px-1 py-1 text-[9px] font-medium">{row.itemName}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.cty}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-1 text-[9px]">{row.material}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.vendor}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-1 text-[9px] text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-1 text-[9px] font-bold text-right">{formatNum(row.price)}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-1 text-[9px] text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-1 text-[9px] italic text-slate-500">{row.remarksRSP}</td>
                         </tr>
                       );
                     })}
                     <tr className="border-t-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="border-t-thin border-b-thin">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{pVat.toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{pVat.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{eVat.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{eVat.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="bg-slate-50 border-b-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                   </tbody>
@@ -1046,7 +1046,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                 {/* Footer Text for Print */}
                 {footer.length > 0 && (
-                  <div className="w-full mt-4 text-[8px] space-y-1">
+                  <div className="w-full mt-4 text-[9px] space-y-1">
                     {footer.map((line: string, idx: number) => (
                       <p key={idx} className="font-medium">{line}</p>
                     ))}
@@ -1105,21 +1105,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <table className="w-full border-collapse border border-black">
                   <thead>
                     <tr className="bg-slate-50 text-black">
-                      <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
-                      <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
-                      <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
-                      <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
-                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
-                      <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
-                      <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
-                      <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
-                      <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
-                      <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
-                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
-                      <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
-                      <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
-                      <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                      <th className="w-[55px] border border-black px-1 py-1 text-[9px] font-black">MOLD</th>
+                      <th className="w-[40px] border border-black px-1 py-1 text-[9px] font-black">DN</th>
+                      <th className="w-[15px] border border-black px-0 py-1 text-[9px] font-black">S</th>
+                      <th className="w-[120px] border border-black px-1 py-1 text-[9px] font-black">PART NAME</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">CTY</th>
+                      <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">QTY</th>
+                      <th className="w-[60px] border border-black px-1 py-1 text-[9px] font-black">MATERIAL</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">금형<br/>업체</th>
+                      <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">사출<br/>업체</th>
+                      <th className="w-[40px] border border-black px-0 py-1 text-[9px] font-black leading-tight">주문<br/>수량</th>
+                      <th className="w-[50px] border border-black px-1 py-1 text-[9px] font-black">단가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">금액</th>
+                      <th className="w-[25px] border border-black px-1 py-1 text-[9px] font-black">추가</th>
+                      <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">추가금액</th>
+                      <th className="w-[45px] border border-black px-1 py-1 text-[9px] font-black">비고 R.S/P</th>
                     </tr>
                   </thead>
                   <tbody className="text-black">
@@ -1135,44 +1135,44 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                       return (
                         <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
-                          <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
-                          <td className="px-1 py-1 text-[8px]">{row.dept}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
-                          <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
-                          <td className="px-1 py-1 text-[8px]">{row.material}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
-                          <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
-                          <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
-                          <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
-                          <td className="px-1 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
-                          <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
-                          <td className="px-1 py-1 text-[8px] italic">{row.remarksRSP}</td>
+                          <td className="px-1 py-1 text-[9px] font-bold">{row.model}</td>
+                          <td className="px-1 py-1 text-[9px]">{row.dept}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.s}</td>
+                          <td className="px-1 py-1 text-[9px] font-medium">{row.itemName}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.cty}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.qty)}</td>
+                          <td className="px-1 py-1 text-[9px]">{row.material}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.vendor}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{row.injectionVendor}</td>
+                          <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.orderQty)}</td>
+                          <td className="px-1 py-1 text-[9px] text-right whitespace-normal break-all">{unitPriceStr}</td>
+                          <td className="px-1 py-1 text-[9px] font-bold text-right">{formatNum(row.price)}</td>
+                          <td className="px-1 py-1 text-[9px] text-center">{formatNum(row.extra)}</td>
+                          <td className="px-1 py-1 text-[9px] text-right">{formatNum(row.extraAmount)}</td>
+                          <td className="px-1 py-1 text-[9px] italic">{row.remarksRSP}</td>
                         </tr>
                       );
                     })}
                     {/* Summary Rows for Print */}
                     <tr className="border-t-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="border-t-thin border-b-thin">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{pVat.toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{pVat.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{eVat.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{eVat.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="bg-slate-50 border-b-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                   </tbody>
@@ -1180,7 +1180,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                 {/* Footer Text for Print */}
                 {footer.length > 0 && (
-                  <div className="w-full mt-4 text-[8px] space-y-1">
+                  <div className="w-full mt-4 text-[9px] space-y-1">
                     {footer.map((line: string, idx: number) => (
                       <p key={idx} className="font-medium">{line}</p>
                     ))}
@@ -1367,7 +1367,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 <h3 className="text-base font-black text-slate-900 mb-1 truncate leading-tight">
                   {item.item || item.title}
                   {item.id?.startsWith('inj-') && (item.recipient || item.title) && (
-                    <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[10px] font-black align-middle">
+                    <span className="ml-2 px-2 py-0.5 bg-amber-100 text-amber-700 rounded text-[13px] font-black align-middle">
                       {item.recipient || item.title}
                     </span>
                   )}
@@ -1769,21 +1769,21 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                   <table className="w-full border-collapse border border-black">
                     <thead>
                       <tr className="bg-slate-50 text-black">
-                        <th className="w-[55px] border border-black px-1 py-1 text-[8px] font-black">MOLD</th>
-                        <th className="w-[40px] border border-black px-1 py-1 text-[8px] font-black">DN</th>
-                        <th className="w-[15px] border border-black px-0 py-1 text-[8px] font-black">S</th>
-                        <th className="w-[120px] border border-black px-1 py-1 text-[8px] font-black">PART NAME</th>
-                        <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">CTY</th>
-                        <th className="w-[25px] border border-black px-0 py-1 text-[8px] font-black">QTY</th>
-                        <th className="w-[60px] border border-black px-1 py-1 text-[8px] font-black">MATERIAL</th>
-                        <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">금형<br/>업체</th>
-                        <th className="w-[35px] border border-black px-0 py-1 text-[8px] font-black leading-tight">사출<br/>업체</th>
-                        <th className="w-[40px] border border-black px-0 py-1 text-[8px] font-black leading-tight">주문<br/>수량</th>
-                        <th className="w-[50px] border border-black px-1 py-1 text-[8px] font-black">단가</th>
-                        <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">금액</th>
-                        <th className="w-[25px] border border-black px-1 py-1 text-[8px] font-black">추가</th>
-                        <th className="w-[65px] border border-black px-1 py-1 text-[8px] font-black">추가금액</th>
-                        <th className="w-[45px] border border-black px-1 py-1 text-[8px] font-black">비고 R.S/P</th>
+                        <th className="w-[55px] border border-black px-1 py-1 text-[9px] font-black">MOLD</th>
+                        <th className="w-[40px] border border-black px-1 py-1 text-[9px] font-black">DN</th>
+                        <th className="w-[15px] border border-black px-0 py-1 text-[9px] font-black">S</th>
+                        <th className="w-[120px] border border-black px-1 py-1 text-[9px] font-black">PART NAME</th>
+                        <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">CTY</th>
+                        <th className="w-[25px] border border-black px-0 py-1 text-[9px] font-black">QTY</th>
+                        <th className="w-[60px] border border-black px-1 py-1 text-[9px] font-black">MATERIAL</th>
+                        <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">금형<br/>업체</th>
+                        <th className="w-[35px] border border-black px-0 py-1 text-[9px] font-black leading-tight">사출<br/>업체</th>
+                        <th className="w-[40px] border border-black px-0 py-1 text-[9px] font-black leading-tight">주문<br/>수량</th>
+                        <th className="w-[50px] border border-black px-1 py-1 text-[9px] font-black">단가</th>
+                        <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">금액</th>
+                        <th className="w-[25px] border border-black px-1 py-1 text-[9px] font-black">추가</th>
+                        <th className="w-[65px] border border-black px-1 py-1 text-[9px] font-black">추가금액</th>
+                        <th className="w-[45px] border border-black px-1 py-1 text-[9px] font-black">비고 R.S/P</th>
                       </tr>
                     </thead>
                     <tbody className="text-black">
@@ -1799,44 +1799,44 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                         return (
                           <tr key={idx} className={`${borderTopClass} ${borderBottomClass}`}>
-                            <td className="px-1 py-1 text-[8px] font-bold">{row.model}</td>
-                            <td className="px-1 py-1 text-[8px]">{row.dept}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{row.s}</td>
-                            <td className="px-1 py-1 text-[8px] font-medium">{row.itemName}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{row.cty}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.qty)}</td>
-                            <td className="px-1 py-1 text-[8px]">{row.material}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{row.vendor}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{row.injectionVendor}</td>
-                            <td className="px-0 py-1 text-[8px] text-center">{formatNum(row.orderQty)}</td>
-                            <td className="px-1 py-1 text-[8px] text-right whitespace-normal break-all">{unitPriceStr}</td>
-                            <td className="px-1 py-1 text-[8px] font-bold text-right">{formatNum(row.price)}</td>
-                            <td className="px-1 py-1 text-[8px] text-center">{formatNum(row.extra)}</td>
-                            <td className="px-1 py-1 text-[8px] text-right">{formatNum(row.extraAmount)}</td>
-                            <td className="px-1 py-1 text-[8px] italic">{row.remarksRSP}</td>
+                            <td className="px-1 py-1 text-[9px] font-bold">{row.model}</td>
+                            <td className="px-1 py-1 text-[9px]">{row.dept}</td>
+                            <td className="px-0 py-1 text-[9px] text-center">{row.s}</td>
+                            <td className="px-1 py-1 text-[9px] font-medium">{row.itemName}</td>
+                            <td className="px-0 py-1 text-[9px] text-center">{row.cty}</td>
+                            <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.qty)}</td>
+                            <td className="px-1 py-1 text-[9px]">{row.material}</td>
+                            <td className="px-0 py-1 text-[9px] text-center">{row.vendor}</td>
+                            <td className="px-0 py-1 text-[9px] text-center">{row.injectionVendor}</td>
+                            <td className="px-0 py-1 text-[9px] text-center">{formatNum(row.orderQty)}</td>
+                            <td className="px-1 py-1 text-[9px] text-right whitespace-normal break-all">{unitPriceStr}</td>
+                            <td className="px-1 py-1 text-[9px] font-bold text-right">{formatNum(row.price)}</td>
+                            <td className="px-1 py-1 text-[9px] text-center">{formatNum(row.extra)}</td>
+                            <td className="px-1 py-1 text-[9px] text-right">{formatNum(row.extraAmount)}</td>
+                            <td className="px-1 py-1 text-[9px] italic">{row.remarksRSP}</td>
                           </tr>
                         );
                       })}
                       {/* Summary Rows for Print */}
                       <tr className="border-t-bold">
-                        <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">합계 (Subtotal)</td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.price.subtotal.toLocaleString()}</td>
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
+                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.price.subtotal.toLocaleString()}</td>
                         <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.extra.subtotal.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.extra.subtotal.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                       <tr className="border-t-thin border-b-thin">
-                        <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-bold">부가세 (VAT 10%)</td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.price.vat.toLocaleString()}</td>
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
+                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.price.vat.toLocaleString()}</td>
                         <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-bold text-right">{totals.extra.vat.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.extra.vat.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                       <tr className="bg-slate-50 border-b-bold">
-                        <td colSpan={11} className="border border-black px-2 py-1 text-[8px] text-right font-black">총액 (Grand Total)</td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{totals.price.total.toLocaleString()}</td>
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
+                        <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{totals.price.total.toLocaleString()}</td>
                         <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[8px] font-black text-right">{totals.extra.total.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{totals.extra.total.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                     </tbody>
@@ -1844,7 +1844,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
                   {/* Footer Text for Print */}
                   {footerText.length > 0 && (
-                    <div className="w-full mt-4 text-[8px] space-y-1">
+                    <div className="w-full mt-4 text-[9px] space-y-1">
                       {footerText.map((line, idx) => (
                         <p key={idx} className="font-medium">{line}</p>
                       ))}
