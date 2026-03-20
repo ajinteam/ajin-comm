@@ -30,27 +30,31 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
 
   const isVisible = (menuName: string) => {
     if (isMaster) return true;
-    if (user.allowedMenus?.includes(menuName)) return true;
+    if (!user.allowedMenus) return false; // 권한 정보가 없으면 기본적으로 숨김
+    
+    // 1. 직접적으로 메뉴명이 등록되어 있는 경우
+    if (user.allowedMenus.includes(menuName)) return true;
 
-    // Check if it's a sub-category and its parent is allowed
     const orderSubs = Object.values(OrderSubCategory) as string[];
     const invoiceSubs = Object.values(InvoiceSubCategory) as string[];
     const purchaseSubs = Object.values(PurchaseOrderSubCategory) as string[];
     const vietnamSubs = Object.values(VietnamSubCategory) as string[];
     const nationalSubs = Object.values(NationalInvoiceSubCategory) as string[];
     const injectionSubs = Object.values(InjectionOrderSubCategory) as string[];
-    const inboxValue = InjectionOrderSubCategory.INBOX as string;
 
-    if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
-    if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
-    if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
-    if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
-    if (menuName === inboxValue) return true; // Explicitly allow INBOX if it's not covered
-    if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
-    if (nationalSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.NATIONAL_INVOICE)) return true;
+    // 2. 상위 카테고리 권한이 있을 때 하위 메뉴를 허용하는 로직
+    if (orderSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.ORDER)) return true;
+    if (invoiceSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.INVOICE)) return true;
+    if (purchaseSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.PURCHASE)) return true;
+    if (vietnamSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.VIETNAM)) return true;
+    if (nationalSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.NATIONAL_INVOICE)) return true;
     
-    // Special case for STORAGE sub-menus if any (like '파일 업로드')
-    if (menuName === PurchaseOrderSubCategory.UPLOAD && user.allowedMenus?.includes(MainCategory.STORAGE)) return true;
+    // 3. 사출발주서(INJECTION) 관련 수정 (강제 true 삭제)
+    if (injectionSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
+
+    // 4. STORAGE(파일관리) 관련
+    if (menuName === 'STORAGE' && user.allowedMenus.includes(MainCategory.STORAGE)) return true;
+    if (menuName === PurchaseOrderSubCategory.UPLOAD && user.allowedMenus.includes(MainCategory.STORAGE)) return true;
 
     return false;
   };
