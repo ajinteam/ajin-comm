@@ -1687,22 +1687,23 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                     onPaste={(e: any) => handlePaste(e, rIdx, cell.cIdx)}
                                     onClick={(e: React.MouseEvent) => {
                                       // Request: Alt + Click to open file storage link
-                                      if (e.altKey && cell.f === 'itemName') {
+                                      if (e.altKey && (cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model')) {
                                         e.preventDefault();
                                         setTargetRowIdForFile(row.id);
                                         setIsFileSelectorOpen(true);
                                       }
                                     }}
                                     style={{ textAlign, fontWeight: textWeight }} 
-                                    className={`${isChanged ? 'text-red-600' : ''} ${cell.f === 'itemName' ? 'pr-6' : ''}`} 
+                                    className={`${isChanged ? 'text-red-600' : ''} ${(cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model') ? 'pr-10' : ''}`} 
                                   />
-                                  {cell.f === 'itemName' && row.fileUrl && (
+                                  {(cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model') && row.fileUrl && (
                                     <button 
                                       onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
-                                      className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print" 
+                                      className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print flex items-center gap-0.5" 
                                       title="도면 미리보기"
                                     >
                                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                      <span className="text-[8px] font-black leading-none">PDF</span>
                                     </button>
                                   )}
                                 </div>
@@ -2059,15 +2060,28 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                 ) : cell.f === 'extraAmount' ? (
                                   (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0).toLocaleString()
                                 ) : (
-                                  <div className="whitespace-pre-wrap relative group/activefile">
+                                  <div 
+                                    className={`whitespace-pre-wrap relative group/activefile ${(cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model') && row.fileUrl ? 'cursor-pointer hover:text-blue-600 pr-10' : ''}`}
+                                    onClick={(e) => {
+                                      if (e.altKey && (cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model')) {
+                                        e.preventDefault();
+                                        fetchStorageFiles();
+                                        setTargetRowIdForFile(row.id);
+                                        setIsFileSelectorOpen(true);
+                                      } else if (row.fileUrl && (cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model')) {
+                                        setPreviewFileUrl(row.fileUrl);
+                                      }
+                                    }}
+                                  >
                                     {row[cell.f]}
-                                    {cell.f === 'itemName' && row.fileUrl && (
+                                    {(cell.f === 'itemName' || cell.f === 'dept' || cell.f === 'model') && row.fileUrl && (
                                       <button 
                                         onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
-                                        className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" 
+                                        className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print flex items-center gap-0.5" 
                                         title="도면 미리보기"
                                       >
                                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                        <span className="text-[7px] font-black leading-none">PDF</span>
                                       </button>
                                     )}
                                   </div>
