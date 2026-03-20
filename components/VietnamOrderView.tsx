@@ -169,7 +169,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
   const createEmptyRow = () => ({
     id: Math.random().toString(36).substr(2, 9),
-    itemName: '', drawingNo: '', image: '', unit: '', qty: '', unitPrice: '', amount: '', remarks: ''
+    itemName: '', drawingNo: '', specification: '', image: '', unit: '', qty: '', unitPrice: '', amount: '', remarks: ''
   });
 
   useEffect(() => {
@@ -338,7 +338,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const handleRowKeyDown = (e: React.KeyboardEvent, rowIdx: number, colIdx: number, docType: 'ORDER' | 'PAYMENT' | 'METAL') => {
     const validColsPo = [1, 2, 3, 4, 5, 6, 7];
     const validColsPay = [1, 3, 4, 5, 6, 7];
-    const validColsMetal = [0, 1, 3, 4, 5, 6, 7];
+    const validColsMetal = [0, 1, 2, 3, 4, 5, 6, 7];
     let validCols = validColsPo;
     if (docType === 'PAYMENT') validCols = validColsPay;
     else if (docType === 'METAL') validCols = validColsMetal;
@@ -441,7 +441,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       }
 
       const fields: (keyof VietnamOrderRow)[] = isMetal 
-        ? ['drawingNo', 'itemName', 'unit', 'qty', 'unitPrice', 'remarks']
+        ? ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'remarks']
         : ['itemName', 'unit', 'qty', 'unitPrice', 'remarks'];
       
       const startFieldIdx = fields.indexOf(field);
@@ -510,13 +510,16 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     takeSnapshot();
     const { sR, sC, eR, eC } = selection;
     const minR = Math.min(sR, eR), maxR = Math.max(sR, eR), minC = Math.min(sC, eC), maxC = Math.max(sC, eC);
-    const fields: (keyof VietnamOrderRow)[] = ['itemName', 'image', 'unit', 'qty', 'unitPrice', 'amount', 'remarks'];
+    const isMetal = sub === VietnamSubCategory.METAL_ORDER || (editingId && items.find(it => it.id === editingId)?.type === 'METAL');
+    const fields: (any)[] = isMetal
+        ? ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'amount', 'remarks']
+        : [null, 'itemName', 'image', 'unit', 'qty', 'unitPrice', 'amount', 'remarks'];
     setVRows(prev => {
       const next = [...prev];
       for (let r = minR; r <= maxR; r++) {
         if (!next[r]) continue;
         for (let c = minC; c <= maxC; c++) {
-            const field = fields[c - 1]; 
+            const field = fields[c]; 
             if (field) next[r] = { ...next[r], [field]: '' };
         }
       }
@@ -1073,6 +1076,14 @@ td {
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '규격' : '단위'})</span>
                           </div>
                         </th>
+                        {isMetalDoc && (
+                          <th className="border border-black w-16">
+                            <div className="flex flex-col items-center leading-tight py-0.5">
+                              <span>ĐVT</span>
+                              <span className="text-[10px] font-bold opacity-80">(단위)</span>
+                            </div>
+                          </th>
+                        )}
                         <th className="border border-black w-16">
                           <div className="flex flex-col items-center leading-tight py-0.5 text-[10px]">
                             <span>SỐ LƯỢNG</span>
@@ -1105,9 +1116,10 @@ td {
                         <tr key={row.id}>
                             <td className="border border-black text-center font-normal">{rIdx + 1}</td>
                             {[
-                                ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }] : []),
-                                { f: 'itemName', c: 1 }, 
-                                ...(isPayDoc || isMetalDoc ? [] : [{ f: 'image', c: 2 }]), 
+                                ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }, { f: 'itemName', c: 1 }, { f: 'specification', c: 2 }] : [
+                                    { f: 'itemName', c: 1 },
+                                    ...(isPayDoc ? [] : [{ f: 'image', c: 2 }])
+                                ]), 
                                 { f: 'unit', c: 3 }, { f: 'qty', c: 4 }, { f: 'unitPrice', c: 5 }, { f: 'amount', c: 6 }, { f: 'remarks', c: 7 }
                             ].map(cell => {
                                 const merge = dMerges[`${rIdx}-${cell.c}`];
@@ -1184,7 +1196,7 @@ td {
                                                           onPaste={(e: any) => handlePaste(e, row.id, cell.f as keyof VietnamOrderRow, isMetalDoc)}
                                                           onClick={(e: React.MouseEvent) => {
                                                             // Request: Alt + Click to open file storage link
-                                                            if (e.altKey && cell.f === 'itemName') {
+                                                            if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification')) {
                                                               e.preventDefault();
                                                               fetchStorageFiles(); // Refresh file list
                                                               setTargetRowIdForFile(row.id);
