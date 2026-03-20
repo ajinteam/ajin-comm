@@ -11,7 +11,7 @@ import {
   Announcement,
   MainCategory 
 } from '../types';
-import { pushStateToCloud, saveRecipient, deleteRecipient } from '../supabase';
+import { saveRecipient, deleteRecipient } from '../supabase';
 
 interface DashboardProps {
   user: UserAccount;
@@ -106,7 +106,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const saveNotices = (notices: Announcement[]) => {
     setAnnouncements(notices);
     localStorage.setItem('ajin_notices', JSON.stringify(notices));
-    pushStateToCloud(); // 공지 / 요청사항은 즉시 반영
+    
   };
 
   const handleAddNotice = () => {
