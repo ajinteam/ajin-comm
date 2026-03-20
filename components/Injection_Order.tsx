@@ -1,8 +1,23 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import * as XLSX from 'xlsx';
+import { FileText, Search, X, Loader2 } from 'lucide-react';
 import { pushStateToCloud, saveSingleDoc, supabase, sendJandiNotification, deleteSingleDoc } from '../supabase';
 import { OrderRow, UserAccount, ViewState, InjectionOrderSubCategory, StampInfo } from '../types';
 import InjectionTake from './injection_order/injection_take';
+
+interface StorageFile {
+  name: string;
+  id: string;
+  updated_at: string;
+  created_at: string;
+  last_accessed_at: string;
+  metadata: {
+    size: number;
+    mimetype: string;
+  };
+  isMock?: boolean;
+  base64?: string; 
+}
 
 interface InjectionOrderViewProps {
   sub: InjectionOrderSubCategory;
@@ -24,6 +39,13 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const [currentPage, setCurrentPage] = useState(1);
   const [showInjectionTake, setShowInjectionTake] = useState(false);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
+
+  // File selection state for Alt + Click linking
+  const [files, setFiles] = useState<StorageFile[]>([]);
+  const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
+  const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
+  const [isFilesLoading, setIsFilesLoading] = useState(false);
+  const [fileSearchTerm, setFileSearchTerm] = useState('');
   
   // Load items from local storage
   useEffect(() => {
@@ -469,7 +491,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
+              @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
               body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
@@ -498,7 +520,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
 .document-wrapper {
   width: 100%;
-  padding-bottom: 3mm;
+  padding-bottom: 4mm;
 }
 
 @media print {
@@ -616,7 +638,7 @@ tr {
 
 .document-wrapper {
   width: 100%;
-  padding-bottom: 3mm;
+  padding-bottom: 4mm;
 }
 
 @media print {

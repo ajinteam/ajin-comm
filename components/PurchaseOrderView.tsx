@@ -147,6 +147,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReasonText, setRejectReasonText] = useState('');
   const [itemToReject, setItemToReject] = useState<string | null>(null);
+  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
   const [originalRejectedItem, setOriginalRejectedItem] = useState<PurchaseOrderItem | null>(null);
@@ -976,6 +977,38 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     setView({ type: currentViewType, sub: PurchaseOrderSubCategory.REJECTED as any });
   };
 
+  const renderFilePreviewModal = () => {
+    if (!previewFileUrl) return null;
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[10000] flex flex-col no-print animate-in fade-in duration-300">
+        <div className="flex justify-between items-center p-6 bg-slate-900/50 border-b border-white/10">
+          <h3 className="text-white font-black text-xl flex items-center gap-3">
+            <div className="w-10 h-10 bg-red-500 rounded-xl flex items-center justify-center text-[10px] font-black">PDF</div>
+            도면 미리보기
+          </h3>
+          <button 
+            onClick={() => setPreviewFileUrl(null)}
+            className="w-12 h-12 bg-white/10 hover:bg-white/20 text-white rounded-2xl flex items-center justify-center transition-all active:scale-90"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 bg-slate-800 relative overflow-hidden">
+          <iframe 
+            src={`${previewFileUrl}#toolbar=0`}
+            className="w-full h-full border-none"
+            title="PDF Preview"
+          />
+        </div>
+        <div className="p-4 bg-slate-900/50 border-t border-white/10 flex justify-center">
+          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">ESC 키를 누르거나 닫기 버튼을 클릭하여 종료</p>
+        </div>
+      </div>
+    );
+  };
+
   /**
    * 3. 단계별 승인 처리 (한국 잔디 알림 - 수신처 포함)
    */
@@ -1368,7 +1401,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
         {modal && (modal.type === 'DELETE_FILE' || modal.type === 'DELETE_STORAGE_FILE' || modal.type === 'ALERT') && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999] p-4 no-print text-center">
-            <div className="bg-white rounded-3xl shadow-2xl p-8 max-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
+            <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full border border-slate-200 animate-in fade-in zoom-in duration-200">
               <h3 className={`text-xl font-black mb-4 ${(modal.type || '').includes('DELETE') ? 'text-red-600' : 'text-black'}`}>{modal.type === 'ALERT' ? '알림' : '확인'}</h3>
               <p className="text-slate-600 mb-8 font-medium leading-relaxed text-sm md:text-base text-center">{modal.message}</p>
               <div className="flex gap-3">
@@ -1664,9 +1697,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   />
                                   {cell.f === 'itemName' && row.fileUrl && (
                                     <button 
-                                      onClick={() => window.open(row.fileUrl, '_blank')}
-                                      className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print"
-                                      title="도면 파일 보기"
+                                      onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                      className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print" 
+                                      title="도면 미리보기"
                                     >
                                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
                                     </button>
@@ -2028,7 +2061,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   <div className="whitespace-pre-wrap relative group/activefile">
                                     {row[cell.f]}
                                     {cell.f === 'itemName' && row.fileUrl && (
-                                      <button onClick={() => window.open(row.fileUrl, '_blank')} className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" title="파일 보기">
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                        className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" 
+                                        title="도면 미리보기"
+                                      >
                                         <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
                                       </button>
                                     )}
@@ -2240,6 +2277,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           </div>
         </div>
       )}
+
+      {renderFilePreviewModal()}
     </div>
   );
 };
