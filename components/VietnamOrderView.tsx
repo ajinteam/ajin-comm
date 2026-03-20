@@ -49,7 +49,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap brake-all font-gulim ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-all font-gulim ${className}`}
       rows={1}
     />
   );
@@ -422,9 +422,26 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       const { data } = supabase.storage.from('ajin-pdfdata').getPublicUrl(file.name);
       fileUrl = data.publicUrl;
     }
+
+    // 1. 작성 중인 상태(vRows) 업데이트
     setVRows(prev => prev.map(row => 
       row.id === targetRowIdForFile ? { ...row, fileUrl } : row
     ));
+
+    // 2. 이미 저장된 문서를 보고 있는 경우(activeItem) 업데이트
+    if (activeItem) {
+      const updatedRows = activeItem.rows.map(row => 
+        row.id === targetRowIdForFile ? { ...row, fileUrl } : row
+      );
+      const updatedItem = { ...activeItem, rows: updatedRows };
+      setActiveItem(updatedItem);
+      
+      // 전체 목록(items)도 업데이트하여 변경사항 유지
+      setItems(prev => prev.map(item => 
+        item.id === activeItem.id ? updatedItem : item
+      ));
+    }
+
     setIsFileSelectorOpen(false);
     setTargetRowIdForFile(null);
     alert('파일이 품명에 링크되었습니다.');
@@ -1259,7 +1276,25 @@ td {
                                             </div>
                                         ) : (
                                             isReadOnly ? (
-                                                <div className={`p-0.5 w-full font-normal-print relative group/fileicon ${isPayDoc ? 'text-[11px]' : ''}`} style={{ textAlign: align as any }}>
+                                                <div 
+                                                  className={`p-0.5 w-full font-normal-print relative group/fileicon ${isPayDoc ? 'text-[11px]' : ''}`} style={{ textAlign: align as any }}
+                                                  onMouseDown={(e: React.MouseEvent) => {
+                                                    if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
+                                                      e.preventDefault();
+                                                      e.stopPropagation();
+                                                      setTargetRowIdForFile(row.id);
+                                                      setIsFileSelectorOpen(true);
+                                                    }
+                                                  }}
+                                                  onClick={(e: React.MouseEvent) => {
+                                                    if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
+                                                      e.preventDefault();
+                                                      e.stopPropagation();
+                                                      setTargetRowIdForFile(row.id);
+                                                      setIsFileSelectorOpen(true);
+                                                    }
+                                                  }}
+                                                >
                                                     {cell.f === 'amount' ? formatNumber(calculateAmount(row)) : (
                                                         (cell.f === 'qty' || cell.f === 'unitPrice') ? formatNumber(row[cell.f as keyof VietnamOrderRow]) : row[cell.f as keyof VietnamOrderRow]
                                                     )}
@@ -1300,6 +1335,7 @@ td {
                                                             // Request: Alt + Click to open file storage link
                                                             if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
                                                               e.preventDefault();
+                                                              e.stopPropagation();
                                                               setTargetRowIdForFile(row.id);
                                                               setIsFileSelectorOpen(true);
                                                             }
@@ -1308,6 +1344,7 @@ td {
                                                             // Request: Alt + Click to open file storage link
                                                             if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
                                                               e.preventDefault();
+                                                              e.stopPropagation();
                                                               setTargetRowIdForFile(row.id);
                                                               setIsFileSelectorOpen(true);
                                                             }
