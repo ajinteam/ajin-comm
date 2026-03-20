@@ -124,8 +124,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   // Editing state (from rejection or temporary)
   const [editingId, setEditingId] = useState<string | null>(null);
 
-  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
-
   // Cell Tools 상태
   const [selection, setSelection] = useState<{ sR: number, sC: number, eR: number, eC: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -1253,19 +1251,17 @@ td {
                                                       fetchStorageFiles(); // Refresh file list
                                                       setTargetRowIdForFile(row.id);
                                                       setIsFileSelectorOpen(true);
-                                                    } else if (row.fileUrl && (cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification')) {
-                                                      setPreviewFileUrl(row.fileUrl);
                                                     }
                                                   }}
                                                 >
                                                     {cell.f === 'amount' ? formatNumber(calculateAmount(row)) : (
                                                         (cell.f === 'qty' || cell.f === 'unitPrice') ? formatNumber(row[cell.f as keyof VietnamOrderRow]) : row[cell.f as keyof VietnamOrderRow]
                                                     )}
-                                                    {(cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification') && row.fileUrl && (
+                                                    {cell.f === 'itemName' && row.fileUrl && (
                                                       <button 
-                                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                                        onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
                                                         className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-                                                        title="도면 미리보기"
+                                                        title="도면 파일 보기"
                                                       >
                                                         <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                       </button>
@@ -1307,15 +1303,15 @@ td {
                                                           style={{ textAlign: align, fontWeight: '400' }}
                                                           className={`${cell.f === 'qty' || cell.f === 'unitPrice' ? 'font-mono' : ''} ${isPayDoc ? 'p-0 text-[11px]' : 'p-1'} font-normal-print ${cell.f === 'itemName' ? 'pr-6' : ''}`}
                                                       />
-                                                      {(cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification') && row.fileUrl && (
-                                                      <button 
-                                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
-                                                        className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-                                                        title="도면 미리보기"
-                                                      >
-                                                        <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
-                                                      </button>
-                                                    )}
+                                                      {cell.f === 'itemName' && row.fileUrl && (
+                                                        <button 
+                                                          onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
+                                                          className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
+                                                          title="도면 파일 보기"
+                                                        >
+                                                          <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
+                                                        </button>
+                                                      )}
                                                     </div>
                                                 )
                                             )
@@ -1621,42 +1617,6 @@ td {
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const paginatedItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   
-  const renderFilePreviewModal = () => {
-    if (!previewFileUrl) return null;
-    return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4 no-print">
-        <div className="bg-white rounded-3xl w-full max-w-5xl h-[90vh] shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col overflow-hidden">
-          <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
-            <h3 className="text-xl font-black text-black">도면 미리보기</h3>
-            <button 
-              onClick={() => setPreviewFileUrl(null)} 
-              className="p-2 text-slate-400 hover:text-black hover:bg-slate-200 rounded-full transition-all"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </div>
-          <div className="flex-1 bg-slate-800 relative">
-            <iframe 
-              src={previewFileUrl} 
-              className="w-full h-full border-none"
-              title="PDF Preview"
-            />
-          </div>
-          <div className="p-4 bg-white border-t border-slate-100 flex justify-end">
-            <button 
-              onClick={() => setPreviewFileUrl(null)} 
-              className="px-6 py-2 bg-slate-900 text-white rounded-xl font-bold hover:bg-slate-800 transition-all"
-            >
-              닫기
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <div className="space-y-6 text-left pb-12">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -1866,7 +1826,6 @@ td {
         )}
 
         {renderFileSelectorModal()}
-      {renderFilePreviewModal()}
     </div>
   );
 };

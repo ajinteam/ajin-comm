@@ -244,7 +244,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {accounts.filter(acc => acc.loginId === 'AJ5200' || acc.allowedMenus?.includes(MainCategory.INJECTION_ORDER_MAIN)).map((acc) => {
+              {accounts.map((acc) => {
                 const isMaster = acc.loginId === 'AJ5200';
                 const isEditing = editingId === acc.id;
                 const isConfirming = confirmingId === acc.id;

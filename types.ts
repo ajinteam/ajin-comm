@@ -3,7 +3,7 @@ export enum MainCategory {
   ORDER = '주문서',
   INVOICE = '송장',
   PURCHASE = '발주서',
-  INJECTION_ORDER_MAIN = '사출발주서',
+  INJECTION_ORDER_MAIN = '사출발주서 메인카테고리',
   VIETNAM = 'VN베트남',
   STORAGE = '파일관리',
   NATIONAL_INVOICE = '국제인보이스'
