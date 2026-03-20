@@ -1262,16 +1262,20 @@ td {
                                                     )}
                                                     {cell.f === 'itemName' && row.fileUrl && (
                                                       <button 
-    onClick={(e) => {
-      e.stopPropagation();
-      setPdfViewerUrl(row.fileUrl);
-      setIsPdfViewerOpen(true);
-    }}
-    className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-    title="도면 파일 보기"
-  >
-    <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
-  </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    
+    // [수정 포인트] 원본 URL을 구글 뷰어 주소와 합쳐서 전달합니다.
+    const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
+    
+    setPdfViewerUrl(viewerUrl);
+    setIsPdfViewerOpen(true);
+  }}
+  className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
+  title="도면 파일 보기"
+>
+  <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
+</button>
                                                     )}
                                                 </div>
                                             ) : (
@@ -1312,16 +1316,20 @@ td {
                                                       />
                                                       {cell.f === 'itemName' && row.fileUrl && (
                                                         <button 
-    onClick={(e) => {
-      e.stopPropagation();
-      setPdfViewerUrl(row.fileUrl);
-      setIsPdfViewerOpen(true);
-    }}
-    className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-    title="도면 파일 보기"
-  >
-    <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
-  </button>
+  onClick={(e) => {
+    e.stopPropagation();
+    
+    // [수정 포인트] 원본 URL을 구글 뷰어 주소와 합쳐서 전달합니다.
+    const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
+    
+    setPdfViewerUrl(viewerUrl);
+    setIsPdfViewerOpen(true);
+  }}
+  className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
+  title="도면 파일 보기"
+>
+  <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
+</button>
                                                       )}
                                                     </div>
                                                 )
@@ -1615,6 +1623,7 @@ td {
         </div>
 
         {renderFileSelectorModal()}
+
         {isPdfViewerOpen && pdfViewerUrl && (
   <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[600] flex items-center justify-center p-4 no-print">
     <div className="bg-white rounded-[2rem] w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden">
@@ -1625,25 +1634,23 @@ td {
             setIsPdfViewerOpen(false);
             setPdfViewerUrl(null);
           }}
-          className="px-4 py-2 bg-slate-100 rounded-xl font-bold"
+          className="px-4 py-2 bg-slate-100 rounded-xl font-bold hover:bg-slate-200 transition-colors"
         >
           닫기
         </button>
       </div>
 
       <div className="flex-1 bg-slate-100">
+        {/* 핵심 수정 부분: 원본 URL을 구글 뷰어 주소로 감쌉니다 */}
         <iframe
-          src={pdfViewerUrl}
+          src={`https://docs.google.com/gview?url=${encodeURIComponent(pdfViewerUrl)}&embedded=true`}
           title="PDF Viewer"
-          className="w-full h-full"
+          className="w-full h-full border-none"
         />
       </div>
     </div>
   </div>
 )}
-      </div>
-    );
-  }
 
   // 목록 뷰 필터링 및 정렬
   const filtered = items
