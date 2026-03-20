@@ -121,8 +121,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [isFilesLoading, setIsFilesLoading] = useState(false);
   const [fileSearchTerm, setFileSearchTerm] = useState('');
 // PDF viewer state
-  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
   const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
+  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
 
   // Editing state (from rejection or temporary)
   const [editingId, setEditingId] = useState<string | null>(null);
