@@ -156,9 +156,6 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const [isFileSelectorOpen, setIsFileSelectorOpen] = useState(false);
   const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
 
-  const [isPdfViewerOpen, setIsPdfViewerOpen] = useState(false);
-  const [pdfViewerUrl, setPdfViewerUrl] = useState<string | null>(null);
-
   const [modal, setModal] = useState<{
     type: 'DELETE_FILE' | 'DELETE_STORAGE_FILE' | 'ALERT';
     message: string;
@@ -248,11 +245,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       if (supabase) {
         const { error } = await supabase.storage
           .from('ajin-pdfdata')
-          .upload(fileName, file, {
-          contentType: 'application/pdf', // 이 줄을 반드시 추가하세요!
-          upsert: true
-        });
-      if (error) throw error;
+          .upload(fileName, file);
+        if (error) throw error;
       } else {
         // Supabase 연동 전: LocalStorage에 가상 저장 (Preview 테스트용)
         const reader = new FileReader();
@@ -294,27 +288,35 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   const handleFileDownload = async (file: StorageFile) => {
-  try {
-    let url = '';
-    if (file.isMock && file.base64) {
-      url = file.base64;
-    } else if (supabase) {
-      // 다운로드 대신 공용 URL을 가져옵니다.
-      const { data } = supabase.storage.from('ajin-pdfdata').getPublicUrl(file.name);
-      url = data.publicUrl;
+    try {
+      if (file.isMock && file.base64) {
+        // 가상 저장소 다운로드
+        const link = document.createElement('a');
+        link.href = file.base64;
+        link.download = file.name.split('_').slice(1).join('_') || file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (supabase) {
+        // 실제 Supabase 다운로드
+        const { data, error } = await supabase.storage
+          .from('ajin-pdfdata')
+          .download(file.name);
+        if (error) throw error;
+        const url = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name.split('_').slice(1).join('_') || file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('다운로드 중 오류가 발생했습니다.');
     }
-
-    if (url) {
-      // 구글 뷰어를 사용하여 iframe에서 바로 보이게 설정
-      const viewerUrl = `https://docs.google.com/gview?url=${encodeURIComponent(url)}&embedded=true`;
-      setPdfViewerUrl(viewerUrl);
-      setIsPdfViewerOpen(true);
-    }
-  } catch (err) {
-    console.error('Preview error:', err);
-    alert('파일을 불러오는 중 오류가 발생했습니다.');
-  }
-};
+  };
 
   const handleFileDeleteFromStorage = (file: StorageFile) => {
     setModal({
@@ -994,12 +996,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           </button>
         </div>
         <div className="flex-1 bg-slate-800 relative overflow-hidden">
-          <iframe
-    // 원본 URL을 구글 뷰어 주소로 변환하여 브라우저 강제 렌더링
-    src={`https://docs.google.com/gview?url=${encodeURIComponent(pdfViewerUrl)}&embedded=true`}
-    title="PDF Viewer"
-    className="w-full h-full border-none"
-  />
+          <iframe 
+            src={`${previewFileUrl}#toolbar=0`}
+            className="w-full h-full border-none"
+            title="PDF Preview"
+          />
         </div>
         <div className="p-4 bg-slate-900/50 border-t border-white/10 flex justify-center">
           <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">ESC 키를 누르거나 닫기 버튼을 클릭하여 종료</p>
@@ -1695,19 +1696,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                     className={`${isChanged ? 'text-red-600' : ''} ${cell.f === 'itemName' ? 'pr-6' : ''}`} 
                                   />
                                   {cell.f === 'itemName' && row.fileUrl && (
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              const finalUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
-              setPdfViewerUrl(finalUrl);
-              setIsPdfViewerOpen(true);
-            }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-            title="도면 파일 보기"
-          >
-            <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
-          </button>
-        )}
+                                    <button 
+                                      onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                      className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print" 
+                                      title="도면 미리보기"
+                                    >
+                                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                    </button>
+                                  )}
                                 </div>
                               )}
                             </td>
@@ -2065,19 +2061,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   <div className="whitespace-pre-wrap relative group/activefile">
                                     {row[cell.f]}
                                     {cell.f === 'itemName' && row.fileUrl && (
-          <button 
-            onClick={(e) => {
-              e.stopPropagation();
-              const finalUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
-              setPdfViewerUrl(finalUrl);
-              setIsPdfViewerOpen(true);
-            }}
-            className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-            title="도면 파일 보기"
-          >
-            <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
-          </button>
-        )}
+                                      <button 
+                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                        className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" 
+                                        title="도면 미리보기"
+                                      >
+                                        <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5z"/></svg>
+                                      </button>
+                                    )}
                                   </div>
                                 )}
                               </td>
@@ -2287,33 +2278,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         </div>
       )}
 
-      
-
-       {isPdfViewerOpen && pdfViewerUrl && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[600] flex items-center justify-center p-4 no-print">
-          <div className="bg-white rounded-[2rem] w-full max-w-6xl h-[90vh] shadow-2xl flex flex-col overflow-hidden">
-            <div className="flex items-center justify-between px-6 py-4 border-b bg-slate-50">
-              <h3 className="text-xl font-black text-slate-800">문서 미리보기</h3>
-              <button
-                onClick={() => {
-                  setIsPdfViewerOpen(false);
-                  setPdfViewerUrl(null);
-                }}
-                className="px-6 py-2 bg-white border border-slate-200 hover:bg-slate-100 rounded-xl font-bold transition-colors"
-              >
-                닫기
-              </button>
-            </div>
-            <div className="flex-1 bg-slate-200">
-              <iframe
-                src={`https://docs.google.com/gview?url=${encodeURIComponent(pdfViewerUrl)}&embedded=true`}
-                title="PDF Viewer"
-                className="w-full h-full border-none"
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {renderFilePreviewModal()}
     </div>
   );
 };
