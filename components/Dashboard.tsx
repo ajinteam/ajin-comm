@@ -11,7 +11,7 @@ import {
   Announcement,
   MainCategory 
 } from '../types';
-import { saveRecipient, deleteRecipient } from '../supabase';
+import { pushStateToCloud, saveRecipient, deleteRecipient } from '../supabase';
 
 interface DashboardProps {
   user: UserAccount;
@@ -106,23 +106,23 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const saveNotices = (notices: Announcement[]) => {
     setAnnouncements(notices);
     localStorage.setItem('ajin_notices', JSON.stringify(notices));
-    
+    pushStateToCloud(); // 공지 / 요청사항은 즉시 반영
   };
 
-  const handleAddNotice = () => {
+  const handleAddNotice = async () => {
     if (!newNotice.trim()) return;
     if (editingId) {
       const updated = announcements.map(n => n.id === editingId ? { ...n, content: newNotice } : n);
-      saveNotices(updated);
       
-      // Supabase recipients 테이블에 저장
-      saveRecipient({
+      // Supabase recipients 테이블에 먼저 저장 (동기화 레이스 컨디션 방지)
+      await saveRecipient({
         id: `notice-${editingId}`,
         name: 'NOTICE',
         remark: newNotice,
         category: 'NOTICE'
       });
 
+      saveNotices(updated);
       setEditingId(null);
     } else {
       const id = Date.now().toString();
@@ -132,23 +132,24 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         date: new Date().toLocaleDateString('ko-KR').replace(/\.$/, ''),
         isNew: true
       };
-      saveNotices([notice, ...announcements]);
 
-      // Supabase recipients 테이블에 저장
-      saveRecipient({
+      // Supabase recipients 테이블에 먼저 저장 (동기화 레이스 컨디션 방지)
+      await saveRecipient({
         id: `notice-${id}`,
         name: 'NOTICE',
         remark: newNotice,
         category: 'NOTICE'
       });
+
+      saveNotices([notice, ...announcements]);
     }
     setNewNotice('');
   };
 
-  const handleDeleteNotice = (id: string) => {
+  const handleDeleteNotice = async (id: string) => {
     if (!confirm('정말 삭제하시겠습니까?')) return;
+    await deleteRecipient(`notice-${id}`);
     saveNotices(announcements.filter(n => n.id !== id));
-    deleteRecipient(`notice-${id}`);
   };
 
   const startEdit = (n: Announcement) => {
@@ -264,7 +265,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
                 onClick={handleAddNotice}
                 className="flex-1 sm:flex-none px-8 py-3 bg-slate-900 text-white rounded-xl font-bold hover:bg-blue-600 transition-all text-sm whitespace-nowrap"
               >
-                {editingId ? '수정' : '추가'}
+                {editingId ? '수정' : '요청'}
               </button>
               {editingId && (
                 <button 

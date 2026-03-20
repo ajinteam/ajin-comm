@@ -144,7 +144,7 @@ const App: React.FC = () => {
         <Header userName={currentUser.initials} isMaster={isMaster} onLogout={handleLogout} onSettings={() => isMaster && handleSetView({ type: 'SETTINGS' })} onHome={() => handleSetView({ type: 'DASHBOARD' })} onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} isSyncing={isSyncing} />
         <main className="flex-1 overflow-y-auto p-2 md:p-10 landscape:p-4 landscape:md:p-6 custom-scrollbar">
           <div className="max-w-7xl mx-auto w-full">
-            {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} dataVersion={dataVersion} key={`dash-${dataVersion}`} />}
+            {view.type === 'DASHBOARD' && <Dashboard user={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'ORDER' && <OrderView key={`order-${view.sub}`} sub={view.sub} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'INVOICE' && <InvoiceView key={`invoice-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'PURCHASE' && view.sub !== PurchaseOrderSubCategory.INJECTION_ORDER && <PurchaseOrderView key={`purchase-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
