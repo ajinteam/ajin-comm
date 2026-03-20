@@ -1695,20 +1695,19 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                     className={`${isChanged ? 'text-red-600' : ''} ${cell.f === 'itemName' ? 'pr-6' : ''}`} 
                                   />
                                   {cell.f === 'itemName' && row.fileUrl && (
-                                    <button 
-  onClick={(e) => {
-    e.stopPropagation();
-    
-    // 원본 URL을 Google 뷰어로 감쌉니다.
-    // 이렇게 하면 iframe이 '파일'이 아니라 '웹페이지'로 인식해서 바로 보여줍니다.
-    const finalUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
-    
-    setPdfViewerUrl(finalUrl);
-    setIsPdfViewerOpen(true);
-  }}
-  // ... 생략
->
-                                  )}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              const finalUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
+              setPdfViewerUrl(finalUrl);
+              setIsPdfViewerOpen(true);
+            }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
+            title="도면 파일 보기"
+          >
+            <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
+          </button>
+        )}
                                 </div>
                               )}
                             </td>
@@ -2066,20 +2065,19 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   <div className="whitespace-pre-wrap relative group/activefile">
                                     {row[cell.f]}
                                     {cell.f === 'itemName' && row.fileUrl && (
-                                      <button 
-  onClick={(e) => {
-    e.stopPropagation();
-    
-    // 원본 URL을 Google 뷰어로 감쌉니다.
-    // 이렇게 하면 iframe이 '파일'이 아니라 '웹페이지'로 인식해서 바로 보여줍니다.
-    const finalUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
-    
-    setPdfViewerUrl(finalUrl);
-    setIsPdfViewerOpen(true);
-  }}
-  // ... 생략
->
-                                    )}
+          <button 
+            onClick={(e) => {
+              e.stopPropagation();
+              const finalUrl = `https://docs.google.com/gview?url=${encodeURIComponent(row.fileUrl)}&embedded=true`;
+              setPdfViewerUrl(finalUrl);
+              setIsPdfViewerOpen(true);
+            }}
+            className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
+            title="도면 파일 보기"
+          >
+            <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
+          </button>
+        )}
                                   </div>
                                 )}
                               </td>
