@@ -469,7 +469,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <title>Injection_Order_${fileName || 'Document'}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
+              @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
               body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
@@ -489,17 +489,16 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   bottom: 0;
   left: 0;
   right: 0;
-  height: 10mm;
   text-align: center;
   font-size: 9px;
-  padding: 2px 0;
+  padding: 0;
   background: white;
   display: none;
 }
 
 .document-wrapper {
   width: 100%;
-  padding-bottom: 12mm;
+  padding-bottom: 2mm;
 }
 
 @media print {
@@ -588,7 +587,7 @@ tr {
                       <title>Injection_Order_${item.item || item.title || 'Document'}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
+                        @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
                         body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
@@ -608,17 +607,16 @@ tr {
   bottom: 0;
   left: 0;
   right: 0;
-  height: 10mm;
   text-align: center;
   font-size: 9px;
-  padding: 2px 0;
+  padding: 0;
   background: white;
   display: none;
 }
 
 .document-wrapper {
   width: 100%;
-  padding-bottom: 12mm;
+  padding-bottom: 2mm;
 }
 
 @media print {
