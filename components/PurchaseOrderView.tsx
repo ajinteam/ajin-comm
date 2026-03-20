@@ -1416,7 +1416,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   if (sub === PurchaseOrderSubCategory.CREATE) {
     const poTypes = [
-      { id: PurchaseOrderSubCategory.PO1, icon: '01', desc: '사출 부품 발주(도번)', theme: 'amber' },
+      // PO1은 더 이상 사용하지 않으므로 제외하거나 주석 처리합니다.
+      // { id: PurchaseOrderSubCategory.PO1, icon: '01', desc: '사출 부품 발주(도번)', theme: 'amber' },
       { id: PurchaseOrderSubCategory.PO2, icon: '02', desc: '인쇄/스티커/주문 발주', theme: 'blue' },
       { id: PurchaseOrderSubCategory.PO3, icon: '03', desc: '메탈 부품 발주(도번)', theme: 'emerald' }
     ];

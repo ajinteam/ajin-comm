@@ -254,8 +254,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
                 {isPOWritingExpanded && (
                   <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                    {renderSubMenu(PurchaseOrderSubCategory.PO1, 'PURCHASE', true)}
-                    {renderSubMenu(PurchaseOrderSubCategory.PO1_TEMP, 'PURCHASE', true)}
+                  {/* PO1 관련 메뉴를 화면에서 숨김 */}
+                    {/* {renderSubMenu(PurchaseOrderSubCategory.PO1, 'PURCHASE', true)} */}
+                    {/* {renderSubMenu(PurchaseOrderSubCategory.PO1_TEMP, 'PURCHASE', true)} */}
+                    
                     {renderSubMenu(PurchaseOrderSubCategory.PO2, 'PURCHASE', true)}
                     {renderSubMenu(PurchaseOrderSubCategory.PO2_TEMP, 'PURCHASE', true)}
                     {renderSubMenu(PurchaseOrderSubCategory.PO3, 'PURCHASE', true)}
