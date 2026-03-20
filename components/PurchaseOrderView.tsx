@@ -245,8 +245,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       if (supabase) {
         const { error } = await supabase.storage
           .from('ajin-pdfdata')
-          .upload(fileName, file);
-        if (error) throw error;
+          .upload(fileName, file, {
+          contentType: 'application/pdf', // 이 줄을 반드시 추가하세요!
+          upsert: true
+        });
+      if (error) throw error;
       } else {
         // Supabase 연동 전: LocalStorage에 가상 저장 (Preview 테스트용)
         const reader = new FileReader();
