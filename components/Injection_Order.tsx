@@ -484,28 +484,38 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               .border-b-thin { border-bottom: 0.5px solid black !important; }
               
               /* Page numbering footer */
-              .footer {
-                position: fixed;
-                bottom: 0mm;
-                left: 0;
-                right: 0;
-                text-align: center;
-                font-size: 9px;
-                padding: 5px 0;
-                display: none;
-              }
-              .document-wrapper {padding-bottom: 10mm; width: 100%
-             }
-                @media print {
-               .footer { display: block; }
-              }
-                table { 
-                page-break-inside: auto; 
-              }
-                tr { 
-                page-break-inside: avoid; 
-                page-break-after: auto; 
-                }
+.footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 10mm;
+  text-align: center;
+  font-size: 9px;
+  padding: 2px 0;
+  background: white;
+  display: none;
+}
+
+.document-wrapper {
+  width: 100%;
+  padding-bottom: 12mm;
+}
+
+@media print {
+  .footer {
+    display: block;
+  }
+}
+
+table { 
+  page-break-inside: auto; 
+}
+
+tr { 
+  page-break-inside: avoid; 
+  page-break-after: auto; 
+}
               }
               
             </style>
@@ -593,28 +603,38 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                         .border-b-thin { border-bottom: 0.5px solid black !important; }
                         
                         /* Page numbering footer */
-                        .footer {
-                          position: fixed;
-                          bottom: 0mm;
-                          left: 0;
-                          right: 0;
-                          text-align: center;
-                          font-size: 9px;
-                          padding: 5px 0;
-                          display: none;
-                        }
-                        .document-wrapper {padding-bottom: 10mm; width: 100%
-                        }
-                        @media print {
-                          .footer { display: block; }
-                        }
-                        table { 
-                        page-break-inside: auto; 
-                        }
-                        tr { 
-                        page-break-inside: avoid; 
-                        page-break-after: auto; 
-                        }
+                    .footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 10mm;
+  text-align: center;
+  font-size: 9px;
+  padding: 2px 0;
+  background: white;
+  display: none;
+}
+
+.document-wrapper {
+  width: 100%;
+  padding-bottom: 12mm;
+}
+
+@media print {
+  .footer {
+    display: block;
+  }
+}
+
+table { 
+  page-break-inside: auto; 
+}
+
+tr { 
+  page-break-inside: avoid; 
+  page-break-after: auto; 
+}
                        }
                       </style>
                     </head>
