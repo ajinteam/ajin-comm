@@ -44,7 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
     if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
     if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
-    
+    if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
     if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
     if (nationalSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.NATIONAL_INVOICE)) return true;
     
@@ -154,7 +154,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
         </div>
 
         <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto pb-8 custom-scrollbar">
-          {(isVisible(MainCategory.INJECTION_ORDER_MAIN) || isVisible(InjectionOrderSubCategory.INBOX)) && (
+          {isVisible(MainCategory.INJECTION_ORDER_MAIN) && (
             <div className="space-y-1">
               <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
