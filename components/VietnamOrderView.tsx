@@ -1643,10 +1643,11 @@ td {
       <div className="flex-1 bg-slate-100">
         {/* 핵심 수정 부분: 원본 URL을 구글 뷰어 주소로 감쌉니다 */}
         <iframe
-          src={`https://docs.google.com/gview?url=${encodeURIComponent(pdfViewerUrl)}&embedded=true`}
-          title="PDF Viewer"
-          className="w-full h-full border-none"
-        />
+    // 원본 URL을 구글 뷰어 주소로 변환하여 브라우저 강제 렌더링
+    src={`https://docs.google.com/gview?url=${encodeURIComponent(pdfViewerUrl)}&embedded=true`}
+    title="PDF Viewer"
+    className="w-full h-full border-none"
+  />
       </div>
     </div>
   </div>
