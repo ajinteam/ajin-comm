@@ -498,7 +498,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
 .document-wrapper {
   width: 100%;
-  padding-bottom: 2mm;
+  padding-bottom: 4mm;
 }
 
 @media print {
@@ -616,7 +616,7 @@ tr {
 
 .document-wrapper {
   width: 100%;
-  padding-bottom: 2mm;
+  padding-bottom: 4mm;
 }
 
 @media print {
