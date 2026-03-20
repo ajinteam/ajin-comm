@@ -120,7 +120,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
   const [fileSearchTerm, setFileSearchTerm] = useState('');
-  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
   // Editing state (from rejection or temporary)
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -170,7 +169,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
   const createEmptyRow = () => ({
     id: Math.random().toString(36).substr(2, 9),
-    itemName: '', drawingNo: '', specification: '', image: '', unit: '', qty: '', unitPrice: '', amount: '', remarks: ''
+    itemName: '', drawingNo: '', image: '', unit: '', qty: '', unitPrice: '', amount: '', remarks: ''
   });
 
   useEffect(() => {
@@ -339,7 +338,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const handleRowKeyDown = (e: React.KeyboardEvent, rowIdx: number, colIdx: number, docType: 'ORDER' | 'PAYMENT' | 'METAL') => {
     const validColsPo = [1, 2, 3, 4, 5, 6, 7];
     const validColsPay = [1, 3, 4, 5, 6, 7];
-    const validColsMetal = [0, 1, 2, 3, 4, 5, 6, 7];
+    const validColsMetal = [0, 1, 3, 4, 5, 6, 7];
     let validCols = validColsPo;
     if (docType === 'PAYMENT') validCols = validColsPay;
     else if (docType === 'METAL') validCols = validColsMetal;
@@ -420,25 +419,9 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       const { data } = supabase.storage.from('ajin-pdfdata').getPublicUrl(file.name);
       fileUrl = data.publicUrl;
     }
-    
-    // Case 1: Editing mode (vRows)
     setVRows(prev => prev.map(row => 
       row.id === targetRowIdForFile ? { ...row, fileUrl } : row
     ));
-
-    // Case 2: Viewing mode (activeItem)
-    if (activeItem) {
-      const updatedRows = activeItem.rows.map(row => 
-        row.id === targetRowIdForFile ? { ...row, fileUrl } : row
-      );
-      const updatedItem = { ...activeItem, rows: updatedRows };
-      setActiveItem(updatedItem);
-      
-      // Save to global items and Supabase
-      const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
-      saveVietnamItems(updatedItems, updatedItem);
-    }
-
     setIsFileSelectorOpen(false);
     setTargetRowIdForFile(null);
     alert('파일이 품명에 링크되었습니다.');
@@ -458,7 +441,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       }
 
       const fields: (keyof VietnamOrderRow)[] = isMetal 
-        ? ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'remarks']
+        ? ['drawingNo', 'itemName', 'unit', 'qty', 'unitPrice', 'remarks']
         : ['itemName', 'unit', 'qty', 'unitPrice', 'remarks'];
       
       const startFieldIdx = fields.indexOf(field);
@@ -527,16 +510,13 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     takeSnapshot();
     const { sR, sC, eR, eC } = selection;
     const minR = Math.min(sR, eR), maxR = Math.max(sR, eR), minC = Math.min(sC, eC), maxC = Math.max(sC, eC);
-    const isMetal = sub === VietnamSubCategory.METAL_ORDER || (editingId && items.find(it => it.id === editingId)?.type === 'METAL');
-    const fields: (any)[] = isMetal
-        ? ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'amount', 'remarks']
-        : [null, 'itemName', 'image', 'unit', 'qty', 'unitPrice', 'amount', 'remarks'];
+    const fields: (keyof VietnamOrderRow)[] = ['itemName', 'image', 'unit', 'qty', 'unitPrice', 'amount', 'remarks'];
     setVRows(prev => {
       const next = [...prev];
       for (let r = minR; r <= maxR; r++) {
         if (!next[r]) continue;
         for (let c = minC; c <= maxC; c++) {
-            const field = fields[c]; 
+            const field = fields[c - 1]; 
             if (field) next[r] = { ...next[r], [field]: '' };
         }
       }
@@ -889,100 +869,6 @@ td {
     );
   }
 
-
-  // New: Consolidate File Selector Modal rendering
-  const renderFileSelectorModal = () => {
-    if (!isFileSelectorOpen) return null;
-    
-    console.log('Rendering File Selector Modal, isFilesLoading:', isFilesLoading, 'files count:', files.length);
-
-    return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] flex items-center justify-center p-4 no-print">
-        <div className="bg-white rounded-[2rem] p-8 w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[80vh] min-h-[400px]">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h3 className="text-2xl font-black text-black">파일 링크 선택</h3>
-              <p className="text-sm text-slate-500 font-bold mt-1">품명(Item)에 연결할 PDF 도면 파일을 선택하세요.</p>
-            </div>
-            <button onClick={() => { setIsFileSelectorOpen(false); setTargetRowIdForFile(null); }} className="p-2 text-slate-400 hover:text-black">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
-          
-          <div className="mb-4">
-            <input 
-              type="text" 
-              placeholder="파일명 검색..." 
-              className="w-full px-5 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
-              value={fileSearchTerm}
-              onChange={(e) => setFileSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative">
-            {isFilesLoading ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/80 z-10">
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4"></div>
-                <p className="text-slate-600 font-bold animate-pulse">파일 목록을 불러오는 중입니다...</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 gap-2">
-                {files.filter(f => f.name.toLowerCase().includes(fileSearchTerm.toLowerCase())).map(file => {
-                  const displayFileName = file.name.split('_').slice(1).join('_') || file.name;
-                  return (
-                    <button 
-                      key={file.id} 
-                      onClick={() => handleLinkFileToRow(file)}
-                      className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-[10px]">PDF</div>
-                        <div>
-                          <p className="font-black text-black text-sm">{displayFileName}</p>
-                          <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(file.created_at).toLocaleDateString()}</p>
-                        </div>
-                      </div>
-                      <span className="px-4 py-1 bg-white border rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-widest">선택</span>
-                    </button>
-                  );
-                })}
-                {files.length === 0 && <div className="py-20 text-center text-slate-400 font-bold italic">업로드된 파일이 없습니다.</div>}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // New: File Preview Modal rendering
-  const renderFilePreviewModal = () => {
-    if (!previewFileUrl) return null;
-
-    return (
-      <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[600] flex flex-col no-print">
-        <div className="flex justify-between items-center p-4 bg-white/10 backdrop-blur-md border-b border-white/10">
-          <h3 className="text-xl font-black text-white">도면 미리보기</h3>
-          <button 
-            onClick={() => setPreviewFileUrl(null)} 
-            className="p-2 bg-white/10 text-white hover:bg-white/20 rounded-full transition-all"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/>
-            </svg>
-          </button>
-        </div>
-        <div className="flex-1 w-full h-full bg-slate-900 overflow-hidden">
-          <iframe 
-            src={previewFileUrl} 
-            className="w-full h-full border-none"
-            title="PDF Preview"
-          />
-        </div>
-      </div>
-    );
-  };
-
   // 문서 상세 뷰 렌더러
   const renderDocument = (data: VietnamOrderItem, isReadOnly: boolean = true) => {
     const isPayDoc = data.type === 'PAYMENT';
@@ -1187,14 +1073,6 @@ td {
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '규격' : '단위'})</span>
                           </div>
                         </th>
-                        {isMetalDoc && (
-                          <th className="border border-black w-16">
-                            <div className="flex flex-col items-center leading-tight py-0.5">
-                              <span>ĐVT</span>
-                              <span className="text-[10px] font-bold opacity-80">(단위)</span>
-                            </div>
-                          </th>
-                        )}
                         <th className="border border-black w-16">
                           <div className="flex flex-col items-center leading-tight py-0.5 text-[10px]">
                             <span>SỐ LƯỢNG</span>
@@ -1227,10 +1105,9 @@ td {
                         <tr key={row.id}>
                             <td className="border border-black text-center font-normal">{rIdx + 1}</td>
                             {[
-                                ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }, { f: 'itemName', c: 1 }, { f: 'specification', c: 2 }] : [
-                                    { f: 'itemName', c: 1 },
-                                    ...(isPayDoc ? [] : [{ f: 'image', c: 2 }])
-                                ]), 
+                                ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }] : []),
+                                { f: 'itemName', c: 1 }, 
+                                ...(isPayDoc || isMetalDoc ? [] : [{ f: 'image', c: 2 }]), 
                                 { f: 'unit', c: 3 }, { f: 'qty', c: 4 }, { f: 'unitPrice', c: 5 }, { f: 'amount', c: 6 }, { f: 'remarks', c: 7 }
                             ].map(cell => {
                                 const merge = dMerges[`${rIdx}-${cell.c}`];
@@ -1268,28 +1145,15 @@ td {
                                             </div>
                                         ) : (
                                             isReadOnly ? (
-                                                <div 
-                                                  className={`p-0.5 w-full font-normal-print relative group/fileicon cursor-pointer ${isPayDoc ? 'text-[11px]' : ''}`} 
-                                                  style={{ textAlign: align as any }}
-                                                  onClick={(e) => {
-                                                    // Request: Alt + Click to open file storage link even in read-only mode
-                                                    if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification')) {
-                                                      e.preventDefault();
-                                                      console.log('Alt+Click detected in Read-Only mode for row:', row.id);
-                                                      fetchStorageFiles(); // Refresh file list
-                                                      setTargetRowIdForFile(row.id);
-                                                      setIsFileSelectorOpen(true);
-                                                    }
-                                                  }}
-                                                >
+                                                <div className={`p-0.5 w-full font-normal-print relative group/fileicon ${isPayDoc ? 'text-[11px]' : ''}`} style={{ textAlign: align as any }}>
                                                     {cell.f === 'amount' ? formatNumber(calculateAmount(row)) : (
                                                         (cell.f === 'qty' || cell.f === 'unitPrice') ? formatNumber(row[cell.f as keyof VietnamOrderRow]) : row[cell.f as keyof VietnamOrderRow]
                                                     )}
                                                     {cell.f === 'itemName' && row.fileUrl && (
                                                       <button 
-                                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                                        onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
                                                         className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-                                                        title="도면 미리보기"
+                                                        title="도면 파일 보기"
                                                       >
                                                         <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                       </button>
@@ -1320,10 +1184,8 @@ td {
                                                           onPaste={(e: any) => handlePaste(e, row.id, cell.f as keyof VietnamOrderRow, isMetalDoc)}
                                                           onClick={(e: React.MouseEvent) => {
                                                             // Request: Alt + Click to open file storage link
-                                                            if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification')) {
+                                                            if (e.altKey && cell.f === 'itemName') {
                                                               e.preventDefault();
-                                                              console.log('Alt+Click detected in Editable mode for row:', row.id);
-                                                              fetchStorageFiles(); // Refresh file list
                                                               setTargetRowIdForFile(row.id);
                                                               setIsFileSelectorOpen(true);
                                                             }
@@ -1333,9 +1195,9 @@ td {
                                                       />
                                                       {cell.f === 'itemName' && row.fileUrl && (
                                                         <button 
-                                                          onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                                          onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
                                                           className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-                                                          title="도면 미리보기"
+                                                          title="도면 파일 보기"
                                                         >
                                                           <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                         </button>
@@ -1630,8 +1492,6 @@ td {
         <div className="py-8 landscape:py-2 bg-slate-200 min-h-screen overflow-x-auto">
           {renderDocument({ id: 'preview', type: docType, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } } } as any, false)}
         </div>
-
-        {renderFileSelectorModal()}
       </div>
     );
   }
@@ -1853,8 +1713,57 @@ td {
             </div>
         )}
 
-        {renderFileSelectorModal()}
-        {renderFilePreviewModal()}
+        {/* New: File Selector Modal for linking PDF files */}
+        {isFileSelectorOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[500] flex items-center justify-center p-4 no-print">
+            <div className="bg-white rounded-[2rem] p-8 w-full max-w-3xl shadow-2xl animate-in fade-in zoom-in duration-300 flex flex-col max-h-[80vh]">
+              <div className="flex justify-between items-center mb-6">
+                <div>
+                  <h3 className="text-2xl font-black text-black">파일 링크 선택</h3>
+                  <p className="text-sm text-slate-500 font-bold mt-1">품명(Item)에 연결할 PDF 도면 파일을 선택하세요.</p>
+                </div>
+                <button onClick={() => { setIsFileSelectorOpen(false); setTargetRowIdForFile(null); }} className="p-2 text-slate-400 hover:text-black">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+                </button>
+              </div>
+              
+              <div className="mb-4">
+                <input 
+                  type="text" 
+                  placeholder="파일명 검색..." 
+                  className="w-full px-5 py-3 rounded-xl border border-slate-200 outline-none focus:ring-2 focus:ring-blue-500 font-bold"
+                  value={fileSearchTerm}
+                  onChange={(e) => setFileSearchTerm(e.target.value)}
+                />
+              </div>
+
+              <div className="flex-1 overflow-y-auto custom-scrollbar pr-2">
+                <div className="grid grid-cols-1 gap-2">
+                  {files.filter(f => f.name.toLowerCase().includes(fileSearchTerm.toLowerCase())).map(file => {
+                    const displayFileName = file.name.split('_').slice(1).join('_') || file.name;
+                    return (
+                      <button 
+                        key={file.id} 
+                        onClick={() => handleLinkFileToRow(file)}
+                        className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-[10px]">PDF</div>
+                          <div>
+                            <p className="font-black text-black text-sm">{displayFileName}</p>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(file.created_at).toLocaleDateString()}</p>
+                          </div>
+                        </div>
+                        <span className="px-4 py-1 bg-white border rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-widest">선택</span>
+                      </button>
+                    );
+                  })}
+                  {files.length === 0 && <div className="py-20 text-center text-slate-400 font-bold italic">업로드된 파일이 없습니다.</div>}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 };

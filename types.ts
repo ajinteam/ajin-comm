@@ -120,7 +120,6 @@ export interface VietnamOrderRow {
   id: string;
   itemName: string;
   drawingNo?: string;
-  specification?: string;
   image?: string; // base64
   fileUrl?: string; // PDF link
   unit: string;
