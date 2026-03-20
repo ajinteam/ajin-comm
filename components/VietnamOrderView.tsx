@@ -25,7 +25,7 @@ interface VietnamOrderViewProps {
 }
 
 const AutoExpandingTextarea = React.memo(({ 
-  value, onChange, disabled, className, placeholder, onKeyDown, onPaste, onFocus, onClick, dataRow, dataCol, style
+  value, onChange, disabled, className, placeholder, onKeyDown, onPaste, onFocus, onClick, onMouseDown, dataRow, dataCol, style
 }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -43,6 +43,7 @@ const AutoExpandingTextarea = React.memo(({
       onPaste={onPaste}
       onFocus={onFocus}
       onClick={onClick}
+      onMouseDown={onMouseDown}
       disabled={disabled}
       placeholder={placeholder}
       data-row={dataRow}
@@ -120,6 +121,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
   const [fileSearchTerm, setFileSearchTerm] = useState('');
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Editing state (from rejection or temporary)
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -425,6 +428,117 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     setIsFileSelectorOpen(false);
     setTargetRowIdForFile(null);
     alert('파일이 품명에 링크되었습니다.');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    if (file.type !== 'application/pdf') {
+      alert('PDF 파일만 업로드 가능합니다.');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const cleanName = file.name.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣._-]/g, '');
+      const fileName = `${Date.now()}_${cleanName}`;
+      
+      if (supabase) {
+        const { error } = await supabase.storage
+          .from('ajin-pdfdata')
+          .upload(fileName, file);
+        if (error) throw error;
+      } else {
+        const reader = new FileReader();
+        reader.onloadend = async () => {
+          const base64data = reader.result as string;
+          const mockFile: StorageFile = {
+            id: `mock-${Date.now()}`,
+            name: fileName,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_accessed_at: new Date().toISOString(),
+            metadata: {
+              size: file.size,
+              mimetype: file.type
+            },
+            isMock: true,
+            base64: base64data
+          };
+          
+          const currentMock = JSON.parse(localStorage.getItem('ajin_mock_storage') || '[]');
+          localStorage.setItem('ajin_mock_storage', JSON.stringify([mockFile, ...currentMock]));
+          alert('가상 저장소(LocalStorage)에 파일이 임시 저장되었습니다.');
+          await fetchStorageFiles();
+        };
+        reader.readAsDataURL(file);
+      }
+      
+      if (supabase) {
+        alert('파일 업로드가 완료되었습니다.');
+        await fetchStorageFiles();
+      }
+    } catch (err: any) {
+      console.error('Upload error:', err);
+      alert(`업로드 중 오류가 발생했습니다: ${err.message || '알 수 없는 오류'}`);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleFileDownload = async (file: StorageFile) => {
+    try {
+      if (file.isMock && file.base64) {
+        const link = document.createElement('a');
+        link.href = file.base64;
+        link.download = file.name.split('_').slice(1).join('_') || file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      } else if (supabase) {
+        const { data, error } = await supabase.storage
+          .from('ajin-pdfdata')
+          .download(file.name);
+        if (error) throw error;
+        const url = URL.createObjectURL(data);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name.split('_').slice(1).join('_') || file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }
+    } catch (err) {
+      console.error('Download error:', err);
+      alert('다운로드 중 오류가 발생했습니다.');
+    }
+  };
+
+  const handleFileDeleteFromStorage = (file: StorageFile) => {
+    if (!confirm(`[${file.name.split('_').slice(1).join('_') || file.name}] 파일을 영구 삭제하시겠습니까?`)) return;
+    
+    (async () => {
+      try {
+        if (file.isMock) {
+          const currentMock = JSON.parse(localStorage.getItem('ajin_mock_storage') || '[]');
+          const updatedMock = currentMock.filter((f: any) => f.name !== file.name);
+          localStorage.setItem('ajin_mock_storage', JSON.stringify(updatedMock));
+        } else if (supabase) {
+          const { error } = await supabase.storage
+            .from('ajin-pdfdata')
+            .remove([file.name]);
+          if (error) throw error;
+        }
+        alert('삭제되었습니다.');
+        fetchStorageFiles();
+      } catch (err) {
+        console.error('Delete error:', err);
+        alert('삭제 중 오류가 발생했습니다.');
+      }
+    })();
   };
 
   const handlePaste = (e: React.ClipboardEvent, rowId: string, field: keyof VietnamOrderRow, isMetal: boolean) => {
@@ -1182,6 +1296,14 @@ td {
                                                           onFocus={() => { takeSnapshot(); setSelection({ sR: rIdx, sC: cell.c, eR: rIdx, eC: cell.c }); }}
                                                           onKeyDown={(e: any) => handleRowKeyDown(e, rIdx, cell.c, isPayDoc ? 'PAYMENT' : (isMetalDoc ? 'METAL' : 'ORDER'))}
                                                           onPaste={(e: any) => handlePaste(e, row.id, cell.f as keyof VietnamOrderRow, isMetalDoc)}
+                                                          onMouseDown={(e: React.MouseEvent) => {
+                                                            // Request: Alt + Click to open file storage link
+                                                            if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
+                                                              e.preventDefault();
+                                                              setTargetRowIdForFile(row.id);
+                                                              setIsFileSelectorOpen(true);
+                                                            }
+                                                          }}
                                                           onClick={(e: React.MouseEvent) => {
                                                             // Request: Alt + Click to open file storage link
                                                             if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
@@ -1722,9 +1844,25 @@ td {
                   <h3 className="text-2xl font-black text-black">파일 링크 선택</h3>
                   <p className="text-sm text-slate-500 font-bold mt-1">품명(Item)에 연결할 PDF 도면 파일을 선택하세요.</p>
                 </div>
-                <button onClick={() => { setIsFileSelectorOpen(false); setTargetRowIdForFile(null); }} className="p-2 text-slate-400 hover:text-black">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isUploading}
+                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-xl font-black text-xs shadow-lg hover:bg-blue-700 disabled:opacity-50 transition-all"
+                  >
+                    {isUploading ? '업로드 중...' : '새 파일 업로드'}
+                  </button>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    className="hidden" 
+                    accept=".pdf" 
+                    onChange={handleFileUpload} 
+                  />
+                  <button onClick={() => { setIsFileSelectorOpen(false); setTargetRowIdForFile(null); }} className="p-2 text-slate-400 hover:text-black">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
+                  </button>
+                </div>
               </div>
               
               <div className="mb-4">
@@ -1742,20 +1880,40 @@ td {
                   {files.filter(f => f.name.toLowerCase().includes(fileSearchTerm.toLowerCase())).map(file => {
                     const displayFileName = file.name.split('_').slice(1).join('_') || file.name;
                     return (
-                      <button 
+                      <div 
                         key={file.id} 
-                        onClick={() => handleLinkFileToRow(file)}
-                        className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all text-left"
+                        className="flex items-center justify-between p-4 bg-slate-50 border border-slate-100 rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all group"
                       >
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-3 flex-1 cursor-pointer" onClick={() => handleLinkFileToRow(file)}>
                           <div className="w-10 h-10 bg-red-50 text-red-500 rounded-xl flex items-center justify-center font-black text-[10px]">PDF</div>
                           <div>
                             <p className="font-black text-black text-sm">{displayFileName}</p>
                             <p className="text-[10px] text-slate-400 font-bold uppercase">{new Date(file.created_at).toLocaleDateString()}</p>
                           </div>
                         </div>
-                        <span className="px-4 py-1 bg-white border rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-widest">선택</span>
-                      </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => handleFileDownload(file)}
+                            className="p-2 text-slate-400 hover:text-blue-600 hover:bg-white rounded-lg transition-all"
+                            title="다운로드"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a2 2 0 002 2h12a2 2 0 002-2v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                          </button>
+                          <button 
+                            onClick={() => handleFileDeleteFromStorage(file)}
+                            className="p-2 text-slate-400 hover:text-red-600 hover:bg-white rounded-lg transition-all"
+                            title="삭제"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                          </button>
+                          <button 
+                            onClick={() => handleLinkFileToRow(file)}
+                            className="px-4 py-1 bg-white border rounded-lg text-[10px] font-black text-blue-600 uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
+                          >
+                            선택
+                          </button>
+                        </div>
+                      </div>
                     );
                   })}
                   {files.length === 0 && <div className="py-20 text-center text-slate-400 font-bold italic">업로드된 파일이 없습니다.</div>}
