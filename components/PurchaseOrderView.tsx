@@ -2289,7 +2289,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         </div>
       )}
 
-      {renderFilePreviewModal()}
+      
 
        {isPdfViewerOpen && pdfViewerUrl && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[600] flex items-center justify-center p-4 no-print">
