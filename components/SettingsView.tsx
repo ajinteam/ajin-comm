@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { UserAccount, OrderSubCategory, InvoiceSubCategory, PurchaseOrderSubCategory, VietnamSubCategory, ViewState, MainCategory } from '../types';
+import { UserAccount, OrderSubCategory, InvoiceSubCategory, PurchaseOrderSubCategory, VietnamSubCategory, ViewState, MainCategory, InjectionOrderSubCategory } from '../types';
 import { saveRecipient, deleteRecipient } from '../supabase';
 
 interface SettingsViewProps {
@@ -25,6 +25,12 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
 
   const allMenus = [
     MainCategory.INJECTION_ORDER_MAIN,
+    InjectionOrderSubCategory.TEMPORARY,
+    InjectionOrderSubCategory.PENDING,
+    InjectionOrderSubCategory.REJECTED,
+    InjectionOrderSubCategory.APPROVED,
+    InjectionOrderSubCategory.DESTINATION,
+    InjectionOrderSubCategory.INBOX,
     MainCategory.ORDER,
     MainCategory.INVOICE,
     MainCategory.NATIONAL_INVOICE,

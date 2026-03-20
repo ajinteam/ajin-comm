@@ -44,8 +44,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
     if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
     if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
-    if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
-    if (menuName === inboxValue) return true; // Explicitly allow INBOX if it's not covered
+    
     if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
     if (nationalSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.NATIONAL_INVOICE)) return true;
     
