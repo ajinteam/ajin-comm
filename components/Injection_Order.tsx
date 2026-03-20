@@ -474,8 +474,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-              th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
-              td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 600; }
+              th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
+              td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 600; }
               .document-wrapper { padding: 0; box-sizing: border-box; }
               .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
               .border-t-bold { border-top: 1.5px solid black !important; }
@@ -592,8 +592,8 @@ tr {
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
                         table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
-                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-all; font-size: 9px; font-weight: 600; }
+                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
+                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 600; }
                         .document-wrapper { padding: 0; box-sizing: border-box; }
                         .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
                         .border-t-bold { border-top: 1.5px solid black !important; }
@@ -1039,24 +1039,24 @@ tr {
                       );
                     })}
                     <tr className="border-t-bold">
-                      <td colSpan={10} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
+                      <td colSpan={10} className="border border-black px-2 py-1 text-[10px] text-right font-bold">합계 (Subtotal)</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="border-t-thin border-b-thin">
-                      <td colSpan={10} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{pVat.toLocaleString()}</td>
+                      <td colSpan={10} className="border border-black px-2 py-1 text-[10px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{pVat.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{eVat.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{eVat.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="bg-slate-50 border-b-bold">
-                      <td colSpan={10} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td colSpan={10} className="border border-black px-2 py-1 text-[10px] text-right font-black">총액 (Grand Total)</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                   </tbody>
@@ -1173,24 +1173,24 @@ tr {
                     })}
                     {/* Summary Rows for Print */}
                     <tr className="border-t-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[10px] text-right font-bold">합계 (Subtotal)</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{itemTotals.price.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{itemTotals.extra.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="border-t-thin border-b-thin">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{pVat.toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[10px] text-right font-bold">부가세 (VAT 10%)</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{pVat.toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{eVat.toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{eVat.toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                     <tr className="bg-slate-50 border-b-bold">
-                      <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
+                      <td colSpan={11} className="border border-black px-2 py-1 text-[10px] text-right font-black">총액 (Grand Total)</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-black text-right">{(itemTotals.price + pVat).toLocaleString()}</td>
                       <td className="border border-black px-0 py-1"></td>
-                      <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                      <td className="border border-black px-1 py-1 text-[10px] font-black text-right">{(itemTotals.extra + eVat).toLocaleString()}</td>
                       <td className="border border-black px-1 py-1"></td>
                     </tr>
                   </tbody>
@@ -1850,24 +1850,24 @@ tr {
                       })}
                       {/* Summary Rows for Print */}
                       <tr className="border-t-bold">
-                        <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">합계 (Subtotal)</td>
-                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.price.subtotal.toLocaleString()}</td>
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[10px] text-right font-bold">합계 (Subtotal)</td>
+                        <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{totals.price.subtotal.toLocaleString()}</td>
                         <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.extra.subtotal.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{totals.extra.subtotal.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                       <tr className="border-t-thin border-b-thin">
-                        <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-bold">부가세 (VAT 10%)</td>
-                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.price.vat.toLocaleString()}</td>
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[10px] text-right font-bold">부가세 (VAT 10%)</td>
+                        <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{totals.price.vat.toLocaleString()}</td>
                         <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[9px] font-bold text-right">{totals.extra.vat.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1 text-[10px] font-bold text-right">{totals.extra.vat.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                       <tr className="bg-slate-50 border-b-bold">
-                        <td colSpan={11} className="border border-black px-2 py-1 text-[9px] text-right font-black">총액 (Grand Total)</td>
-                        <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{totals.price.total.toLocaleString()}</td>
+                        <td colSpan={11} className="border border-black px-2 py-1 text-[10px] text-right font-black">총액 (Grand Total)</td>
+                        <td className="border border-black px-1 py-1 text-[10px] font-black text-right">{totals.price.total.toLocaleString()}</td>
                         <td className="border border-black px-0 py-1"></td>
-                        <td className="border border-black px-1 py-1 text-[9px] font-black text-right">{totals.extra.total.toLocaleString()}</td>
+                        <td className="border border-black px-1 py-1 text-[10px] font-black text-right">{totals.extra.total.toLocaleString()}</td>
                         <td className="border border-black px-1 py-1"></td>
                       </tr>
                     </tbody>

@@ -1186,6 +1186,7 @@ td {
                                                             // Request: Alt + Click to open file storage link
                                                             if (e.altKey && cell.f === 'itemName') {
                                                               e.preventDefault();
+                                                              fetchStorageFiles(); // Refresh file list
                                                               setTargetRowIdForFile(row.id);
                                                               setIsFileSelectorOpen(true);
                                                             }
