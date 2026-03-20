@@ -1149,7 +1149,7 @@ td {
                                                     {cell.f === 'amount' ? formatNumber(calculateAmount(row)) : (
                                                         (cell.f === 'qty' || cell.f === 'unitPrice') ? formatNumber(row[cell.f as keyof VietnamOrderRow]) : row[cell.f as keyof VietnamOrderRow]
                                                     )}
-                                                    {cell.f === 'itemName' && row.fileUrl && (
+                                                    {(cell.f === 'itemName' || cell.f === 'drawingNo') && row.fileUrl && (
                                                       <button 
                                                         onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
                                                         className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
@@ -1184,16 +1184,16 @@ td {
                                                           onPaste={(e: any) => handlePaste(e, row.id, cell.f as keyof VietnamOrderRow, isMetalDoc)}
                                                           onClick={(e: React.MouseEvent) => {
                                                             // Request: Alt + Click to open file storage link
-                                                            if (e.altKey && cell.f === 'itemName') {
+                                                            if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo')) {
                                                               e.preventDefault();
                                                               setTargetRowIdForFile(row.id);
                                                               setIsFileSelectorOpen(true);
                                                             }
                                                           }}
                                                           style={{ textAlign: align, fontWeight: '400' }}
-                                                          className={`${cell.f === 'qty' || cell.f === 'unitPrice' ? 'font-mono' : ''} ${isPayDoc ? 'p-0 text-[11px]' : 'p-1'} font-normal-print ${cell.f === 'itemName' ? 'pr-6' : ''}`}
+                                                          className={`${cell.f === 'qty' || cell.f === 'unitPrice' ? 'font-mono' : ''} ${isPayDoc ? 'p-0 text-[11px]' : 'p-1'} font-normal-print ${(cell.f === 'itemName' || cell.f === 'drawingNo') ? 'pr-6' : ''}`}
                                                       />
-                                                      {cell.f === 'itemName' && row.fileUrl && (
+                                                      {(cell.f === 'itemName' || cell.f === 'drawingNo') && row.fileUrl && (
                                                         <button 
                                                           onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
                                                           className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
