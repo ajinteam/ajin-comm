@@ -470,7 +470,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
               @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
-              body { font-family: 'Gulim', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+              body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
               * { color: black !important; border-color: black !important; print-color-adjust: exact; }
               .no-print { display: none !important; }
               table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
@@ -579,7 +579,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
                         @page { size: A4 portrait; margin: 20mm 10mm 15mm 10mm; }
-                        body { font-family: 'Gulim', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+                        body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
                         * { color: black !important; border-color: black !important; print-color-adjust: exact; }
                         .no-print { display: none !important; }
                         table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
