@@ -120,6 +120,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [targetRowIdForFile, setTargetRowIdForFile] = useState<string | null>(null);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
   const [fileSearchTerm, setFileSearchTerm] = useState('');
+  const [previewFileUrl, setPreviewFileUrl] = useState<string | null>(null);
 
   // Editing state (from rejection or temporary)
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -954,6 +955,34 @@ td {
     );
   };
 
+  // New: File Preview Modal rendering
+  const renderFilePreviewModal = () => {
+    if (!previewFileUrl) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[600] flex flex-col no-print">
+        <div className="flex justify-between items-center p-4 bg-white/10 backdrop-blur-md border-b border-white/10">
+          <h3 className="text-xl font-black text-white">도면 미리보기</h3>
+          <button 
+            onClick={() => setPreviewFileUrl(null)} 
+            className="p-2 bg-white/10 text-white hover:bg-white/20 rounded-full transition-all"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+        <div className="flex-1 w-full h-full bg-slate-900 overflow-hidden">
+          <iframe 
+            src={previewFileUrl} 
+            className="w-full h-full border-none"
+            title="PDF Preview"
+          />
+        </div>
+      </div>
+    );
+  };
+
   // 문서 상세 뷰 렌더러
   const renderDocument = (data: VietnamOrderItem, isReadOnly: boolean = true) => {
     const isPayDoc = data.type === 'PAYMENT';
@@ -1258,9 +1287,9 @@ td {
                                                     )}
                                                     {cell.f === 'itemName' && row.fileUrl && (
                                                       <button 
-                                                        onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
+                                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
                                                         className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-                                                        title="도면 파일 보기"
+                                                        title="도면 미리보기"
                                                       >
                                                         <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                       </button>
@@ -1304,9 +1333,9 @@ td {
                                                       />
                                                       {cell.f === 'itemName' && row.fileUrl && (
                                                         <button 
-                                                          onClick={(e) => { e.stopPropagation(); window.open(row.fileUrl, '_blank'); }}
+                                                          onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
                                                           className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center no-print"
-                                                          title="도면 파일 보기"
+                                                          title="도면 미리보기"
                                                         >
                                                           <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-[0_0_5px_rgba(239,68,68,0.5)] hover:scale-125 transition-transform"></div>
                                                         </button>
@@ -1825,6 +1854,7 @@ td {
         )}
 
         {renderFileSelectorModal()}
+        {renderFilePreviewModal()}
     </div>
   );
 };
