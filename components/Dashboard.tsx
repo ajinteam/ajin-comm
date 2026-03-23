@@ -28,7 +28,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   // 카운트 상태 관리
   const [counts, setCounts] = useState({
     order: { pending: 0, rejected: 0, approved: 0 },
-    invoice: { completed: 0 },
+    invoice: { seoul: 0, daechon: 0, vietnam: 0 },
     purchase: { pending: 0, rejected: 0, approved: 0 },
     injection: { pending: 0, rejected: 0, approved: 0, inbox: 0 },
     vietnam: { pending: 0, rejected: 0, completed: 0 }
@@ -55,11 +55,19 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         approved: orders.filter((o: any) => o.status === OrderSubCategory.APPROVED).length
       },
       invoice: {
-        completed: invoices.filter((inv: any) => 
-      inv.status === '결재대기' && 
-      (!inv.type || inv.type === '일반' || inv.type === InvoiceSubCategory.COMPLETED)
-    ).length
-  },
+        seoul: invoices.filter((inv: any) => 
+          (inv.status === '결재대기' || inv.status === InvoiceSubCategory.COMPLETED) && 
+          inv.recipient === 'SEOUL'
+        ).length,
+        daechon: invoices.filter((inv: any) => 
+          (inv.status === '결재대기' || inv.status === InvoiceSubCategory.COMPLETED) && 
+          inv.recipient === 'DAECHEON'
+        ).length,
+        vietnam: invoices.filter((inv: any) => 
+          (inv.status === '결재대기' || inv.status === InvoiceSubCategory.COMPLETED) && 
+          inv.recipient === 'VIETNAM'
+        ).length
+      },
       purchase: {
         pending: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.PENDING).length,
         rejected: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.REJECTED).length,
@@ -224,7 +232,9 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
 
         {/* 송장 섹션 */}
         <CategorySection title="송장 현황" mainCat={MainCategory.INVOICE}>
-          <StatCard title="송장완료" count={counts.invoice.completed} colorClass="emerald" statusLabel={InvoiceSubCategory.COMPLETED} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
+          <StatCard title="서울" count={counts.invoice.seoul} colorClass="blue" statusLabel={InvoiceSubCategory.SEOUL} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
+          <StatCard title="대천" count={counts.invoice.daechon} colorClass="emerald" statusLabel={InvoiceSubCategory.DAECHEON} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
+          <StatCard title="베트남" count={counts.invoice.vietnam} colorClass="amber" statusLabel={InvoiceSubCategory.VIETNAM} onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.COMPLETED })} />
         </CategorySection>
 
         {/* 발주서 섹션 */}
