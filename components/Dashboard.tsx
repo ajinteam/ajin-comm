@@ -125,7 +125,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       // Supabase recipients 테이블에 먼저 저장 (동기화 레이스 컨디션 방지)
       await saveRecipient({
         id: `notice-${editingId}`,
-        name: 'NOTICE',
+        name: user.initials,
         remark: newNotice,
         category: 'NOTICE'
       });
@@ -138,13 +138,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         id,
         content: newNotice,
         date: new Date().toLocaleDateString('ko-KR').replace(/\.$/, ''),
+        authorInitials: user.initials,
         isNew: true
       };
 
       // Supabase recipients 테이블에 먼저 저장 (동기화 레이스 컨디션 방지)
       await saveRecipient({
         id: `notice-${id}`,
-        name: 'NOTICE',
+        name: user.initials,
         remark: newNotice,
         category: 'NOTICE'
       });
@@ -300,7 +301,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
                   <span className="text-slate-700 font-bold text-sm truncate">{n.content}</span>
                 </div>
                 <div className="flex items-center justify-between sm:justify-end gap-6 shrink-0">
-                  <span className="text-[11px] text-slate-400 font-mono font-bold">{n.date}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-400 font-mono font-bold">{n.date}</span>
+                    {n.authorInitials && <span className="text-[10px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-black">{n.authorInitials}</span>}
+                  </div>
                   <div className="flex gap-4 opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
                     <button onClick={() => startEdit(n)} className="text-[11px] font-black text-blue-600 hover:underline">수정</button>
                     <button onClick={() => handleDeleteNotice(n.id)} className="text-[11px] font-black text-red-500 hover:underline">삭제</button>

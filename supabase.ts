@@ -168,6 +168,7 @@ export const pullStateFromCloud = async () => {
       id: item.id.replace('notice-', ''),
       content: item.remark,
       date: item.created_at ? new Date(item.created_at).toLocaleDateString('ko-KR').replace(/\.$/, '') : new Date().toLocaleDateString('ko-KR').replace(/\.$/, ''),
+      authorInitials: item.name !== 'NOTICE' ? item.name : undefined,
       isNew: false
     }));
 
