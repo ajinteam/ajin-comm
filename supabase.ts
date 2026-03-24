@@ -223,6 +223,165 @@ export const pullStateFromCloud = async () => {
 };
 
 /**
+ * 실시간 동기화 (Realtime) 설정
+ * 수정된 데이터만 수신하여 로컬 상태 업데이트
+ */
+export const subscribeToRealtime = (onUpdate: () => void) => {
+  if (!supabase) return null;
+
+  const channel = supabase
+    .channel('erp-realtime-changes')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public' },
+      async (payload) => {
+        const { table, eventType, new: newRecord, old: oldRecord } = payload;
+        console.log(`[Realtime Change] ${table} ${eventType}`, payload);
+
+        try {
+          // 1. 단순 테이블 처리 (orders, invoices, purchase_orders, vn_purchase_orders, nationalinvoice)
+          const simpleTables: Record<string, string> = {
+            'orders': 'ajin_orders',
+            'invoices': 'ajin_invoices',
+            'purchase_orders': 'ajin_purchase_orders',
+            'vn_purchase_orders': 'ajin_vietnam_orders',
+            'nationalinvoice': 'ajin_national_invoices'
+          };
+
+          if (simpleTables[table]) {
+            const storageKey = simpleTables[table];
+            let list = JSON.parse(localStorage.getItem(storageKey) || '[]');
+            
+            if (eventType === 'INSERT' || eventType === 'UPDATE') {
+              const doc = (newRecord as any).content;
+              if (doc) {
+                const index = list.findIndex((item: any) => item.id === doc.id);
+                if (index > -1) list[index] = doc;
+                else list.unshift(doc);
+              }
+            } else if (eventType === 'DELETE') {
+              const id = (oldRecord as any).id;
+              list = list.filter((item: any) => String(item.id) !== String(id));
+            }
+            
+            localStorage.setItem(storageKey, JSON.stringify(list));
+          }
+
+          // 2. 사출 관리 (Injection_Order, Injection_Take) - ajin_injection_orders로 통합 관리
+          else if (table === 'Injection_Order' || table === 'Injection_Take') {
+            let list = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+            
+            if (eventType === 'INSERT' || eventType === 'UPDATE') {
+              const doc = (newRecord as any).content;
+              if (doc) {
+                const index = list.findIndex((item: any) => item.id === doc.id);
+                if (index > -1) list[index] = doc;
+                else list.unshift(doc);
+              }
+            } else if (eventType === 'DELETE') {
+              const id = (oldRecord as any).id;
+              list = list.filter((item: any) => String(item.id) !== String(id));
+            }
+            
+            localStorage.setItem('ajin_injection_orders', JSON.stringify(list));
+          }
+
+          // 3. Recipients 테이블 (Accounts, Notices, National Entities, Injection Recipients)
+          else if (table === 'recipients') {
+            if (eventType === 'INSERT' || eventType === 'UPDATE') {
+              const item = newRecord as any;
+              
+              if (item.category === 'ACCOUNT') {
+                let accounts = JSON.parse(localStorage.getItem('ajin_accounts') || '[]');
+                const mapped = {
+                  id: item.id,
+                  loginId: item.name,
+                  initials: item.tel,
+                  allowedMenus: JSON.parse(item.remark || '[]'),
+                  createdAt: item.created_at
+                };
+                const idx = accounts.findIndex((a: any) => a.id === mapped.id);
+                if (idx > -1) accounts[idx] = mapped;
+                else accounts.push(mapped);
+                localStorage.setItem('ajin_accounts', JSON.stringify(accounts));
+              } 
+              else if (item.category === 'NOTICE') {
+                let notices = JSON.parse(localStorage.getItem('ajin_notices') || '[]');
+                const mapped = {
+                  id: item.id.replace('notice-', ''),
+                  content: item.remark,
+                  date: new Date(item.created_at).toLocaleDateString('ko-KR').replace(/\.$/, ''),
+                  authorInitials: item.name !== 'NOTICE' ? item.name : undefined,
+                  isNew: true
+                };
+                const idx = notices.findIndex((n: any) => n.id === mapped.id);
+                if (idx > -1) notices[idx] = mapped;
+                else notices.unshift(mapped);
+                localStorage.setItem('ajin_notices', JSON.stringify(notices));
+              }
+              else if (item.category === 'NATIONAL_ENTITY') {
+                let entities = JSON.parse(localStorage.getItem('ajin_national_entities') || '[]');
+                const remarks = (item.remark || '').split(' | ');
+                const mapped = {
+                  id: item.id,
+                  type: item.id.startsWith('shipper-') ? 'SHIPPER' : 'CONSIGNEE',
+                  name: item.name,
+                  content: remarks[0] || '',
+                  extra: remarks[1] || '',
+                  taxId: item.fax,
+                  tel: item.tel,
+                  attn: remarks[2]?.replace('Attn: ', '') || ''
+                };
+                const idx = entities.findIndex((e: any) => e.id === mapped.id);
+                if (idx > -1) entities[idx] = mapped;
+                else entities.push(mapped);
+                localStorage.setItem('ajin_national_entities', JSON.stringify(entities));
+              }
+              else if (item.category === 'INJECTION_RECIPIENT') {
+                let recipients = JSON.parse(localStorage.getItem('ajin_injection_recipients') || '[]');
+                const mapped = {
+                  id: item.id,
+                  name: item.name,
+                  telFax: item.tel,
+                  reference: item.fax,
+                  remarks: item.remark
+                };
+                const idx = recipients.findIndex((r: any) => r.id === mapped.id);
+                if (idx > -1) recipients[idx] = mapped;
+                else recipients.push(mapped);
+                localStorage.setItem('ajin_injection_recipients', JSON.stringify(recipients));
+              }
+            } else if (eventType === 'DELETE') {
+              const id = (oldRecord as any).id;
+              // Recipients는 ID 패턴으로 구분
+              if (id.startsWith('notice-')) {
+                let notices = JSON.parse(localStorage.getItem('ajin_notices') || '[]');
+                notices = notices.filter((n: any) => n.id !== id.replace('notice-', ''));
+                localStorage.setItem('ajin_notices', JSON.stringify(notices));
+              } else {
+                // 다른 카테고리들은 ID로 직접 필터링 (중복 가능성이 낮으므로 모든 리스트에서 제거 시도)
+                ['ajin_accounts', 'ajin_national_entities', 'ajin_injection_recipients'].forEach(key => {
+                  let list = JSON.parse(localStorage.getItem(key) || '[]');
+                  list = list.filter((i: any) => i.id !== id);
+                  localStorage.setItem(key, JSON.stringify(list));
+                });
+              }
+            }
+          }
+
+          // UI 업데이트 알림
+          onUpdate();
+        } catch (err) {
+          console.error('[Realtime Update Error]', err);
+        }
+      }
+    )
+    .subscribe();
+
+  return channel;
+};
+
+/**
  * 잔디 알림
  */
 export const sendJandiNotification = async (target: string, type: string, title: string, recipient: string, date: string) => {

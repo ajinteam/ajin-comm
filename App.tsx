@@ -20,7 +20,7 @@ import VietnamOrderView from './components/VietnamOrderView';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
 import Dashboard from './components/Dashboard';
-import { pullStateFromCloud, pushStateToCloud, supabase } from './supabase';
+import { pullStateFromCloud, pushStateToCloud, supabase, subscribeToRealtime } from './supabase';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -32,6 +32,7 @@ const App: React.FC = () => {
   const [dataVersion, setDataVersion] = useState(0);
 
   useEffect(() => {
+    let channel: any = null;
     const initApp = async () => {
       setIsSyncing(true);
       await pullStateFromCloud();
@@ -70,8 +71,21 @@ const App: React.FC = () => {
 
       setIsLoading(false);
       setIsSyncing(false);
+
+      // 실시간 구독 설정
+      channel = subscribeToRealtime(() => {
+        setDataVersion(v => v + 1);
+        // 계정 정보가 바뀌었을 수 있으므로 다시 로드
+        const updatedAccounts = JSON.parse(localStorage.getItem('ajin_accounts') || '[]');
+        setUserAccounts(updatedAccounts);
+      });
     };
+
     initApp();
+
+    return () => {
+      if (channel) supabase?.removeChannel(channel);
+    };
   }, []);
 
   useEffect(() => {
@@ -85,12 +99,8 @@ const App: React.FC = () => {
 
     window.addEventListener('focus', handleSync);
     
-    // Background Sync every 10 seconds
-    const interval = setInterval(handleSync, 10000);
-
     return () => {
       window.removeEventListener('focus', handleSync);
-      clearInterval(interval);
     };
   }, [currentUser]);
 
