@@ -62,7 +62,10 @@ const AutoExpandingTextarea = React.memo(({
 });
 
 const formatCompletionDate = (isoString: string) => {
+  if (!isoString) return '';
   const date = new Date(isoString);
+  // 만약 유효하지 않은 날짜라면 원본 문자열 반환
+  if (isNaN(date.getTime()) || isNaN(date.getFullYear())) return isoString; 
   const y = date.getFullYear();
   const m = date.getMonth() + 1;
   const d = date.getDate();
@@ -728,7 +731,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               return r;
             }),
             notes: po2Notes, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, isResubmitted: targetStatus === PurchaseOrderSubCategory.PENDING && item.status === PurchaseOrderSubCategory.REJECTED, hideInjectionColumn: hideInjectionColumn,
-            stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } },
+            stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } },
             rejectReason: undefined, rejectLog: undefined
           };
           return updatedDoc;
@@ -748,7 +751,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       const newItem: PurchaseOrderItem = {
         id: `${baseType}-${Date.now()}`, code: '', title: po2Title, type: baseType as string, recipient: po2Recipient, telFax: po2TelFax, reference: po2Reference, senderName: po2SenderName, senderPerson: po2SenderPerson, status: targetStatus, authorId: currentUser.initials, date: po2Date, createdAt: new Date().toISOString(),
         rows: po2Rows.filter(r => r.itemName?.trim() || r.model?.trim() || (r as any).dept?.trim() || (r as any).s?.trim()),
-        notes: po2Notes, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, hideInjectionColumn: hideInjectionColumn
+        notes: po2Notes, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } }, headerRows: po1HeaderRows.filter(r => r.trim() !== ''), merges: po1Merges, aligns: po1Aligns, weights: po1Weights, borders: po1Borders, hideInjectionColumn: hideInjectionColumn
       };
       saveItems([newItem, ...items], newItem);
       
@@ -958,7 +961,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           title: newTitle,
           status: PurchaseOrderSubCategory.REJECTED as any, 
           rejectReason: rejectReasonText, 
-          rejectLog: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } 
+          rejectLog: { userId: currentUser.initials, timestamp: new Date().toISOString() } 
         };
         return updatedDoc;
       }
@@ -1022,7 +1025,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     let updatedDoc: PurchaseOrderItem | undefined;
     const updated = items.map(item => {
       if (item.id === id) {
-        const newStamps = { ...item.stamps, [stampType]: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
+        const newStamps = { ...item.stamps, [stampType]: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
         
         // Completion logic based on dynamic path
         const slots = getApprovalSlots(item.type, item.recipient || '');
@@ -1080,7 +1083,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   const handleFinalArchive = (order: PurchaseOrderItem) => {
-    const updatedStamps = { ...order.stamps, final: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
+    const updatedStamps = { ...order.stamps, final: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
     let updatedDoc: PurchaseOrderItem | undefined;
     const updatedOrders = items.map(o => {
       if (o.id === order.id) {
