@@ -71,7 +71,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
       purchase: {
         pending: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.PENDING).length,
         rejected: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.REJECTED).length,
-        approved: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.APPROVED).length
+        approved: pOrders.filter((o: any) => o.code !== 'INJECTION' && o.status === PurchaseOrderSubCategory.APPROVED &&
+  o.stage === 'PURCHASE').length
 },
       injection: {
         pending: injectionOrders.filter((o: any) => o.status === InjectionOrderSubCategory.PENDING).length,
