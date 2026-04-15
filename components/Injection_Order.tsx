@@ -27,6 +27,27 @@ interface InjectionOrderViewProps {
   dataVersion: number;
 }
 
+const formatCompletionDate = (isoString: string, isVietnam: boolean = false) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime()) || isNaN(date.getFullYear())) return isoString; 
+  
+  const offset = isVietnam ? 7 : 9;
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const targetDate = new Date(utc + (3600000 * offset));
+
+  const y = targetDate.getFullYear();
+  const m = targetDate.getMonth() + 1;
+  const d = targetDate.getDate();
+  let hh = targetDate.getHours();
+  const mm = String(targetDate.getMinutes()).padStart(2, '0');
+  const ss = String(targetDate.getSeconds()).padStart(2, '0');
+  const ampm = hh >= 12 ? 'pm' : 'am';
+  hh = hh % 12;
+  hh = hh ? hh : 12; 
+  return `${y}. ${m}. ${d}. ${ampm} ${hh}:${mm}:${ss}`;
+};
+
 const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUser, userAccounts, setView, dataVersion }) => {
   const [items, setItems] = useState<any[]>([]);
   const [activeItem, setActiveItem] = useState<any | null>(null);
@@ -222,7 +243,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
     try {
       const now = new Date();
-      const timestamp = now.toLocaleString();
+      const timestamp = now.toISOString();
       
       const isInj = activeItem.id?.startsWith('inj-');
       const isFinalStep = isInj ? role === 'director' : role === 'ceo';
@@ -706,7 +727,7 @@ tr {
                             {stamp ? (
                               <div className="flex flex-col items-center justify-center leading-tight">
                                 <span className="font-black text-[11px] text-blue-700">{stamp.userId}</span>
-                                <span className="text-[7px] text-slate-400 mt-0.5 text-center w-full break-keep whitespace-pre-line">{stamp.timestamp}</span>
+                                <span className="text-[7px] text-slate-400 mt-0.5 text-center w-full break-keep whitespace-pre-line">{formatCompletionDate(stamp.timestamp)}</span>
                               </div>
                             ) : (
                               <div className="flex items-center justify-center h-full text-center">

@@ -10,13 +10,29 @@ interface InvoiceViewProps {
   dataVersion: number;
 }
 
-const formatAmPm = (timeStr: string) => {
-  if (!timeStr) return '';
-  return timeStr.replace('오전', 'am').replace('오후', 'pm');
+const formatCompletionDate = (isoString: string, isVietnam: boolean) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime()) || isNaN(date.getFullYear())) return isoString; 
+  
+  const offset = isVietnam ? 7 : 9;
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const targetDate = new Date(utc + (3600000 * offset));
+
+  const y = targetDate.getFullYear();
+  const m = targetDate.getMonth() + 1;
+  const d = targetDate.getDate();
+  let hh = targetDate.getHours();
+  const mm = String(targetDate.getMinutes()).padStart(2, '0');
+  const ss = String(targetDate.getSeconds()).padStart(2, '0');
+  const ampm = hh >= 12 ? 'pm' : 'am';
+  hh = hh % 12;
+  hh = hh ? hh : 12; 
+  return `${y}. ${m}. ${d}. ${ampm} ${hh}:${mm}:${ss}`;
 };
 
 const getCurrentAmPmTime = () => {
-  return new Date().toLocaleString('ko-KR', { hour12: true });
+  return new Date().toISOString();
 };
 
 const getCellBorderStyle = (r: number, c: number, borderData: any) => {
@@ -81,6 +97,8 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   const [isDraggingTool, setIsDraggingTool] = useState(false);
   const dragStartPos = useRef({ x: 0, y: 0 });
 
+  const isVietnam = activeInvoice?.recipient === 'VIETNAM';
+  
   const handleToolMouseDown = (e: React.MouseEvent) => {
     setIsDraggingTool(true);
     dragStartPos.current = { x: e.clientX - toolPos.x, y: e.clientY - toolPos.y };
@@ -842,7 +860,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                           {(row.model || row.itemName) && !row.isDeleted && <button onClick={() => handleDeleteSavedRow(row.id, idx)} className="px-1.5 py-0.5 rounded text-[8px] md:text-[9px] font-bold bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all">수정</button>}
                           {row.modLog && (
                             <div className="text-[7px] md:text-[8px] text-slate-500 leading-tight font-sans">
-                              <span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {row.modLog.userId}<br/>{formatAmPm(row.modLog.timestamp)}
+                              <span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {row.modLog.userId}<br/>{formatCompletionDate(row.modLog.timestamp, isVietnam)}
                             </div>
                           )}
                         </div>
@@ -870,8 +888,8 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
 
           {stamps && (
             <div className="mt-8 flex flex-wrap justify-end items-center gap-4 md:gap-6 text-[9px] md:text-[10px] no-print">
-              {stamps.writer && <div className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase">작성:</span><span className="text-blue-600 font-black">{stamps.writer.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.writer.timestamp)}</span></div>}
-              {stamps.final && <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-slate-400 font-bold uppercase">확인:</span><span className="text-emerald-600 font-black">{stamps.final.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatAmPm(stamps.final.timestamp)}</span></div>}
+              {stamps.writer && <div className="flex items-center gap-2"><span className="text-slate-400 font-bold uppercase">작성:</span><span className="text-blue-600 font-black">{stamps.writer.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatCompletionDate(stamps.writer.timestamp, isVietnam)}</span></div>}
+              {stamps.final && <div className="flex items-center gap-2 border-l border-slate-200 pl-4"><span className="text-slate-400 font-bold uppercase">확인:</span><span className="text-emerald-600 font-black">{stamps.final.userId}</span><span className="text-slate-400 whitespace-nowrap">{formatCompletionDate(stamps.final.timestamp, isVietnam)}</span></div>}
             </div>
           )}
 

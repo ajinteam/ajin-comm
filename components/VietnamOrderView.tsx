@@ -67,6 +67,27 @@ const getCellBorderStyle = (r: number, c: number, borderData: any) => {
   return styles;
 };
 
+const formatCompletionDate = (isoString: string, isVietnam: boolean = true) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime()) || isNaN(date.getFullYear())) return isoString; 
+  
+  const offset = isVietnam ? 7 : 9;
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const targetDate = new Date(utc + (3600000 * offset));
+
+  const y = targetDate.getFullYear();
+  const m = targetDate.getMonth() + 1;
+  const d = targetDate.getDate();
+  let hh = targetDate.getHours();
+  const mm = String(targetDate.getMinutes()).padStart(2, '0');
+  const ss = String(targetDate.getSeconds()).padStart(2, '0');
+  const ampm = hh >= 12 ? 'pm' : 'am';
+  hh = hh % 12;
+  hh = hh ? hh : 12; 
+  return `${y}. ${m}. ${d}. ${ampm} ${hh}:${mm}:${ss}`;
+};
+
 const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, setView, dataVersion }) => {
   const [items, setItems] = useState<VietnamOrderItem[]>([]);
   const [activeItem, setActiveItem] = useState<VietnamOrderItem | null>(null);
@@ -683,7 +704,7 @@ td {
               rejectReason: isTemp ? it.rejectReason : undefined, 
               rejectLog: isTemp ? it.rejectLog : undefined, 
               merges, aligns, weights, borders,
-              stamps: isTemp ? it.stamps : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
+              stamps: isTemp ? it.stamps : { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } }
             };
             return updatedDoc;
           }
@@ -705,7 +726,7 @@ td {
             beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
             rows: vRows.filter(r => r.itemName.trim() || r.image), status: targetStatus, authorId: currentUser.initials, createdAt: new Date().toISOString(),
             merges, aligns, weights, borders,
-            stamps: isTemp ? {} : { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } }
+            stamps: isTemp ? {} : { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } }
         };
         const updated = [newItem, ...items];
         saveVietnamItems(updated, newItem);
@@ -739,7 +760,7 @@ td {
     if (type === 'head' && !isMaster && userInit !== 'u-sun') { alert('법인장 결재 권한이 없습니다. (U-SUN 전용)'); return; }
     if (type === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
 
-    const updatedStamps = { ...item.stamps, [type]: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
+    const updatedStamps = { ...item.stamps, [type]: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
     
     const isPay = item.type === 'PAYMENT';
     const isMetal = item.type === 'METAL';
@@ -806,7 +827,7 @@ td {
   };
 
   const handleFinalVerify = (item: VietnamOrderItem) => {
-    const updatedStamps = { ...item.stamps, final: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } };
+    const updatedStamps = { ...item.stamps, final: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
     let nextStatus = item.type === 'PAYMENT' ? VietnamSubCategory.PAYMENT_COMPLETED : VietnamSubCategory.ORDER_COMPLETED;
     if (item.type === 'METAL') nextStatus = VietnamSubCategory.METAL_ORDER_COMPLETED;
     
@@ -1030,7 +1051,7 @@ td {
                           {data.stamps.writer && (
                             <div className="flex flex-col items-center">
                               <span className="font-black text-blue-700 text-xs">{data.stamps.writer.userId}</span>
-                              <span className="text-[8px] opacity-60 mt-1">{data.stamps.writer.timestamp}</span>
+                              <span className="text-[8px] opacity-60 mt-1">{formatCompletionDate(data.stamps.writer.timestamp, true)}</span>
                             </div>
                           )}
                         </td>
@@ -1038,7 +1059,7 @@ td {
                           {data.stamps.head ? (
                             <div className="flex flex-col items-center">
                                 <span className="font-black text-green-700 text-xs">{data.stamps.head.userId}</span>
-                                <span className="text-[8px] opacity-60 mt-1">{data.stamps.head.timestamp}</span>
+                                <span className="text-[8px] opacity-60 mt-1">{formatCompletionDate(data.stamps.head.timestamp, true)}</span>
                             </div>
                           ) : (isReadOnly && sub === VietnamSubCategory.PENDING ? <span className="text-[10px] text-slate-300">승인</span> : null)}
                         </td>
@@ -1047,7 +1068,7 @@ td {
                             {data.stamps.ceo ? (
                               <div className="flex flex-col items-center">
                                   <span className="font-black text-red-700 text-xs">{data.stamps.ceo.userId}</span>
-                                  <span className="text-[8px] opacity-60 mt-1">{data.stamps.ceo.timestamp}</span>
+                                  <span className="text-[8px] opacity-60 mt-1">{formatCompletionDate(data.stamps.ceo.timestamp, true)}</span>
                               </div>
                             ) : (isReadOnly && sub === VietnamSubCategory.PENDING && data.stamps.head ? <span className="text-[10px] text-slate-300">승인</span> : null)}
                           </td>
@@ -1422,7 +1443,7 @@ td {
           {isReadOnly && data.stamps.final && (
             <div className="mt-12 pt-4 border-t border-slate-100 flex justify-end gap-6 text-[10px] font-bold text-slate-400 no-print">
                 <span>확인: {data.stamps.final.userId}</span>
-                <span>확인일시: {data.stamps.final.timestamp}</span>
+                <span>확인일시: {formatCompletionDate(data.stamps.final.timestamp, true)}</span>
             </div>
           )}
 
@@ -1600,7 +1621,7 @@ td {
         )}
 
         <div className="py-8 landscape:py-2 bg-slate-200 min-h-screen overflow-x-auto">
-          {renderDocument({ id: 'preview', type: docType, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toLocaleString() } } } as any, false)}
+          {renderDocument({ id: 'preview', type: docType, stamps: { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } } } as any, false)}
         </div>
 
         {renderFileSelectorModal()}

@@ -61,17 +61,23 @@ const AutoExpandingTextarea = React.memo(({
   );
 });
 
-const formatCompletionDate = (isoString: string) => {
+const formatCompletionDate = (isoString: string, isVietnam: boolean = false) => {
   if (!isoString) return '';
   const date = new Date(isoString);
   // 만약 유효하지 않은 날짜라면 원본 문자열 반환
   if (isNaN(date.getTime()) || isNaN(date.getFullYear())) return isoString; 
-  const y = date.getFullYear();
-  const m = date.getMonth() + 1;
-  const d = date.getDate();
-  let hh = date.getHours();
-  const mm = String(date.getMinutes()).padStart(2, '0');
-  const ss = String(date.getSeconds()).padStart(2, '0');
+  
+  // 타겟 시간대로 변환 (한국 UTC+9, 베트남 UTC+7)
+  const offset = isVietnam ? 7 : 9;
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const targetDate = new Date(utc + (3600000 * offset));
+
+  const y = targetDate.getFullYear();
+  const m = targetDate.getMonth() + 1;
+  const d = targetDate.getDate();
+  let hh = targetDate.getHours();
+  const mm = String(targetDate.getMinutes()).padStart(2, '0');
+  const ss = String(targetDate.getSeconds()).padStart(2, '0');
   const ampm = hh >= 12 ? 'pm' : 'am';
   hh = hh % 12;
   hh = hh ? hh : 12; 
@@ -1892,7 +1898,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                 {stamps[slot as keyof PurchaseOrderItem['stamps']] ? (
                                   <>
                                     <span className={`font-black text-[10px] ${slot==='writer'?'text-blue-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span>
-                                    <span className="text-[6px] text-slate-500 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span>
+                                    <span className="text-[6px] text-slate-500 mt-0.5">{formatCompletionDate(stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp || '', activeItem.recipient?.includes('베트남') || activeItem.recipient?.includes('VIETNAM'))}</span>
                                   </>
                                 ) : (
                                   activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null
@@ -1932,7 +1938,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                     {stamps[slot as keyof PurchaseOrderItem['stamps']] ? (
                                       <>
                                         <span className={`font-black text-[10px] ${slot==='writer'?'text-blue-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span>
-                                        <span className="text-[6px] text-slate-500 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span>
+                                        <span className="text-[6px] text-slate-500 mt-0.5">{formatCompletionDate(stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp || '', activeItem.recipient?.includes('베트남') || activeItem.recipient?.includes('VIETNAM'))}</span>
                                       </>
                                     ) : (
                                       activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null
@@ -1966,7 +1972,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                             {visibleSlots.map(slot => (<td key={slot} className="border border-black py-1 px-4 bg-slate-50 font-bold min-w-[60px]">{getStampLabel(slot)}</td>))}
                           </tr>
                           <tr className="h-16">
-                            {visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}
+                            {visibleSlots.map(slot => (<td key={slot} className={`border border-black p-1 align-middle ${activeItem.status === PurchaseOrderSubCategory.PENDING && slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => slot !== 'writer' && !stamps[slot as keyof PurchaseOrderItem['stamps']] && activeItem.status === PurchaseOrderSubCategory.PENDING && handleApprove(activeItem.id, slot as any)}>{stamps[slot as keyof PurchaseOrderItem['stamps']] ? <div className="flex flex-col items-center"><span className={`font-bold text-xs ${slot==='writer'?'text-blue-700':'text-green-700'}`}>{stamps[slot as keyof PurchaseOrderItem['stamps']]?.userId}</span><span className="text-[7px] text-slate-400 mt-0.5">{formatCompletionDate(stamps[slot as keyof PurchaseOrderItem['stamps']]?.timestamp || '', activeItem.recipient?.includes('베트남') || activeItem.recipient?.includes('VIETNAM'))}</span></div> : (activeItem.status === PurchaseOrderSubCategory.PENDING ? <span className="text-[9px] text-slate-300 no-print">승인</span> : null)}</td>))}
                           </tr>
                         </tbody>
                       </table>
@@ -2162,7 +2168,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   </button>
                 </div>
               )}
-              {activeItem.stamps.final && (<div className="mt-12 pt-4 border-t border-slate-100 flex items-center gap-3 text-xs md:text-sm font-bold text-blue-400"><span className="text-slate-400 uppercase">확인:</span><span className="text-blue-500 uppercase">{activeItem.stamps.final.userId}</span><span className="tabular-nums">{formatCompletionDate(activeItem.stamps.final.timestamp)}</span></div>)}</>) : (<div className="p-10 text-center italic text-slate-400">양식 준비중</div>)}</div></div>
+              {activeItem.stamps.final && (<div className="mt-12 pt-4 border-t border-slate-100 flex items-center gap-3 text-xs md:text-sm font-bold text-blue-400"><span className="text-slate-400 uppercase">확인:</span><span className="text-blue-500 uppercase">{activeItem.stamps.final.userId}</span><span className="tabular-nums">{formatCompletionDate(activeItem.stamps.final.timestamp, activeItem.recipient?.includes('베트남') || activeItem.recipient?.includes('VIETNAM'))}</span></div>)}</>) : (<div className="p-10 text-center italic text-slate-400">양식 준비중</div>)}</div></div>
         
         {isRejectModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">

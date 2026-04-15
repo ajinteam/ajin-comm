@@ -41,9 +41,25 @@ const AutoExpandingTextarea = React.memo(({
   );
 });
 
-const formatAmPm = (timeStr: string) => {
-  if (!timeStr) return '';
-  return timeStr.replace('오전', 'am').replace('오후', 'pm');
+const formatCompletionDate = (isoString: string, isVietnam: boolean) => {
+  if (!isoString) return '';
+  const date = new Date(isoString);
+  if (isNaN(date.getTime()) || isNaN(date.getFullYear())) return isoString; 
+  
+  const offset = isVietnam ? 7 : 9;
+  const utc = date.getTime() + (date.getTimezoneOffset() * 60000);
+  const targetDate = new Date(utc + (3600000 * offset));
+
+  const y = targetDate.getFullYear();
+  const m = targetDate.getMonth() + 1;
+  const d = targetDate.getDate();
+  let hh = targetDate.getHours();
+  const mm = String(targetDate.getMinutes()).padStart(2, '0');
+  const ss = String(targetDate.getSeconds()).padStart(2, '0');
+  const ampm = hh >= 12 ? 'pm' : 'am';
+  hh = hh % 12;
+  hh = hh ? hh : 12; 
+  return `${y}. ${m}. ${d}. ${ampm} ${hh}:${mm}:${ss}`;
 };
 
 const getCellBorderStyle = (r: number, c: number, borderData: any) => {
@@ -75,6 +91,8 @@ const RenderDocumentTable = React.memo(({
     if (!userId) return '';
     return userAccounts.find((u: UserAccount) => u.loginId === userId)?.initials || userId;
   };
+  
+  const isVietnam = location === 'VIETNAM';
   
   const isLocked = !isCreate;
   const isFinalApproved = !isCreate && order && (
@@ -150,19 +168,19 @@ const RenderDocumentTable = React.memo(({
               </tr>
               <tr className="h-16">
                 <td className="border border-slate-900 p-1 align-middle">
-                  {stamps?.writer && <div className="flex flex-col items-center"><span className="font-bold text-blue-700 text-[11px]">{getInitials(stamps.writer.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.writer.timestamp)}</span></div>}
+                  {stamps?.writer && <div className="flex flex-col items-center"><span className="font-bold text-blue-700 text-[11px]">{getInitials(stamps.writer.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatCompletionDate(stamps.writer.timestamp, isVietnam)}</span></div>}
                 </td>
                 {showManager && (
                   <td className={`border border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.manager && stamps?.head && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.manager && stamps?.head && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'manager')}>
-                    {stamps?.manager ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.manager.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.manager.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.head) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                    {stamps?.manager ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.manager.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatCompletionDate(stamps.manager.timestamp, isVietnam)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.head) ? <span className="text-[9px] text-slate-400">승인</span> : null}
                   </td>
                 )}
                 <td className={`border border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.head && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.head && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'head')}>
-                  {stamps?.head ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.head.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.head.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                  {stamps?.head ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.head.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatCompletionDate(stamps.head.timestamp, isVietnam)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING) ? <span className="text-[9px] text-slate-400">승인</span> : null}
                 </td>
                 {showDirector && (
                   <td className={`border border-slate-900 p-1 align-middle transition-colors ${!isCreate && !stamps?.director && stamps?.manager && order?.status === OrderSubCategory.PENDING ? 'cursor-pointer hover:bg-amber-50' : ''}`} onClick={() => !isCreate && !stamps?.director && stamps?.manager && order?.status === OrderSubCategory.PENDING && handleStampAction(order!, 'director')}>
-                    {stamps?.director ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.director.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatAmPm(stamps.director.timestamp)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.manager) ? <span className="text-[9px] text-slate-400">승인</span> : null}
+                    {stamps?.director ? <div className="flex flex-col items-center"><span className="font-bold text-green-700 text-[11px]">{getInitials(stamps.director.userId)}</span><span className="text-[8px] opacity-70 leading-tight mt-0.5">{formatCompletionDate(stamps.director.timestamp, isVietnam)}</span></div> : (!isCreate && order?.status === OrderSubCategory.PENDING && stamps?.manager) ? <span className="text-[9px] text-slate-400">승인</span> : null}
                   </td>
                 )}
               </tr>
@@ -274,7 +292,7 @@ const RenderDocumentTable = React.memo(({
                           {(order?.status === OrderSubCategory.PENDING || order?.status === OrderSubCategory.REJECTED) && !row.isDeleted && (row.model || row.itemName || (row.id && row.id.startsWith('NEW-'))) && (
                             <button onClick={() => handleRowDelete(order!, row.id, idx)} className="text-[10px] px-2 py-1 bg-red-100 text-red-600 hover:bg-red-600 hover:text-white rounded font-bold shadow-sm">삭제</button>
                           )}
-                          {row.modLog && <div className="text-[8px] md:text-[9px] text-slate-500 mt-1 leading-tight font-sans"><span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {getInitials(row.modLog.userId)}<br/>{formatAmPm(row.modLog.timestamp)}</div>}
+                          {row.modLog && <div className="text-[8px] md:text-[9px] text-slate-500 mt-1 leading-tight font-sans"><span className="font-bold">{row.modLog.type === 'DELETE' ? 'DEL' : 'MOD'}:</span> {getInitials(row.modLog.userId)}<br/>{formatCompletionDate(row.modLog.timestamp, isVietnam)}</div>}
                         </>
                       )}
                     </td>
@@ -307,7 +325,7 @@ const RenderDocumentTable = React.memo(({
             <div className="bg-slate-100 px-4 md:px-5 py-2 md:py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
               <div><span className="text-slate-400 mr-2 tracking-tighter uppercase">완료:</span><span className="text-blue-600">{getInitials(stamps.final?.userId)}</span></div>
               <div className="w-[1px] h-3 bg-slate-300"></div>
-              <div><span className="text-slate-400 mr-2 tracking-tighter uppercase">완료일:</span><span className="text-slate-800 tracking-tighter">{formatAmPm(stamps.final?.timestamp || '')}</span></div>
+              <div><span className="text-slate-400 mr-2 tracking-tighter uppercase">완료일:</span><span className="text-slate-800 tracking-tighter">{formatCompletionDate(stamps.final?.timestamp || '', isVietnam)}</span></div>
             </div>
             <div className="bg-green-100 text-green-700 px-4 py-2 md:py-3 rounded-xl border border-green-200 uppercase tracking-widest text-[10px] shadow-sm">ARCHIVED</div>
           </div>
@@ -439,7 +457,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   }, [undoStack, activeOrder, editingOrderId]);
 
   const getCurrentTime = () => {
-    return new Date().toLocaleString('ko-KR', { hour12: true });
+    return new Date().toISOString();
   };
 
   useEffect(() => {
