@@ -746,9 +746,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       });
       saveItems(updated, updatedDoc);
       
-      // JANDI 알림: 수정 제출 시 한국 결재자인 'H-CHUN'(설계)에게 요청
+      // JANDI 알림: 수정 제출 시 한국 결재자인 '형춘'(설계)에게 요청
       if (!isTemp) {
-        sendJandiNotification('KR_PO', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
+        sendJandiNotification('KR_PO', 'REQUEST', `[${po2Recipient}] ${po2Title}`, '형춘', po2Date);
       }
       
       alert(isTemp ? "임시 저장되었습니다." : "수정이 완료되어 설계 결재요청 되었습니다."); 
@@ -761,9 +761,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       };
       saveItems([newItem, ...items], newItem);
       
-      // JANDI 알림: 신규 작성 완료 시 한국 결재자인 'H-CHUN'(설계)에게 요청
+      // JANDI 알림: 신규 작성 완료 시 한국 결재자인 '형춘'(설계)에게 요청
       if (!isTemp) {
-        sendJandiNotification('KR_PO', 'REQUEST', `[${po2Recipient}] ${po2Title}`, 'H-CHUN', po2Date);
+        sendJandiNotification('KR_PO', 'REQUEST', `[${po2Recipient}] ${po2Title}`, '형춘', po2Date);
       }
       
       alert(isTemp ? "임시 저장되었습니다." : "작성이 완료되어 설계 결재요청 되었습니다.");
@@ -1024,8 +1024,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const handleApprove = (id: string, stampType: keyof PurchaseOrderItem['stamps']) => {
     const userInit = currentUser.initials.toLowerCase().trim();
     const isMaster = currentUser.loginId === 'AJ5200';
-    if (stampType === 'design' && !isMaster && userInit !== 'h-chun') { alert('설계 결재 권한이 없습니다. (h-chun 전용)'); return; }
-    if (stampType === 'director' && !isMaster && userInit !== 'm-yeun') { alert('이사 결재 권한이 없습니다. (m-yeun 전용)'); return; }
+    if (stampType === 'design' && !isMaster && userInit !== '형춘') { alert('설계 결재 권한이 없습니다. (형춘 전용)'); return; }
+    if (stampType === 'director' && !isMaster && userInit !== '무연') { alert('이사 결재 권한이 없습니다. (무연 전용)'); return; }
     if (stampType === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
     
     let updatedDoc: PurchaseOrderItem | undefined;
@@ -1048,8 +1048,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         } else {
             // 단계별 다음 결재자 호출
             if (stampType === 'design') {
-                // 설계 승인 후 이사(M-YEUN)에게 요청
-                sendJandiNotification('KR_PO', 'REQUEST', notifyTitle, 'M-YEUN', item.date);
+                // 설계 승인 후 이사(무연)에게 요청
+                sendJandiNotification('KR_PO', 'REQUEST', notifyTitle, '무연', item.date);
             } else if (stampType === 'director') {
                 // 이사 승인 후 슬롯에 대표가 있다면 대표(DAVID)에게 요청
                 if ((slots || []).includes('ceo')) {

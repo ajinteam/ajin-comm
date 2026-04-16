@@ -216,8 +216,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
 
     // Strict initial check
     const allowedInitials: Record<string, string> = {
-      design: 'H-CHUN',
-      director: 'M-YEUN',
+      design: '형춘',
+      director: '무연',
       ceo: 'DAVID'
     };
 
@@ -428,7 +428,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     
     if (targetItem && targetItem.status === InjectionOrderSubCategory.REJECTED) {
       const userInit = (currentUser.initials || '').toUpperCase();
-      if (userInit !== 'MASTER' && userInit !== 'M-SUK') {
+      if (userInit !== 'MASTER' && userInit !== '미숙') {
         alert('반송 문서는 마스터 또는 M-SUK 권한자만 삭제할 수 있습니다.');
         return;
       }
@@ -489,7 +489,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       pushStateToCloud();
       
       // JANDI 알림
-      sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${fileName || 'Injection Order'}`, 'H-CHUN', now.toISOString().split('T')[0]);
+      sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${fileName || 'Injection Order'}`, '형춘', now.toISOString().split('T')[0]);
 
       alert('작성완료 되었습니다. 사출 결재대기 목록에서 확인하실 수 있습니다.');
       

@@ -399,7 +399,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       await saveSingleDoc('Injection_Take', newPO);
       pushStateToCloud();
       
-      sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${newPO.title}`, 'H-CHUN', now.toISOString().split('T')[0]);
+      sendJandiNotification('KR_PO', 'REQUEST', `[사출] ${newPO.title}`, '형춘', now.toISOString().split('T')[0]);
 
       alert('작성완료 되었습니다. 사출 결재대기 목록으로 이동합니다.');
       if (onClose) {

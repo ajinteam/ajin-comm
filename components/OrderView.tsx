@@ -626,8 +626,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       });
       saveOrders(updatedOrders, updatedDoc);
       
-      // JANDI 알림: 법인장(U-SUN)에게 결재 요청
-      sendJandiNotification(channel, 'REQUEST', notifyTitle, 'U-SUN', formDate);
+      // JANDI 알림: 법인장(의순)에게 결재 요청
+      sendJandiNotification(channel, 'REQUEST', notifyTitle, '의순', formDate);
 
       alert('수정이 완료되어 결재대기로 재제출되었습니다.');
       setEditingOrderId(null);
@@ -659,8 +659,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       
       saveOrders([newOrder, ...orders], newOrder);
 
-      // JANDI 알림: 법인장(U-SUN)에게 결재 요청
-      sendJandiNotification(channel, 'REQUEST', notifyTitle, 'U-SUN', formDate);
+      // JANDI 알림: 법인장(의순)에게 결재 요청
+      sendJandiNotification(channel, 'REQUEST', notifyTitle, '의순', formDate);
 
       alert('작성이 완료되었습니다.');
       setFormRows(createInitialRows(6));
@@ -1059,9 +1059,9 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const handleStampAction = (order: OrderItem, type: 'head' | 'manager' | 'director') => {
     const userInit = currentUser.initials.toLowerCase().trim();
     const isMaster = currentUser.loginId === 'AJ5200';
-    if (type === 'head' && !isMaster && userInit !== 'u-sun') { alert('법인장 결재 권한이 없습니다. (u-sun 전용)'); return; }
-    if (type === 'manager' && !isMaster && userInit !== 'j-sung') { alert('과장 결재 권한이 없습니다. (j-sung 전용)'); return; }
-    if (type === 'director' && !isMaster && userInit !== 'm-yeun') { alert('이사 결재 권한이 없습니다. (m-yeun 전용)'); return; }
+    if (type === 'head' && !isMaster && userInit !== '의순') { alert('법인장 결재 권한이 없습니다. (의순 전용)'); return; }
+    if (type === 'manager' && !isMaster && userInit !== '재성') { alert('과장 결재 권한이 없습니다. (재성 전용)'); return; }
+    if (type === 'director' && !isMaster && userInit !== '무연') { alert('이사 결재 권한이 없습니다. (무연 전용)'); return; }
     
     const updatedStamps = { ...order.stamps, [type]: { userId: currentUser.initials, timestamp: getCurrentTime() } };
     let nextStatus = order.status;
@@ -1091,11 +1091,11 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     } else {
         // 다음 결재자 호출
         if (type === 'head' && isSeoul) {
-            // 법인장 승인 후 과장(J-SUNG)에게
-            sendJandiNotification(channel, 'REQUEST', notifyTitle, 'J-SUNG', order.date);
+            // 법인장 승인 후 과장(재성)에게
+            sendJandiNotification(channel, 'REQUEST', notifyTitle, '재성', order.date);
         } else if (type === 'manager' && isSeoul) {
-            // 과장 승인 후 이사(M-YEUN)에게
-            sendJandiNotification(channel, 'REQUEST', notifyTitle, 'M-YEUN', order.date);
+            // 과장 승인 후 이사(무연)에게
+            sendJandiNotification(channel, 'REQUEST', notifyTitle, '무연', order.date);
         }
     }
 

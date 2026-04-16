@@ -712,9 +712,9 @@ td {
         });
         saveVietnamItems(updated, updatedDoc);
         
-        // JANDI 알림: 재제출 시 법인장(U-SUN)에게 결재 요청
+        // JANDI 알림: 재제출 시 법인장(의순)에게 결재 요청
         if (!isTemp) {
-          sendJandiNotification('VN', 'REQUEST', finalTitle, 'U-SUN', vDate);
+          sendJandiNotification('VN', 'REQUEST', finalTitle, '의순', vDate);
         }
         
         alert(isTemp ? '임시저장되었습니다.' : '수정 완료되어 결재 대기로 재전송되었습니다.');
@@ -731,9 +731,9 @@ td {
         const updated = [newItem, ...items];
         saveVietnamItems(updated, newItem);
         
-        // JANDI 알림: 신규 작성 완료 시 법인장(U-SUN)에게 결재 요청
+        // JANDI 알림: 신규 작성 완료 시 법인장(의순)에게 결재 요청
         if (!isTemp) {
-          sendJandiNotification('VN', 'REQUEST', finalTitle, 'U-SUN', vDate);
+          sendJandiNotification('VN', 'REQUEST', finalTitle, '의순', vDate);
         }
         
         alert(isTemp ? '임시저장되었습니다.' : '작성 결재가 완료되어 결재 대기로 전송되었습니다.');
@@ -757,7 +757,7 @@ td {
     const userInit = currentUser.initials.toLowerCase().trim();
     const isMaster = currentUser.loginId === 'AJ5200';
     
-    if (type === 'head' && !isMaster && userInit !== 'u-sun') { alert('법인장 결재 권한이 없습니다. (U-SUN 전용)'); return; }
+    if (type === 'head' && !isMaster && userInit !== '의순') { alert('법인장 결재 권한이 없습니다. (의순 전용)'); return; }
     if (type === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
 
     const updatedStamps = { ...item.stamps, [type]: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
