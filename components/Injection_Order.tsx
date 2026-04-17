@@ -429,7 +429,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     if (targetItem && targetItem.status === InjectionOrderSubCategory.REJECTED) {
       const userInit = (currentUser.initials || '').toUpperCase();
       if (userInit !== 'MASTER' && userInit !== '미숙') {
-        alert('반송 문서는 마스터 또는 M-SUK 권한자만 삭제할 수 있습니다.');
+        alert('반송 문서는 마스터 또는 미숙 권한자만 삭제할 수 있습니다.');
         return;
       }
     }
@@ -1448,7 +1448,7 @@ tr {
                   ))}
                 </div>
 
-                {(!(item.status === InjectionOrderSubCategory.REJECTED) || (currentUser.initials?.toUpperCase() === 'MASTER' || currentUser.initials?.toUpperCase() === 'M-SUK')) && (
+                {(!(item.status === InjectionOrderSubCategory.REJECTED) || (currentUser.initials?.toUpperCase() === 'MASTER' || currentUser.initials?.toUpperCase() === '미숙')) && (
                   <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="absolute bottom-4 right-4 p-2 text-slate-300 hover:text-rose-500 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                       <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -1511,7 +1511,7 @@ tr {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      {(!(item.status === InjectionOrderSubCategory.REJECTED) || (currentUser.initials?.toUpperCase() === 'MASTER' || currentUser.initials?.toUpperCase() === 'M-SUK')) && (
+                      {(!(item.status === InjectionOrderSubCategory.REJECTED) || (currentUser.initials?.toUpperCase() === 'MASTER' || currentUser.initials?.toUpperCase() === '미숙')) && (
                         <button onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} className="p-2 text-slate-300 hover:text-rose-500 transition-colors">
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                             <path fillRule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
