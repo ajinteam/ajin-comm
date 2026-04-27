@@ -29,6 +29,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   });
 
   const [history, setHistory] = useState<ShippingReportItem[]>([]);
+  const [focusedCell, setFocusedCell] = useState<{rowId: string, field: string} | null>(null);
 
   useEffect(() => {
     const saved = localStorage.getItem('ajin_shipping_reports');
@@ -73,30 +74,170 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
 
   const handleRowChange = (rowId: string, field: keyof ShippingReportRow, value: string) => {
     setHistory([...history, JSON.parse(JSON.stringify(formData))]);
-    setFormData(prev => ({
-      ...prev,
-      rows: prev.rows.map(row => {
+    setFormData(prev => {
+      const updatedRows = prev.rows.map(row => {
         if (row.id === rowId) {
           const updatedRow = { ...row, [field]: value };
           
-          // Requirement 8: Auto-populate if itemNo is entered
-          if (field === 'itemNo' && value.length >= 3) {
-            const masterData = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
-            // Try to find matching item from other documents
-            for (const doc of masterData) {
-              const match = (doc.rows || []).find((r: any) => r.itemName?.includes(value) || r.itemNo === value);
-              if (match) {
-                updatedRow.itemName = match.itemName || updatedRow.itemName;
-                updatedRow.hsCode = match.hsCode || updatedRow.hsCode;
-                break;
-              }
+          // Requirement 5: Auto-populate from COMPLETED documents if itemNo is entered
+          if (field === 'itemNo' && value.trim().length >= 3) {
+            const val = value.trim();
+            // Search in Shipping Reports (COMPLETED)
+            const shippingReports = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
+            const completedReports = shippingReports.filter((r: any) => r.status === ShippingReportSubCategory.COMPLETED);
+            
+            let found = false;
+            for (const doc of completedReports) {
+                const match = doc.rows?.find((r: any) => r.itemNo === val);
+                if (match) {
+                    updatedRow.itemName = match.itemName || updatedRow.itemName;
+                    updatedRow.hsCode = match.hsCode || updatedRow.hsCode;
+                    updatedRow.qty = match.qty || updatedRow.qty;
+                    updatedRow.size = match.size || updatedRow.size;
+                    updatedRow.remarks = match.remarks || updatedRow.remarks;
+                    updatedRow.boxInfo = match.boxInfo || updatedRow.boxInfo;
+                    updatedRow.boxQty = match.boxQty || updatedRow.boxQty;
+                    updatedRow.image = match.image || updatedRow.image;
+                    found = true;
+                    break;
+                }
+            }
+
+            if (!found) {
+                // Search in Injection Orders as fallback
+                const masterData = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+                for (const doc of masterData) {
+                    const match = (doc.rows || []).find((r: any) => r.itemNo === val);
+                    if (match) {
+                        updatedRow.itemName = match.itemName || updatedRow.itemName;
+                        updatedRow.hsCode = match.hsCode || updatedRow.hsCode;
+                        break;
+                    }
+                }
             }
           }
           return updatedRow;
         }
         return row;
-      })
-    }));
+      });
+      return { ...prev, rows: updatedRows };
+    });
+  };
+
+  const handlePaste = (e: React.ClipboardEvent, startRowId: string, startField: keyof ShippingReportRow) => {
+    const text = e.clipboardData.getData('text');
+    if (!text || (!text.includes('\t') && !text.includes('\n'))) return; // Let default handler handle single cell paste if no separators
+    
+    e.preventDefault();
+    const rows = text.split(/\r?\n/).filter(r => r.trim() !== '');
+    const data = rows.map(r => r.split('\t'));
+
+    const fields: (keyof ShippingReportRow)[] = ['hsCode', 'itemNo', 'itemName', 'qty', 'size', 'remarks', 'boxInfo', 'boxQty'];
+    const startFieldIdx = fields.indexOf(startField);
+    const startRowIdx = formData.rows.findIndex(r => r.id === startRowId);
+
+    if (startRowIdx === -1 || startFieldIdx === -1) return;
+
+    setHistory([...history, JSON.parse(JSON.stringify(formData))]);
+
+    setFormData(prev => {
+        const newRows = [...prev.rows];
+        const shippingReports = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
+        const completedReports = shippingReports.filter((r: any) => r.status === ShippingReportSubCategory.COMPLETED);
+        const masterData = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+
+        data.forEach((rowData, rOffset) => {
+            const targetRowIdx = startRowIdx + rOffset;
+            
+            if (!newRows[targetRowIdx]) {
+                newRows.push({
+                    id: crypto.randomUUID(),
+                    no: String(newRows.length + 1),
+                    hsCode: '',
+                    itemNo: '',
+                    itemName: '',
+                    qty: '',
+                    image: '',
+                    size: '',
+                    remarks: '',
+                    boxInfo: '',
+                    boxQty: ''
+                });
+            }
+
+            rowData.forEach((cellData, cOffset) => {
+                const targetFieldIdx = startFieldIdx + cOffset;
+                if (targetFieldIdx < fields.length) {
+                    const field = fields[targetFieldIdx];
+                    newRows[targetRowIdx][field] = cellData.trim();
+                }
+            });
+
+            // Perform itemNo lookup for the pasted row if itemNo was pasted or present
+            const targetItemNo = newRows[targetRowIdx].itemNo;
+            if (targetItemNo && targetItemNo.length >= 3) {
+                let foundMatch = false;
+                for (const doc of completedReports) {
+                    const match = doc.rows?.find((r: any) => r.itemNo === targetItemNo);
+                    if (match) {
+                        newRows[targetRowIdx].itemName = match.itemName || newRows[targetRowIdx].itemName;
+                        newRows[targetRowIdx].hsCode = match.hsCode || newRows[targetRowIdx].hsCode;
+                        newRows[targetRowIdx].qty = match.qty || newRows[targetRowIdx].qty;
+                        newRows[targetRowIdx].size = match.size || newRows[targetRowIdx].size;
+                        newRows[targetRowIdx].remarks = match.remarks || newRows[targetRowIdx].remarks;
+                        newRows[targetRowIdx].boxInfo = match.boxInfo || newRows[targetRowIdx].boxInfo;
+                        newRows[targetRowIdx].boxQty = match.boxQty || newRows[targetRowIdx].boxQty;
+                        newRows[targetRowIdx].image = match.image || newRows[targetRowIdx].image;
+                        foundMatch = true;
+                        break;
+                    }
+                }
+                if (!foundMatch) {
+                    for (const doc of masterData) {
+                        const match = (doc.rows || []).find((r: any) => r.itemNo === targetItemNo);
+                        if (match) {
+                            newRows[targetRowIdx].itemName = match.itemName || newRows[targetRowIdx].itemName;
+                            newRows[targetRowIdx].hsCode = match.hsCode || newRows[targetRowIdx].hsCode;
+                            break;
+                        }
+                    }
+                }
+            }
+        });
+
+        const finalRows = newRows.map((r, i) => ({ ...r, no: String(i + 1) }));
+        return { ...prev, rows: finalRows };
+    });
+  };
+
+  const addRowBelow = (idx: number) => {
+    setHistory([...history, JSON.parse(JSON.stringify(formData))]);
+    setFormData(prev => {
+        const newRows = [...prev.rows];
+        newRows.splice(idx + 1, 0, {
+            id: crypto.randomUUID(),
+            no: '',
+            hsCode: '',
+            itemNo: '',
+            itemName: '',
+            qty: '',
+            image: '',
+            size: '',
+            remarks: '',
+            boxInfo: '',
+            boxQty: ''
+        });
+        return { ...prev, rows: newRows.map((r, i) => ({ ...r, no: String(i + 1) })) };
+    });
+  };
+
+  const deleteRow = (idx: number) => {
+    if (formData.rows.length <= 1) return;
+    setHistory([...history, JSON.parse(JSON.stringify(formData))]);
+    setFormData(prev => {
+        const newRows = prev.rows.filter((_, i) => i !== idx);
+        return { ...prev, rows: newRows.map((r, i) => ({ ...r, no: String(i + 1) })) };
+    });
   };
 
   const handleImagePaste = (rowId: string, e: React.ClipboardEvent) => {
@@ -288,6 +429,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     win.document.close();
   };
 
+  const isCompleted = formData.status === ShippingReportSubCategory.COMPLETED;
+
   if (activeItem) {
     return (
       <div className="bg-white min-h-screen p-4 md:p-8 space-y-6">
@@ -296,13 +439,19 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             <button onClick={() => setActiveItem(null)} className="p-2 hover:bg-white rounded-full transition-colors">
               <ArrowLeft className="w-6 h-6" />
             </button>
-            <h2 className="text-xl font-black text-slate-800">출하보고서 작성</h2>
+            <h2 className="text-xl font-black text-slate-800">
+                {isCompleted ? '출하보고서 조회' : '출하보고서 작성'}
+            </h2>
           </div>
           <div className="flex gap-2">
-            <button onClick={handleUndo} disabled={history.length === 0} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-100 disabled:opacity-50">되돌리기</button>
-            <button onClick={() => handleSave(ShippingReportSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 shadow-lg shadow-amber-500/20">임시저장</button>
-            <button onClick={() => handleSave(ShippingReportSubCategory.COMPLETED)} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-500/20">작성완료</button>
-            <button onClick={handlePrint} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-black flex items-center gap-2">
+            {!isCompleted && (
+                <>
+                    <button onClick={handleUndo} disabled={history.length === 0} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-100 disabled:opacity-50 transition-all">되돌리기</button>
+                    <button onClick={() => handleSave(ShippingReportSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all">임시저장</button>
+                    <button onClick={() => handleSave(ShippingReportSubCategory.COMPLETED)} className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 shadow-lg shadow-blue-500/20 transition-all">작성완료</button>
+                </>
+            )}
+            <button onClick={handlePrint} className="px-4 py-2 bg-slate-900 text-white rounded-xl font-bold text-sm hover:bg-black flex items-center gap-2 transition-all shadow-lg shadow-slate-900/10">
               <Printer className="w-4 h-4" /> PDF/인쇄
             </button>
           </div>
@@ -350,11 +499,17 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             <tbody>
               {formData.rows.map((row, idx) => (
                 <tr key={row.id} className="border-b border-black">
-                  <td className="border-r border-black">{row.no}</td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-hsCode`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden" rows={1} value={row.hsCode} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'hsCode')} onChange={(e) => handleRowChange(row.id, 'hsCode', e.target.value)} /></td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-itemNo`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden" rows={1} value={row.itemNo} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'itemNo')} onChange={(e) => handleRowChange(row.id, 'itemNo', e.target.value)} /></td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-itemName`} className="w-full h-full p-1 resize-none focus:outline-none text-center font-bold overflow-hidden" rows={1} value={row.itemName} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'itemName')} onChange={(e) => handleRowChange(row.id, 'itemName', e.target.value)} /></td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-qty`} className="w-full h-full p-1 resize-none focus:outline-none text-center font-black overflow-hidden" rows={1} value={row.qty} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'qty')} onChange={(e) => handleRowChange(row.id, 'qty', e.target.value)} /></td>
+                  <td className="border-r border-black relative group/row">
+                    <div className="flex flex-col items-center justify-center p-1 bg-slate-50 border border-slate-200 rounded absolute left-[-40px] top-0 no-print gap-1">
+                        <button onClick={() => addRowBelow(idx)} className="p-1 hover:bg-blue-100 text-blue-600 rounded" title="아래에 행 추가"><Plus className="w-3 h-3" /></button>
+                        <button onClick={() => deleteRow(idx)} className="p-1 hover:bg-red-100 text-red-600 rounded" title="행 삭제"><Trash2 className="w-3 h-3" /></button>
+                    </div>
+                    {row.no}
+                  </td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'hsCode' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-hsCode`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.hsCode} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'hsCode'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'hsCode')} onPaste={(e) => handlePaste(e, row.id, 'hsCode')} onChange={(e) => handleRowChange(row.id, 'hsCode', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'itemNo' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-itemNo`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.itemNo} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'itemNo'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'itemNo')} onPaste={(e) => handlePaste(e, row.id, 'itemNo')} onChange={(e) => handleRowChange(row.id, 'itemNo', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'itemName' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-itemName`} className="w-full h-full p-1 resize-none focus:outline-none text-center font-bold overflow-hidden bg-transparent" rows={1} value={row.itemName} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'itemName'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'itemName')} onPaste={(e) => handlePaste(e, row.id, 'itemName')} onChange={(e) => handleRowChange(row.id, 'itemName', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'qty' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-qty`} className="w-full h-full p-1 resize-none focus:outline-none text-center font-black overflow-hidden bg-transparent" rows={1} value={row.qty} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'qty'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'qty')} onPaste={(e) => handlePaste(e, row.id, 'qty')} onChange={(e) => handleRowChange(row.id, 'qty', e.target.value)} /></td>
                   <td 
                     className="p-1 min-h-[100px] relative group border-r border-black"
                     onPaste={(e) => handleImagePaste(row.id, e)}
@@ -373,10 +528,10 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                         </div>
                     )}
                   </td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-size`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden" rows={1} value={row.size} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'size')} onChange={(e) => handleRowChange(row.id, 'size', e.target.value)} /></td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-remarks`} className="w-full h-full p-1 resize-none focus:outline-none text-xs text-left overflow-hidden" rows={1} value={row.remarks} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'remarks')} onChange={(e) => handleRowChange(row.id, 'remarks', e.target.value)} /></td>
-                  <td className="border-r border-black"><textarea id={`input-${row.id}-boxInfo`} className="w-full h-full p-1 resize-none focus:outline-none text-xs text-center overflow-hidden" rows={1} value={row.boxInfo} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxInfo')} onChange={(e) => handleRowChange(row.id, 'boxInfo', e.target.value)} /></td>
-                  <td className=""><textarea id={`input-${row.id}-boxQty`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden" rows={1} value={row.boxQty} onFocus={(e) => autoResize(null, e.target)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxQty')} onChange={(e) => handleRowChange(row.id, 'boxQty', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'size' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-size`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.size} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'size'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'size')} onPaste={(e) => handlePaste(e, row.id, 'size')} onChange={(e) => handleRowChange(row.id, 'size', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'remarks' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-remarks`} className="w-full h-full p-1 resize-none focus:outline-none text-xs text-left overflow-hidden bg-transparent" rows={1} value={row.remarks} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'remarks'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'remarks')} onPaste={(e) => handlePaste(e, row.id, 'remarks')} onChange={(e) => handleRowChange(row.id, 'remarks', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'boxInfo' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-boxInfo`} className="w-full h-full p-1 resize-none focus:outline-none text-xs text-center overflow-hidden bg-transparent" rows={1} value={row.boxInfo} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxInfo'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxInfo')} onPaste={(e) => handlePaste(e, row.id, 'boxInfo')} onChange={(e) => handleRowChange(row.id, 'boxInfo', e.target.value)} /></td>
+                  <td className={`${focusedCell?.rowId === row.id && focusedCell?.field === 'boxQty' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-boxQty`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.boxQty} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxQty'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxQty')} onPaste={(e) => handlePaste(e, row.id, 'boxQty')} onChange={(e) => handleRowChange(row.id, 'boxQty', e.target.value)} /></td>
                 </tr>
               ))}
               <tr className="bg-yellow-200">
