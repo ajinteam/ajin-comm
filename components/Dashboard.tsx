@@ -7,6 +7,7 @@ import {
   PurchaseOrderSubCategory, 
   VietnamSubCategory,
   InjectionOrderSubCategory,
+  ShippingReportSubCategory,
   ViewState, 
   Announcement,
   MainCategory 
@@ -31,7 +32,8 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     invoice: { seoul: 0, daechon: 0, vietnam: 0 },
     purchase: { pending: 0, rejected: 0, approved: 0 },
     injection: { pending: 0, rejected: 0, approved: 0, inbox: 0 },
-    vietnam: { pending: 0, rejected: 0, completed: 0 }
+    vietnam: { pending: 0, rejected: 0, completed: 0 },
+    shipping: { temporary: 0, completed: 0 }
   });
 
   useEffect(() => {
@@ -47,6 +49,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const pOrders = JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]');
     const vOrders = JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]');
     const injectionOrders = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+    const shippingReports = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
 
     setCounts({
       order: {
@@ -84,6 +87,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         pending: vOrders.filter((o: any) => o.status === VietnamSubCategory.PENDING).length,
         rejected: vOrders.filter((o: any) => o.status === VietnamSubCategory.REJECTED).length,
         completed: vOrders.filter((o: any) => o.status === VietnamSubCategory.COMPLETED_ROOT).length
+      },
+      shipping: {
+        temporary: shippingReports.filter((o: any) => o.status === ShippingReportSubCategory.TEMPORARY).length,
+        completed: shippingReports.filter((o: any) => o.status === ShippingReportSubCategory.COMPLETED).length
       }
     });
   }, [dataVersion]);
@@ -98,12 +105,14 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const purchaseSubs = Object.values(PurchaseOrderSubCategory) as string[];
     const vietnamSubs = Object.values(VietnamSubCategory) as string[];
     const injectionSubs = Object.values(InjectionOrderSubCategory) as string[];
+    const shippingSubs = Object.values(ShippingReportSubCategory) as string[];
 
     if (orderSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.ORDER)) return true;
     if (invoiceSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INVOICE)) return true;
     if (purchaseSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.PURCHASE)) return true;
     if (injectionSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
     if (vietnamSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.VIETNAM)) return true;
+    if (shippingSubs.includes(menuName) && user.allowedMenus?.includes(MainCategory.SHIPPING_REPORT)) return true;
 
     return false;
   };
@@ -247,6 +256,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           <StatCard title="VN 결재대기" count={counts.vietnam.pending} colorClass="indigo" statusLabel={VietnamSubCategory.PENDING} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.PENDING })} />
           <StatCard title="VN 결재반송" count={counts.vietnam.rejected} colorClass="rose" statusLabel={VietnamSubCategory.REJECTED} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.REJECTED })} />
           <StatCard title="VN 결재완료" count={counts.vietnam.completed} colorClass="violet" statusLabel={VietnamSubCategory.COMPLETED_ROOT} onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.COMPLETED_ROOT })} />
+        </CategorySection>
+
+        {/* 출하보고서 섹션 */}
+        <CategorySection title="출하보고서 현황" mainCat={MainCategory.SHIPPING_REPORT}>
+          <StatCard title="출하보고서 임시" count={counts.shipping.temporary} colorClass="rose" statusLabel={ShippingReportSubCategory.TEMPORARY} onClick={() => setView({ type: 'SHIPPING_REPORT', sub: ShippingReportSubCategory.TEMPORARY })} />
+          <StatCard title="출하보고서 완료" count={counts.shipping.completed} colorClass="blue" statusLabel={ShippingReportSubCategory.COMPLETED} onClick={() => setView({ type: 'SHIPPING_REPORT', sub: ShippingReportSubCategory.COMPLETED })} />
         </CategorySection>
       </div>
 

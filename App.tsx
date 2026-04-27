@@ -16,6 +16,7 @@ import InvoiceView from './components/InvoiceView';
 import NationalInvoice from './components/NationalInvoice';
 import InjectionOrderMain from './components/Injection_Order';
 import PurchaseOrderView from './components/PurchaseOrderView';
+import ShippingReportView from './components/ShippingReportView';
 import VietnamOrderView from './components/VietnamOrderView';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
@@ -161,6 +162,7 @@ const App: React.FC = () => {
             {view.type === 'INJECTION_ORDER_MAIN' && <InjectionOrderMain key={`injection-main-${view.sub}`} sub={view.sub} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'VIETNAM' && <VietnamOrderView key={`vietnam-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'NATIONAL_INVOICE' && <NationalInvoice key="national-invoice" sub={view.sub as NationalInvoiceSubCategory} editId={view.editId} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
+            {view.type === 'SHIPPING_REPORT' && <ShippingReportView key={`shipping-${view.sub}`} sub={view.sub as any} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'STORAGE' && <PurchaseOrderView key="storage-view" sub={PurchaseOrderSubCategory.UPLOAD} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'SETTINGS' && isMaster && <SettingsView accounts={userAccounts} onUpdate={updateAccounts} setView={handleSetView} />}
           </div>

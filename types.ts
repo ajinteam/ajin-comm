@@ -6,7 +6,8 @@ export enum MainCategory {
   INJECTION_ORDER_MAIN = '사출발주서 메인카테고리',
   VIETNAM = 'VN베트남',
   STORAGE = '파일관리',
-  NATIONAL_INVOICE = '국제인보이스'
+  NATIONAL_INVOICE = '국제인보이스',
+  SHIPPING_REPORT = '출하보고서'
 }
 
 export enum OrderSubCategory {
@@ -290,6 +291,12 @@ export enum NationalInvoiceSubCategory {
   COMPLETED = '인보이스완료'
 }
 
+export enum ShippingReportSubCategory {
+  CREATE = '출하보고서작성',
+  TEMPORARY = '출하보고서 임시',
+  COMPLETED = '출하보고서 완료'
+}
+
 export enum InjectionOrderSubCategory {
   CREATE = '사출발주서',
   TEMPORARY = '사출 임시',
@@ -396,6 +403,30 @@ export interface NationalEntity {
   attn?: string;
 }
 
+export interface ShippingReportRow {
+  id: string;
+  no: string;
+  hsCode: string;
+  itemNo: string;
+  itemName: string;
+  qty: string;
+  image: string; // base64 or URL
+  size: string;
+  remarks: string;
+  boxInfo: string;
+  boxQty: string;
+}
+
+export interface ShippingReportItem {
+  id: string;
+  status: ShippingReportSubCategory;
+  authorId: string;
+  createdAt: string;
+  dataDate: string;
+  model: string;
+  rows: ShippingReportRow[];
+}
+
 export interface UserAccount {
   id: string;
   loginId: string;
@@ -412,5 +443,6 @@ export type ViewState =
   | { type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory }
   | { type: 'VIETNAM', sub: VietnamSubCategory }
   | { type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory, editId?: string }
+  | { type: 'SHIPPING_REPORT', sub: ShippingReportSubCategory, editId?: string }
   | { type: 'STORAGE' }
   | { type: 'SETTINGS' };

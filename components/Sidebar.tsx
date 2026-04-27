@@ -6,6 +6,7 @@ import {
   PurchaseOrderSubCategory,
   VietnamSubCategory,
   NationalInvoiceSubCategory,
+  ShippingReportSubCategory,
   InjectionOrderSubCategory,
   ViewState,
   UserAccount,
@@ -40,6 +41,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     const purchaseSubs = Object.values(PurchaseOrderSubCategory) as string[];
     const vietnamSubs = Object.values(VietnamSubCategory) as string[];
     const nationalSubs = Object.values(NationalInvoiceSubCategory) as string[];
+    const shippingSubs = Object.values(ShippingReportSubCategory) as string[];
     const injectionSubs = Object.values(InjectionOrderSubCategory) as string[];
 
     // 2. 상위 카테고리 권한이 있을 때 하위 메뉴를 허용하는 로직
@@ -48,6 +50,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (purchaseSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.PURCHASE)) return true;
     if (vietnamSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.VIETNAM)) return true;
     if (nationalSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.NATIONAL_INVOICE)) return true;
+    if (shippingSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.SHIPPING_REPORT)) return true;
     
     // 3. 사출발주서(INJECTION) 관련 수정 (강제 true 삭제)
     if (injectionSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.INJECTION_ORDER_MAIN)) return true;
@@ -59,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     return false;
   };
 
-  const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'VIETNAM' | 'NATIONAL_INVOICE' | 'INJECTION_ORDER_MAIN', isNested: boolean = false) => {
+  const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'VIETNAM' | 'NATIONAL_INVOICE' | 'SHIPPING_REPORT' | 'INJECTION_ORDER_MAIN', isNested: boolean = false) => {
     if (!isVisible(sub)) return null;
 
     const isActive = (currentView.type === type && (currentView as any).sub === sub);
@@ -67,6 +70,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     let activeBg = 'bg-blue-600';
     if (type === 'INVOICE') activeBg = 'bg-emerald-600';
     if (type === 'NATIONAL_INVOICE') activeBg = 'bg-cyan-600';
+    if (type === 'SHIPPING_REPORT') activeBg = 'bg-rose-600';
     if (type === 'PURCHASE') activeBg = 'bg-amber-600';
     if (type === 'INJECTION_ORDER_MAIN') activeBg = 'bg-orange-600';
     if (type === 'VIETNAM') activeBg = 'bg-indigo-600';
@@ -242,6 +246,22 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}
                 {renderSubMenu(NationalInvoiceSubCategory.TEMPORARY, 'NATIONAL_INVOICE')}
                 {renderSubMenu(NationalInvoiceSubCategory.COMPLETED, 'NATIONAL_INVOICE')}
+              </div>
+            </div>
+          )}
+
+          {isVisible(MainCategory.SHIPPING_REPORT) && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">출하보고서</h2>
+              </div>
+              <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                {renderSubMenu(ShippingReportSubCategory.CREATE, 'SHIPPING_REPORT')}
+                {renderSubMenu(ShippingReportSubCategory.TEMPORARY, 'SHIPPING_REPORT')}
+                {renderSubMenu(ShippingReportSubCategory.COMPLETED, 'SHIPPING_REPORT')}
               </div>
             </div>
           )}

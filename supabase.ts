@@ -137,7 +137,7 @@ export const pullStateFromCloud = async () => {
       return error ? [] : (data || []);
     };
 
-    const [orders, invoices, pOrders, vnOrders, nationalInvoices, injectionOrders, injectionTakes, recipientsRes] = await Promise.all([
+    const [orders, invoices, pOrders, vnOrders, nationalInvoices, injectionOrders, injectionTakes, shippingReports, recipientsRes] = await Promise.all([
       fetchTable('orders'),
       fetchTable('invoices'),
       fetchTable('purchase_orders'),
@@ -145,6 +145,7 @@ export const pullStateFromCloud = async () => {
       fetchTable('nationalinvoice'),
       fetchTable('Injection_Order'),
       fetchTable('Injection_Take'),
+      fetchTable('na_invoice_image'),
       supabase.from('recipients').select('*')
     ]);
 
@@ -208,6 +209,7 @@ export const pullStateFromCloud = async () => {
       vietnam_orders: getCloudData(vnOrders),
       national_invoices: getCloudData(nationalInvoices),
       injection_orders: finalInjectionOrders,
+      shipping_reports: getCloudData(shippingReports),
       accounts: cloudAccounts,
       notices: cloudNotices,
       national_entities: cloudNationalEntities,
@@ -251,7 +253,8 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
             'invoices': 'ajin_invoices',
             'purchase_orders': 'ajin_purchase_orders',
             'vn_purchase_orders': 'ajin_vietnam_orders',
-            'nationalinvoice': 'ajin_national_invoices'
+            'nationalinvoice': 'ajin_national_invoices',
+            'na_invoice_image': 'ajin_shipping_reports'
           };
 
           if (simpleTables[table]) {
