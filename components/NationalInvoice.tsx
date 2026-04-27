@@ -34,17 +34,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   
   const getInitialFormData = (): Partial<NationalInvoiceItem> => ({
     rows: [
-      { id: 'h1', type: 'HEADER', headerLeft: 'TOY TRAIN PARTS SAMPLE', headerRight: 'EX.FACTORY', fontSize: 11, isBold: true, pkgNo: 'ADDRESS' },
-      { id: '1', type: 'ITEM', description: '', quantity: '', unit: 'PCS', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '' },
-      { id: '2', type: 'ITEM', description: '', quantity: '', unit: 'PCS', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '' },
-      { id: '3', type: 'ITEM', description: '', quantity: '', unit: 'PCS', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '' },
-      { id: '4', type: 'ITEM', description: '', quantity: '', unit: 'PCS', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '' },
-      { id: '5', type: 'ITEM', description: '', quantity: '', unit: 'PCS', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '' },
-      { id: 't1', type: 'TOTAL', description: 'TOTAL', quantity: '0', unit: 'UNIT', price: '', amount: '0', fontSize: 11, isBold: true }
+      { id: 'h1', type: 'HEADER', headerLeft: 'TOY TRAIN PARTS SAMPLE', headerRight: 'EX.FACTORY', fontSize: 11, isBold: true, pkgNo: 'ADDRESS', plPkgNo: '' },
+      { id: '1', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
+      { id: '2', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
+      { id: '3', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
+      { id: '4', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
+      { id: '5', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
+      { id: 't1', type: 'TOTAL', description: 'TOTAL', quantity: '0', unit: 'UNIT', proc: '', procAmount: '', price: '', amount: '0', fontSize: 11, isBold: true }
     ],
     invoiceType: 'COMMERCIAL',
-    currency: 'JPY',
-    currencySymbol: '¥',
+    currency: 'USD',
+    currencySymbol: '$',
     shipperName: 'AJIN PRECISION MFG., INC.',
     shipperAddress: '#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea',
     idCode: 'KRAJIPRE333SEO',
@@ -56,6 +56,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     consigneeTaxId: '',
     consigneeTel: '',
     consigneeAttn: '',
+    plShipperAddress: '',
+    plConsigneeAddress: '',
+    plRemarks: '',
     poNo: '',
     factoryOutDate: new Date().toISOString().split('T')[0],
     buyer: 'SAME AS CONSIGNEE',
@@ -71,10 +74,52 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     footerFax: '(82-2) 802-9941',
     signedBy: 'AJIN PRECISION MFG., INC.',
     signedTitle: 'MANAGING DIRECTOR CHO, MOO-YEON.',
-    signatureName: 'MOO YEUN-CHO'
+    signatureName: 'MOO YEUN-CHO',
+    showTrackingNo: true,
+    showRemarks: true,
+    showPlRemarks: true,
+    showPlExtraRemarks: true
   });
 
   const [formData, setFormData] = useState<Partial<NationalInvoiceItem>>(getInitialFormData());
+  const [history, setHistory] = useState<Partial<NationalInvoiceItem>[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const isUndoAction = useRef(false);
+
+  // History tracking
+  useEffect(() => {
+    if (isUndoAction.current) {
+      isUndoAction.current = false;
+      return;
+    }
+    
+    const timeoutId = setTimeout(() => {
+      setHistory(prev => {
+        const last = prev[prev.length - 1];
+        if (JSON.stringify(last) === JSON.stringify(formData)) return prev;
+        
+        const newHistory = prev.slice(0, historyIndex + 1);
+        newHistory.push(JSON.parse(JSON.stringify(formData)));
+        
+        // Limit history size to 50
+        if (newHistory.length > 50) newHistory.shift();
+        
+        setHistoryIndex(newHistory.length - 1);
+        return newHistory;
+      });
+    }, 500); // Debounce to avoid too many history points during typing
+
+    return () => clearTimeout(timeoutId);
+  }, [formData]);
+
+  const handleUndo = () => {
+    if (historyIndex > 0) {
+      const prevIndex = historyIndex - 1;
+      isUndoAction.current = true;
+      setFormData(JSON.parse(JSON.stringify(history[prevIndex])));
+      setHistoryIndex(prevIndex);
+    }
+  };
 
   const handleNewInvoice = () => {
     setFormData(getInitialFormData());
@@ -134,6 +179,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     return val.replace(/,/g, '');
   };
 
+  const extractLastNumber = (val: string) => {
+    if (!val) return 0;
+    const matches = val.toString().match(/(\d+(\.\d+)?)/g);
+    if (matches && matches.length > 0) {
+      return parseFloat(matches[matches.length - 1]);
+    }
+    return 0;
+  };
+
   const formatDateToEnglish = (dateStr: string | undefined) => {
     if (!dateStr) return '';
     const date = new Date(dateStr);
@@ -148,10 +202,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       type,
       description: type === 'TOTAL' ? 'TOTAL' : '',
       pkgNo: type === 'HEADER' ? 'ADDRESS' : '',
+      plPkgNo: '',
       quantity: '',
       unit: type === 'ITEM' ? 'PCS' : (type === 'TOTAL' ? 'UNIT' : ''),
+      proc: '',
+      procAmount: '',
       price: '',
       amount: '',
+      plProc: '',
+      plProcAmount: '',
+      plPrice: '',
+      plAmount: '',
       headerLeft: type === 'HEADER' ? '' : undefined,
       headerRight: type === 'HEADER' ? '' : undefined,
       fontSize: type === 'HEADER' || type === 'TOTAL' ? 11 : 10.5,
@@ -187,14 +248,25 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       let newRows = (prev.rows || []).map(r => {
         if (r.id === id) {
           let val = value;
-          if (field === 'quantity' || field === 'price' || field === 'amount') {
+          if (field === 'quantity' || field === 'price' || field === 'amount' || field === 'proc' || field === 'procAmount' || 
+              field === 'plProc' || field === 'plProcAmount' || field === 'plPrice' || field === 'plAmount') {
             val = parseNumber(value);
           }
           const updated = { ...r, [field]: val };
-          if (r.type === 'ITEM' && (field === 'quantity' || field === 'price')) {
+          if (r.type === 'ITEM' && (field === 'quantity' || field === 'price' || field === 'proc')) {
             const q = parseFloat(parseNumber(updated.quantity || '0')) || 0;
             const p = parseFloat(parseNumber(updated.price || '0')) || 0;
+            const prStr = parseNumber(updated.proc || '');
+            const pr = parseFloat(prStr) || 0;
+            
             updated.amount = (q * p).toFixed(2);
+            
+            // Only show procAmount if proc is entered (PROC를 입력해야 값이 표시되게)
+            if (prStr === '') {
+              updated.procAmount = '';
+            } else {
+              updated.procAmount = (q * pr).toFixed(2);
+            }
           }
           return updated;
         }
@@ -202,19 +274,61 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       });
       
       // Recalculate subtotals (TOTAL rows)
-      // A TOTAL row sums all ITEM amounts above it since the previous TOTAL row (or start)
+      // A TOTAL row sums all ITEM values above it since the previous TOTAL row (or start)
       let runningAmt = 0;
       let runningQty = 0;
+      let runningProc = 0;
+      let runningProcAmt = 0;
+      let runningPrice = 0;
+
+      let plRunningAmt = 0;
+      let plRunningProc = 0;
+      let plRunningProcAmt = 0;
+      let plRunningPrice = 0;
+
       newRows = newRows.map((r, idx) => {
         if (r.type === 'ITEM') {
           runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
           runningQty += parseFloat(parseNumber(r.quantity || '0')) || 0;
+          runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
+          runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
+          runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
+
+          plRunningAmt += parseFloat(parseNumber(r.plAmount || '0')) || 0;
+          const currentPlProc = extractLastNumber(r.plProc || '0');
+          if (currentPlProc > 0) {
+            plRunningProc = currentPlProc;
+          }
+          plRunningProcAmt += parseFloat(parseNumber(r.plProcAmount || '0')) || 0;
+          plRunningPrice += parseFloat(parseNumber(r.plPrice || '0')) || 0;
+
           return r;
         } else if (r.type === 'TOTAL') {
-          const updated = { ...r, amount: runningAmt.toFixed(2), quantity: runningQty.toString() };
+          const updated = { 
+            ...r, 
+            amount: runningAmt.toFixed(2), 
+            quantity: runningQty.toString(),
+            proc: runningProc.toString(),
+            procAmount: runningProcAmt.toFixed(2),
+            price: runningPrice.toFixed(2),
+            // PL independent totals
+            plAmount: plRunningAmt.toFixed(2),
+            plProc: plRunningProc.toString(),
+            plProcAmount: plRunningProcAmt.toFixed(2),
+            plPrice: plRunningPrice.toFixed(2)
+          };
           // Reset running totals after each subtotal
           runningAmt = 0;
           runningQty = 0;
+          runningProc = 0;
+          runningProcAmt = 0;
+          runningPrice = 0;
+
+          plRunningAmt = 0;
+          plRunningProc = 0;
+          plRunningProcAmt = 0;
+          plRunningPrice = 0;
+
           return updated;
         }
         return r;
@@ -227,34 +341,180 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     });
   };
 
+  const handlePaste = (e: React.ClipboardEvent, rowId: string, startField: string) => {
+    const clipboardData = e.clipboardData.getData('Text');
+    if (!clipboardData.includes('\t') && !clipboardData.includes('\n')) return;
+
+    e.preventDefault();
+    const lines = clipboardData.split(/\r?\n/).filter(line => line.length > 0);
+    if (lines.length === 0) return;
+
+    const fieldsOrder: (keyof NationalInvoiceRow)[] = ['pkgNo', 'description', 'quantity', 'proc', 'procAmount', 'price', 'amount'];
+    const startIndex = fieldsOrder.indexOf(startField as keyof NationalInvoiceRow);
+    if (startIndex === -1) return;
+
+    setFormData(prev => {
+      const rows = [...(prev.rows || [])];
+      let startIdx = rows.findIndex(r => r.id === rowId);
+      if (startIdx === -1) return prev;
+
+      let currentPtr = startIdx;
+      lines.forEach((line) => {
+        const columns = line.split('\t');
+        
+        if (currentPtr >= rows.length || rows[currentPtr].type !== 'ITEM') {
+          const newRow: NationalInvoiceRow = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            type: 'ITEM',
+            description: '',
+            pkgNo: '',
+            quantity: '',
+            unit: 'PCS',
+            proc: '',
+            procAmount: '',
+            price: '',
+            amount: '',
+            fontSize: 10.5,
+            isBold: false
+          };
+          rows.splice(currentPtr, 0, newRow);
+        }
+
+        const row = { ...rows[currentPtr] };
+        columns.forEach((val, colOffset) => {
+          const fieldIdx = startIndex + colOffset;
+          if (fieldIdx < fieldsOrder.length) {
+            const field = fieldsOrder[fieldIdx];
+            if (['quantity', 'price', 'proc', 'procAmount', 'amount'].includes(field as string)) {
+              (row as any)[field] = parseNumber(val.trim());
+            } else {
+              (row as any)[field] = val.trim();
+            }
+          }
+        });
+
+        // Recalculate row amounts
+        const q = parseFloat(parseNumber(row.quantity || '0')) || 0;
+        const p = parseFloat(parseNumber(row.price || '0')) || 0;
+        const pr = parseFloat(parseNumber(row.proc || '0')) || 0;
+        row.amount = (q * p).toFixed(2);
+        row.procAmount = (q * pr).toFixed(2);
+        
+        rows[currentPtr] = row;
+        currentPtr++;
+      });
+
+      // Recalculate all subtotals and grand totals
+      let runningAmt = 0;
+      let runningQty = 0;
+      let runningProc = 0;
+      let runningProcAmt = 0;
+      let runningPrice = 0;
+
+      const updatedRows = rows.map((r) => {
+        if (r.type === 'ITEM') {
+          runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
+          runningQty += parseFloat(parseNumber(r.quantity || '0')) || 0;
+          runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
+          runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
+          runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
+          return r;
+        } else if (r.type === 'TOTAL') {
+          const updated = { 
+            ...r, 
+            amount: runningAmt.toFixed(2), 
+            quantity: runningQty.toString(),
+            proc: runningProc.toString(),
+            procAmount: runningProcAmt.toFixed(2),
+            price: runningPrice.toFixed(2)
+          };
+          runningAmt = 0;
+          runningQty = 0;
+          runningProc = 0;
+          runningProcAmt = 0;
+          runningPrice = 0;
+          return updated;
+        }
+        return r;
+      });
+
+      const grandTotalAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
+      const grandTotalQty = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
+
+      return { ...prev, rows: updatedRows, totalAmount: grandTotalAmt.toFixed(2), totalQuantity: grandTotalQty.toString() };
+    });
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent, rowId: string, field: string) => {
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
       if (e.key === 'Enter' && e.shiftKey) return;
       
-      const inputs = Array.from(document.querySelectorAll('.invoice-table-input')) as HTMLInputElement[];
-      const currentIndex = inputs.indexOf(e.target as HTMLInputElement);
+      const target = e.target as HTMLElement;
+      const inputs = Array.from(document.querySelectorAll('.invoice-table-input')) as HTMLElement[];
+      const currentIndex = inputs.indexOf(target);
       
       if (currentIndex === -1) return;
 
-      let nextIndex = -1;
-      if (e.key === 'ArrowDown' || e.key === 'Enter') {
-        // Find input in the same column in the next row
-        // This is tricky with varying row types. Let's just go to the next input.
-        nextIndex = currentIndex + 1;
-      } else if (e.key === 'ArrowUp') {
-        nextIndex = currentIndex - 1;
-      } else if (e.key === 'ArrowRight') {
-        nextIndex = currentIndex + 1;
-      } else if (e.key === 'ArrowLeft') {
-        nextIndex = currentIndex - 1;
-      }
+      const rect = target.getBoundingClientRect();
+      const targetCenter = {
+        x: rect.left + rect.width / 2,
+        y: rect.top + rect.height / 2
+      };
 
-      if (nextIndex >= 0 && nextIndex < inputs.length) {
+      let bestNext: HTMLElement | null = null;
+      let minDistance = Infinity;
+
+      inputs.forEach(input => {
+        if (input === target) return;
+        const r = input.getBoundingClientRect();
+        const c = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+        let valid = false;
+
+        if (e.key === 'ArrowDown' || e.key === 'Enter') {
+          valid = c.y > targetCenter.y + 5 && Math.abs(c.x - targetCenter.x) < 50;
+        } else if (e.key === 'ArrowUp') {
+          valid = c.y < targetCenter.y - 5 && Math.abs(c.x - targetCenter.x) < 50;
+        } else if (e.key === 'ArrowRight') {
+          valid = c.x > targetCenter.x + 5 && Math.abs(c.y - targetCenter.y) < 10;
+        } else if (e.key === 'ArrowLeft') {
+          valid = c.x < targetCenter.x - 5 && Math.abs(c.y - targetCenter.y) < 10;
+        }
+
+        if (valid) {
+          const dist = Math.sqrt(Math.pow(c.x - targetCenter.x, 2) + Math.pow(c.y - targetCenter.y, 2));
+          if (dist < minDistance) {
+            minDistance = dist;
+            bestNext = input;
+          }
+        }
+      });
+
+      if (bestNext) {
         e.preventDefault();
-        inputs[nextIndex].focus();
+        (bestNext as HTMLElement).focus();
+      } else if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Fallback to simple index based if directional search fails
+        let nextIndex = -1;
+        if (e.key === 'ArrowRight' || e.key === 'ArrowDown') nextIndex = currentIndex + 1;
+        if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') nextIndex = currentIndex - 1;
+        
+        if (nextIndex >= 0 && nextIndex < inputs.length) {
+          e.preventDefault();
+          inputs[nextIndex].focus();
+        }
       }
     }
   };
+
+  useEffect(() => {
+    // Auto-resize all textareas with invoice-textarea class
+    const textareas = document.querySelectorAll('.invoice-textarea');
+    textareas.forEach(ta => {
+      const t = ta as HTMLTextAreaElement;
+      t.style.height = 'auto';
+      t.style.height = `${t.scrollHeight}px`;
+    });
+  }, [formData.rows]);
 
   const handleCurrencyChange = (curr: 'USD' | 'EUR' | 'KRW' | 'JPY' | 'VND') => {
     const symbols = { USD: '$', EUR: '€', KRW: '₩', JPY: '¥', VND: '₫' };
@@ -314,6 +574,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         ...prev, 
         shipperName: entity.name, 
         shipperAddress: entity.content, 
+        plShipperAddress: entity.content,
         idCode: entity.extra || '',
         footerTel: tel,
         footerFax: fax
@@ -323,6 +584,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         ...prev, 
         consigneeName: entity.name, 
         consigneeAddress: entity.content,
+        plConsigneeAddress: entity.content,
         consigneeTaxId: entity.taxId || '',
         consigneeTel: entity.tel || '',
         consigneeAttn: entity.attn || ''
@@ -382,12 +644,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         if (row.type === 'HEADER') {
           return `
             <tr style="${rowStyle}">
-              <td style="${borderStyle} padding: 4px 8px; text-align: center; text-decoration: underline;">${row.pkgNo || ''}</td>
-              <td style="${borderStyle} padding: 4px 8px; text-decoration: underline;">
+              <td style="${borderStyle} padding: 4px 8px; text-align: center; text-decoration: underline; vertical-align: middle;">${row.pkgNo || ''}</td>
+              <td style="${borderStyle} padding: 4px 8px; text-decoration: underline; vertical-align: middle;">
                 ${row.headerLeft || ''}
               </td>
-              <td style="${borderStyle} padding: 4px 8px;"></td>
-              <td colspan="2" style="${borderStyle} padding: 4px 8px; text-align: left; text-decoration: underline;">
+              <td style="${borderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td colspan="4" style="${borderStyle} padding: 4px 8px; text-align: left; text-decoration: underline; vertical-align: middle;">
                 ${row.headerRight || ''}
               </td>
             </tr>
@@ -396,24 +658,81 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
           return `
             <tr style="${rowStyle}">
-              <td style="${totalBorderStyle} padding: 4px 8px;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right;">${row.description || 'TOTAL'}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right;">${row.unit ? (formData.currencySymbol + (formatNumber(row.amount) || '0.00')) : ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.description || 'TOTAL'}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : ''}</td>
             </tr>
           `;
         }
         return `
           <tr style="${rowStyle}">
-            <td style="${borderStyle} padding: 4px 8px; text-align: center;">${row.pkgNo || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap;">${row.description || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right;">${row.unit ? (formData.currencySymbol + (formatNumber(row.price) || '')) : ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right;">${row.unit ? (formData.currencySymbol + (formatNumber(row.amount) || '0.00')) : ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: center; vertical-align: middle;">${row.pkgNo || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : ''}</td>
           </tr>
         `;
       }).join('');
+
+      const packingRowsHtml = (formData.rows || []).map(row => {
+        const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
+        const borderStyle = `none;`; 
+        
+        if (row.type === 'HEADER') {
+          return `
+            <tr style="${rowStyle}">
+              <td style="${borderStyle} padding: 4px 8px; text-align: center; text-decoration: underline; vertical-align: middle;">${row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo}</td>
+              <td style="${borderStyle} padding: 4px 8px; text-decoration: underline; vertical-align: middle;">
+                ${row.headerLeft || ''}
+              </td>
+              <td style="${borderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td colspan="4" style="${borderStyle} padding: 4px 8px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                ${row.headerRight || ''}
+              </td>
+            </tr>
+          `;
+        } else if (row.type === 'TOTAL') {
+          const totalBorderStyle = `border: none; border-top: 1px solid black;`;
+          return `
+            <tr style="${rowStyle}">
+              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.description || 'TOTAL'}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || '0'}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || '0'}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || '0'}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount) || '0'}</td>
+            </tr>
+          `;
+        }
+        return `
+          <tr style="${rowStyle}">
+            <td style="${borderStyle} padding: 4px 8px; text-align: center; vertical-align: middle;">${row.plPkgNo !== undefined ? row.plPkgNo : ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount) || ''}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const plItemRows = (formData.rows || []).filter(r => r.type === 'ITEM');
+      const plTotalProc = plItemRows.reduce((last, r) => {
+        const val = extractLastNumber(r.plProc || '0');
+        return val > 0 ? val : last;
+      }, 0);
+      const plTotalProcAmt = plItemRows.reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0);
+      const plTotalGrossWeight = plItemRows.reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0);
+      const plTotalCbm = plItemRows.reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0);
 
      win.document.write(`
   <html>
@@ -506,6 +825,28 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           border-right: 1px solid black !important;
           border-bottom: 1px solid black !important;
           padding: 2px; min-height : 16px;
+          vertical-align: middle !important;
+        }
+
+        .invoice-grid {
+          display: grid;
+          grid-template-columns: 1.5fr 1fr 1.5fr 1fr;
+          border-top: 1px solid black !important;
+          border-left: 1px solid black !important;
+          border-collapse: collapse !important;
+        }
+
+        .invoice-cell {
+          border: none !important;
+          border-right: 1px solid black !important;
+          border-bottom: 1px solid black !important;
+          padding: 2px;
+          min-height: 16px;
+          vertical-align: middle !important;
+        }
+
+        table td, table th {
+          vertical-align: middle !important;
         }
 
 
@@ -531,153 +872,285 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       </style>
           </head>
           <body onload="
-            const total = Math.ceil(document.body.scrollHeight / 1010); 
-            document.querySelectorAll('.page-total').forEach(el => el.textContent = total);
+            // Calculate Invoice Pages
+            const invoice = document.getElementById('invoice-content');
+            if (invoice) {
+              const invoiceTotal = Math.ceil(invoice.scrollHeight / 1050); 
+              invoice.querySelectorAll('.page-total').forEach(el => el.textContent = invoiceTotal);
+            }
+            
+            // Calculate Packing List Pages
+            const pl = document.getElementById('packing-list-content');
+            if (pl) {
+              const plTotal = Math.ceil(pl.scrollHeight / 1050); 
+              pl.querySelectorAll('.page-total').forEach(el => el.textContent = plTotal);
+            }
+            
             window.print(); 
             window.close();
           ">
-            <div class="header-title">${formData.invoiceType} INVOICE</div>
-            
-            <table style="margin-top: 0; border: none;">
-              <thead>
-                <tr>
-                  <td style="border: none; padding: 0;">
-                    <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 10px;">
-                      <div class="cell" style="grid-column: 1 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; position: relative;">
-                        <span class="label">SHIPPER/ SELLER</span>
-                        <span class="sub-label">EXPORTER, IMPORTER & MANUFACTURER</span>
-                        <div class="content-bold">${formData.shipperName || ''}</div>
-                        <div class="content-normal" style="width: 80%;">${formData.shipperAddress || ''}</div>
-                        <div style="position: absolute; top: 6px; right: 10px; text-align: right; width: 120px;">
-                          <span class="label" style="margin-bottom: 2px;">ID CODE</span>
-                          <div class="content-medium">${formData.idCode || ''}</div>
-                        </div>
-                      </div>
+            <div id="invoice-content" style="display: flex; flex-direction: column; min-height: 260mm;">
+              <div class="header-title">${formData.invoiceType} INVOICE</div>
+              
+              <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 10px;">
+                <div class="cell" style="grid-column: 1 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; position: relative;">
+                  <span class="label">SHIPPER/ SELLER</span>
+                  <span class="sub-label">EXPORTER, IMPORTER & MANUFACTURER</span>
+                  <div class="content-bold">${formData.shipperName || ''}</div>
+                  <div class="content-normal" style="width: 80%;">${formData.shipperAddress || ''}</div>
+                  <div style="position: absolute; top: 6px; right: 10px; text-align: right; width: 120px;">
+                    <span class="label" style="margin-bottom: 2px;">ID CODE</span>
+                    <div class="content-medium">${formData.idCode || ''}</div>
+                  </div>
+                </div>
 
-                      <div class="cell" style="grid-column: 3; grid-row: 1;">
-                        <span class="label">INVOICE NO. AND DATE</span>
-                        <div class="content-medium">${formData.invoiceNo || ''} & ${formatDateToEnglish(formData.invoiceDate)}</div>
-                      </div>
+                <div class="cell" style="grid-column: 3; grid-row: 1;">
+                  <span class="label">INVOICE NO. AND DATE</span>
+                  <div class="content-medium">${formData.invoiceNo || ''} & ${formatDateToEnglish(formData.invoiceDate)}</div>
+                </div>
 
-                      <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                        <span class="label" style="text-align: center;">PAGE</span>
-                        <div class="content-medium" style="font-weight: 900 !important;">
-                          PAGE #<span class="page-number"></span> OF <span class="page-total">1</span>
-                        </div>
-                      </div>
+                <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                  <span class="label" style="text-align: center;">PAGE</span>
+                  <div class="content-medium" style="font-weight: 900 !important;">
+                    PAGE #<span class="page-number"></span> OF <span class="page-total">1</span>
+                  </div>
+                </div>
 
-                      <div class="cell" style="grid-column: 3; grid-row: 2;">
-                        <span class="label">P/O NO. AND DATE</span>
-                        <div class="content-medium">${formData.poNo || ''}</div>
-                      </div>
+                <div class="cell" style="grid-column: 3; grid-row: 2;">
+                  <span class="label">P/O NO. AND DATE</span>
+                  <div class="content-medium">${formData.poNo || ''}</div>
+                </div>
 
-                      <div class="cell" style="grid-column: 4; grid-row: 2;">
-                        <span class="label">DATE OF FACTORY OUT</span>
-                        <div class="content-medium">${formatDateToEnglish(formData.factoryOutDate)}</div>
+                <div class="cell" style="grid-column: 4; grid-row: 2;">
+                  <span class="label">DATE OF FACTORY OUT</span>
+                  <div class="content-medium">${formatDateToEnglish(formData.factoryOutDate)}</div>
+                </div>
+                            
+                <div class="cell" style="grid-column: 1 / span 2; grid-row: 3 / span 3;">
+                  <span class="label">CONSIGNEE</span>
+                  <div class="content-bold">${formData.consigneeName || ''}</div>
+                  <div class="content-normal" style="line-height: 1.2;">${formData.consigneeAddress || ''}</div>
+                  <div style="margin-top: 2px; line-height: 1.1;">
+                    ${formData.consigneeTaxId ? `<div class="content-normal">TAX ID: ${formData.consigneeTaxId}</div>` : ''}
+                    ${formData.consigneeTel ? `<div class="content-normal">TEL: ${formData.consigneeTel}</div>` : ''}
+                    ${formData.consigneeAttn ? `<div class="content-normal">ATTN: <span style="font-weight: 900;">${formData.consigneeAttn}</span></div>` : ''}
+                  </div>
+                </div>
+                
+                <div class="cell" style="grid-column: 3 / span 2;">
+                  <span class="label">BUYER (IF OTHER THAN CONSIGNEE)</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 15px;">${formData.buyer || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 3 / span 2; grid-row: 4 / span 3;">
+                  <span class="label">OTHER REFERENCE</span>
+                  <div class="content-medium" style="white-space: pre-wrap; min-height: 60px;">${formData.otherRef || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1 / span 2; grid-row: 6;">
+                  <span class="label">DEPARTURE DATE</span>
+                  <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 3px;">${formatDateToEnglish(formData.departureDate)}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1;">
+                  <span class="label">VESSEL/ FLIGHT</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.vesselFlight || ''}</div>
+                </div>
+                <div class="cell" style="grid-column: 2;">
+                  <span class="label">FROM</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.from || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 3 / span 2; grid-row: 7 / span 2;">
+                  <span class="label">TERMS OF DELIVERY AND PAYMENT</span>
+                  <div class="content-medium" style="text-align: center; white-space: pre-wrap; margin-top: 2px;">${formData.deliveryTerms || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1 / span 2;">
+                  <span class="label">TO</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.to || ''}</div>
+                </div>
+              </div>
+
+              <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">SHIPPING MARK</th>
+                    <th style="width: 35%;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                    <th style="width: 10%;">QUANTITY</th>
+                    <th style="width: 10%;">PROC (${formData.currencySymbol})</th>
+                    <th style="width: 10%;">PROC AMT (${formData.currencySymbol})</th>
+                    <th style="width: 7%;">PRICE (${formData.currencySymbol})</th>
+                    <th style="width: 8%;">AMOUNT (${formData.currencySymbol})</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${rowsHtml}
+                  <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
+                    <td colspan="2" style="padding: 11px 8px; text-align: right;">GRAND TOTAL</td>
+                    <td style="padding: 11px 8px; text-align: right;">${formatNumber(formData.totalQuantity) || ''}</td>
+                    <td style="padding: 11px 8px;"></td>
+                    <td style="padding: 11px 8px;"></td>
+                    <td style="padding: 11px 8px;"></td>
+                    <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || '0.00'}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              ${formData.showTrackingNo !== false ? `<div style="margin-top: 15px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0;">${formData.trackingNo || ''}</div>` : ''}
+              
+              ${formData.showRemarks !== false ? `<div style="margin-top: 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks || ''}</div>` : ''}
+
+              <div style="margin-top: auto; padding-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; border-top: 1px solid black; padding-top: 10px;">
+                  <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                    <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                    <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                  </div>
+                  
+                  <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
+                    <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                      <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
+                        ${formData.signedTitle || ''}
                       </div>
-                                  
-                      <div class="cell" style="grid-column: 1 / span 2; grid-row: 3 / span 3;">
-                        <span class="label">CONSIGNEE</span>
-                        <div class="content-bold">${formData.consigneeName || ''}</div>
-                        <div class="content-normal" style="line-height: 1.2;">${formData.consigneeAddress || ''}</div>
-                        <div style="margin-top: 2px; line-height: 1.1;">
-                          ${formData.consigneeTaxId ? `<div class="content-normal">TAX ID: ${formData.consigneeTaxId}</div>` : ''}
-                          ${formData.consigneeTel ? `<div class="content-normal">TEL: ${formData.consigneeTel}</div>` : ''}
-                          ${formData.consigneeAttn ? `<div class="content-normal">ATTN: <span style="font-weight: 900;">${formData.consigneeAttn}</span></div>` : ''}
-                        </div>
-                      </div>
-                      
-                      <div class="cell" style="grid-column: 3 / span 2;">
-                        <span class="label">BUYER (IF OTHER THAN CONSIGNEE)</span>
-                        <div class="content-medium" style="text-align: center; margin-top: 15px;">${formData.buyer || ''}</div>
-                      </div>
-                      
-                      <div class="cell" style="grid-column: 3 / span 2; grid-row: 4 / span 3;">
-                        <span class="label">OTHER REFERENCE</span>
-                        <div class="content-medium" style="white-space: pre-wrap; min-height: 60px;">${formData.otherRef || ''}</div>
-                      </div>
-                      
-                      <div class="cell" style="grid-column: 1 / span 2; grid-row: 6;">
-                        <span class="label">DEPARTURE DATE</span>
-                        <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 3px;">${formatDateToEnglish(formData.departureDate)}</div>
-                      </div>
-                      
-                      <div class="cell" style="grid-column: 1;">
-                        <span class="label">VESSEL/ FLIGHT</span>
-                        <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.vesselFlight || ''}</div>
-                      </div>
-                      <div class="cell" style="grid-column: 2;">
-                        <span class="label">FROM</span>
-                        <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.from || ''}</div>
-                      </div>
-                      
-                      <div class="cell" style="grid-column: 3 / span 2; grid-row: 7 / span 2;">
-                        <span class="label">TERMS OF DELIVERY AND PAYMENT</span>
-                        <div class="content-medium" style="text-align: center; white-space: pre-wrap; margin-top: 2px;">${formData.deliveryTerms || ''}</div>
-                      </div>
-                      
-                      <div class="cell" style="grid-column: 1 / span 2;">
-                        <span class="label">TO</span>
-                        <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.to || ''}</div>
-                      </div>
+                      <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                     </div>
-                  </td>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td style="border: none; padding: 0;">
-                    <table style="margin-top: 0;">
-                      <thead>
-                        <tr>
-                          <th style="width: 20%;">SHIPPING MARK</th>
-                          <th style="width: 40%;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                          <th style="width: 15%;">QUANTITY</th>
-                          <th style="width: 10%;">PRICE</th>
-                          <th style="width: 15%;">AMOUNT</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        ${rowsHtml}
-                        <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                          <td colspan="2" style="padding: 11px 8px; text-align: right;">GRAND TOTAL</td>
-                          <td style="padding: 11px 8px; text-align: center;">${formatNumber(formData.totalQuantity) || ''}</td>
-                          <td style="padding: 11px 8px;"></td>
-                          <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || '0.00'}</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
 
-                    <div style="margin-top: 15px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0;">
-                      ${formData.trackingNo || ''}
-                    </div>
-                    
-                    <div style="margin-top: 8px; font-size: 8px; color: #000; white-space: pre-wrap;">
-                      ${formData.remarks || ''}
-                    </div>
+            <!-- PACKING LIST PAGE BREAK -->
+            <div style="page-break-before: always;"></div>
 
-                    <div style="height: 40px;"></div> <!-- 문단 사이 한 칸 띄우기 -->
+            <div id="packing-list-content" style="display: flex; flex-direction: column; min-height: 260mm; counter-reset: page;">
+              <div class="header-title">${formData.invoiceType} PACKING LIST</div>
 
-                    <div style="margin-top: 30px; display: flex; justify-content: space-between; align-items: flex-start; width: 100%; border-top: 1px solid black; padding-top: 10px;">
-                      <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
-                        <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
-                        <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+              <div class="grid-container">
+                <div class="cell" style="grid-column: 1 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; position: relative;">
+                  <span class="label">SHIPPER/ SELLER</span>
+                  <span class="sub-label">EXPORTER, IMPORTER & MANUFACTURER</span>
+                  <div class="content-bold">${formData.shipperName || ''}</div>
+                  <div class="content-normal" style="width: 80%;">${formData.plShipperAddress || ''}</div>
+                  <div style="position: absolute; top: 6px; right: 10px; text-align: right; width: 120px;">
+                    <span class="label" style="margin-bottom: 2px;">ID CODE</span>
+                    <div class="content-medium">${formData.idCode || ''}</div>
+                  </div>
+                </div>
+                <div class="cell" style="grid-column: 3; grid-row: 1;">
+                  <span class="label">PACKING LIST NO. AND DATE</span>
+                  <div class="content-medium">${formData.invoiceNo || ''} & ${formatDateToEnglish(formData.invoiceDate)}</div>
+                </div>
+                <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                  <span class="label" style="text-align: center;">PAGE</span>
+                  <div class="content-medium" style="font-weight: 900 !important;">
+                    PAGE #<span class="page-number"></span> OF <span class="page-total">1</span>
+                  </div>
+                </div>
+                <div class="cell" style="grid-column: 3; grid-row: 2;">
+                  <span class="label">P/O NO. AND DATE</span>
+                  <div class="content-medium">${formData.poNo || ''}</div>
+                </div>
+                <div class="cell" style="grid-column: 4; grid-row: 2;">
+                  <span class="label">DATE OF FACTORY OUT</span>
+                  <div class="content-medium">${formatDateToEnglish(formData.factoryOutDate)}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1 / span 2; grid-row: 3 / span 3;">
+                  <span class="label">CONSIGNEE</span>
+                  <div class="content-bold">${formData.consigneeName || ''}</div>
+                  <div class="content-normal" style="line-height: 1.2;">${formData.plConsigneeAddress || ''}</div>
+                  <div style="margin-top: 2px; line-height: 1.1;">
+                    ${formData.consigneeTaxId ? `<div class="content-normal">TAX ID: ${formData.consigneeTaxId}</div>` : ''}
+                    ${formData.consigneeTel ? `<div class="content-normal">TEL: ${formData.consigneeTel}</div>` : ''}
+                    ${formData.consigneeAttn ? `<div class="content-normal">ATTN: <span style="font-weight: 900;">${formData.consigneeAttn}</span></div>` : ''}
+                  </div>
+                </div>
+                
+                <div class="cell" style="grid-column: 3 / span 2;">
+                  <span class="label">BUYER (IF OTHER THAN CONSIGNEE)</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 15px;">${formData.buyer || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 3 / span 2; grid-row: 4 / span 3;">
+                  <span class="label">OTHER REFERENCE</span>
+                  <div class="content-medium" style="white-space: pre-wrap; min-height: 60px;">${formData.otherRef || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1 / span 2; grid-row: 6;">
+                  <span class="label">DEPARTURE DATE</span>
+                  <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 3px;">${formatDateToEnglish(formData.departureDate)}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1;">
+                  <span class="label">VESSEL/ FLIGHT</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.vesselFlight || ''}</div>
+                </div>
+                <div class="cell" style="grid-column: 2;">
+                  <span class="label">FROM</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.from || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 3 / span 2; grid-row: 7 / span 2;">
+                  <span class="label">TERMS OF DELIVERY AND PAYMENT</span>
+                  <div class="content-medium" style="text-align: center; white-space: pre-wrap; margin-top: 2px;">${formData.deliveryTerms || ''}</div>
+                </div>
+                
+                <div class="cell" style="grid-column: 1 / span 2;">
+                  <span class="label">TO</span>
+                  <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.to || ''}</div>
+                </div>
+              </div>
+
+              <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr>
+                    <th style="width: 20%; font-size: 10.5px; vertical-align: middle;">SHIPPING MARK</th>
+                    <th style="width: 35%; font-size: 10.5px; vertical-align: middle;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                    <th style="width: 10%; font-size: 10.5px; vertical-align: middle;">QUANTITY</th>
+                    <th style="width: 10%; font-size: 10.5px; vertical-align: middle;">C/T Q'TY</th>
+                    <th style="width: 10%; font-size: 10.5px; vertical-align: middle;">NET WEIGHT (kg)</th>
+                    <th style="width: 8%; font-size: 10.5px; vertical-align: middle;">GROSS WEIGHT (kg)</th>
+                    <th style="width: 7%; font-size: 10.5px; vertical-align: middle;">CBM (M3)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${packingRowsHtml}
+                  <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
+                    <td colspan="2" style="padding: 11px 8px; text-align: right; vertical-align: middle;">GRAND TOTAL</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.totalQuantity) || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalProc) || '0'}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalProcAmt) || '0'}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight) || '0'}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm) || '0.00'}</td>
+                  </tr>
+                </tbody>
+              </table>
+
+              ${formData.showPlExtraRemarks !== false ? `<div style="margin-top: 15px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; white-space: pre-wrap;">${formData.plExtraRemarks || ''}</div>` : ''}
+              
+              ${formData.showPlRemarks !== false ? `<div style="margin-top: 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks || ''}</div>` : ''}
+
+              <div style="margin-top: auto; padding-top: 10px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; border-top: 1px solid black; padding-top: 10px;">
+                  <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                    <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                    <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                  </div>
+                  
+                  <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
+                    <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
+                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                      <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
+                        ${formData.signedTitle || ''}
                       </div>
-                      
-                      <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
-                        <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
-                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                          <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
-                            ${formData.signedTitle || ''}
-                          </div>
-                          <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
-                        </div>
-                      </div>
+                      <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                     </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                  </div>
+                </div>
+              </div>
+            </div>
           </body>
         </html>
       `);
@@ -957,6 +1430,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           </div>
         </div>
         <div className="flex gap-3">
+          <button 
+            onClick={handleUndo} 
+            disabled={historyIndex <= 0}
+            className={`px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${historyIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-50'}`}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
+            되돌리기 (Undo)
+          </button>
           <button onClick={handlePrint} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             인쇄 / PDF
@@ -967,8 +1448,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         </div>
       </div>
 
-      <div className="bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-200 p-10">
-        <div className="national-invoice-print">
+      <div className="bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-200 p-10 flex flex-col space-y-12 min-h-[2500px]">
+        <div className="national-invoice-print flex flex-col min-h-[1123px]">
           <div className="text-center mb-8">
             <h2 className="text-3xl font-black underline tracking-widest">{formData.invoiceType} INVOICE</h2>
           </div>
@@ -1141,6 +1622,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="SEOUL, KOREA">SEOUL, KOREA</option>
+                  <option value="HANOI, VIETNAM">HANOI, VIETNAM</option>
                   <option value="VINH PHUC, VIETNAM">VINH PHUC, VIETNAM</option>
                   <option value="BORYEONG, KOREA">BORYEONG, KOREA</option>
                 </select>
@@ -1162,6 +1644,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <option value="">선택</option>
                   <option value="TOKYO, JAPAN">TOKYO, JAPAN</option>
                   <option value="SEOUL, KOREA">SEOUL, KOREA</option>
+                  <option value="HANOI, VIETNAM">HANOI, VIETNAM</option>
                   <option value="VINH PHUC, VIETNAM">VINH PHUC, VIETNAM</option>
                   <option value="SCHLLABRUCH 34A, GERMANY">SCHLLABRUCH 34A, GERMANY</option>
                   <option value="TSURUGASHIMA-SHI, SAITAMA, JAPAN">TSURUGASHIMA-SHI, JAPAN</option>
@@ -1175,9 +1658,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <tr className="bg-slate-50">
                 <th className="border border-black p-2 text-[10.5px] font-black w-32">SHIPPING MARK</th>
                 <th className="border border-black p-2 text-[10.5px] font-black">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-32">QUANTITY</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-24">PRICE</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-24">AMOUNT</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-24">QUANTITY</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">PROC ({formData.currencySymbol})</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">PROC AMT ({formData.currencySymbol})</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">PRICE ({formData.currencySymbol})</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-24">AMOUNT ({formData.currencySymbol})</th>
               </tr>
             </thead>
             <tbody>
@@ -1185,42 +1670,48 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <tr key={row.id} className={`group/row ${selectedRowId === row.id ? 'bg-sky-50/30' : ''}`}>
                   {row.type === 'HEADER' ? (
                     <>
-                      <td className="border border-black p-1">
-                        <input 
-                          className="invoice-table-input invoice-input text-center font-black underline focus:bg-sky-100" 
-                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
-                          value={row.pkgNo || ''} 
-                          onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
-                          onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
-                          onFocus={() => setSelectedRowId(row.id)}
-                        />
-                      </td>
-                      <td className="border border-black p-1">
-                        <div className="flex justify-between font-black underline">
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex items-center min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input focus:bg-sky-100" 
-                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={row.headerLeft || ''} 
-                            onChange={(e) => handleRowChange(row.id, 'headerLeft', e.target.value)} 
-                            onKeyDown={(e) => handleKeyDown(e, row.id, 'headerLeft')}
+                            className="invoice-table-input invoice-input text-center font-black underline focus:bg-sky-100" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
+                            value={row.pkgNo || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
                             onFocus={() => setSelectedRowId(row.id)}
-                            placeholder="HEADER LEFT" 
                           />
                         </div>
                       </td>
-                      <td className="border border-black p-1"></td>
-                      <td colSpan={2} className="border border-black p-1">
-                        <input 
-                          className="invoice-table-input invoice-input text-left font-black underline focus:bg-sky-100" 
-                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                          value={row.headerRight || ''} 
-                          onChange={(e) => handleRowChange(row.id, 'headerRight', e.target.value)} 
-                          onKeyDown={(e) => handleKeyDown(e, row.id, 'headerRight')}
-                          onFocus={() => setSelectedRowId(row.id)}
-                          placeholder="HEADER RIGHT" 
-                        />
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex items-center min-h-[22px]">
+                          <div className="flex justify-between font-black underline w-full">
+                            <input 
+                              className="invoice-table-input invoice-input focus:bg-sky-100" 
+                              style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
+                              value={row.headerLeft || ''} 
+                              onChange={(e) => handleRowChange(row.id, 'headerLeft', e.target.value)} 
+                              onKeyDown={(e) => handleKeyDown(e, row.id, 'headerLeft')}
+                              onFocus={() => setSelectedRowId(row.id)}
+                              placeholder="HEADER LEFT" 
+                            />
+                          </div>
+                        </div>
                       </td>
-                      <td className="relative w-0 p-0 border-none">
+                      <td className="border border-black p-1 align-middle"></td>
+                      <td colSpan={4} className="border border-black p-1 align-middle">
+                        <div className="flex items-center min-h-[22px]">
+                          <input 
+                            className="invoice-table-input invoice-input text-left font-black underline focus:bg-sky-100" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
+                            value={row.headerRight || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'headerRight', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'headerRight')}
+                            onFocus={() => setSelectedRowId(row.id)}
+                            placeholder="HEADER RIGHT" 
+                          />
+                        </div>
+                      </td>
+                      <td className="relative w-0 p-0 border-none align-middle">
                         <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
                           <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
                         </div>
@@ -1240,7 +1731,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         />
                       </td>
                       <td className="border border-black border-t-2 p-1">
-                        <div className="flex items-center justify-center gap-1">
+                        <div className="flex items-center justify-end gap-1">
                           <input 
                             className="invoice-table-input invoice-input text-right font-black focus:bg-sky-100 w-16" 
                             style={{ fontSize: `10.5px`, fontWeight: 'bold' }}
@@ -1253,6 +1744,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         </div>
                       </td>
                       <td className="border border-black border-t-2 p-1"></td>
+                      <td className="border border-black border-t-2 p-1"></td>
+                      <td className="border border-black border-t-2 p-1"></td>
                       <td className="border border-black border-t-2 p-1 relative">
                         <div className="text-right font-black" style={{ fontSize: `10.5px`, fontWeight: 'bold' }}>{formData.currencySymbol}{formatNumber(row.amount) || '0'}</div>
                         <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
@@ -1262,42 +1755,60 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </>
                   ) : (
                     <>
-                      <td className="border border-black p-1">
-                        <textarea 
-                          className="invoice-table-input invoice-textarea text-center focus:bg-sky-100" 
-                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
-                          value={row.pkgNo || ''} 
-                          onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
-                          onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
-                          onFocus={() => setSelectedRowId(row.id)}
-                        />
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex items-center min-h-[22px]">
+                          <textarea 
+                            className="invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
+                            value={row.pkgNo || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
+                            onPaste={(e) => handlePaste(e, row.id, 'pkgNo')}
+                            onFocus={() => setSelectedRowId(row.id)}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement;
+                              target.style.height = 'auto';
+                              target.style.height = `${target.scrollHeight}px`;
+                            }}
+                          />
+                        </div>
                       </td>
-                      <td className="border border-black p-1 relative">
-                        <textarea 
-                          className="invoice-table-input invoice-textarea focus:bg-sky-100" 
-                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
-                          value={row.description || ''} 
-                          onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} 
-                          onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
-                          onFocus={() => setSelectedRowId(row.id)}
-                        />
+                      <td className="border border-black p-1 relative align-middle">
+                        <div className="flex items-center min-h-[22px]">
+                          <textarea 
+                            className="invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
+                            value={row.description || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
+                            onPaste={(e) => handlePaste(e, row.id, 'description')}
+                            onFocus={() => setSelectedRowId(row.id)}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement;
+                              target.style.height = 'auto';
+                              target.style.height = `${target.scrollHeight}px`;
+                            }}
+                          />
+                        </div>
                       </td>
-                      <td className="border border-black p-1">
-                        <div className="flex gap-1">
+                      <td className="border border-black p-1 align-middle text-right">
+                        <div className="flex gap-1 justify-end items-center min-h-[22px]">
                           <input 
                             className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.quantity) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')}
+                            onPaste={(e) => handlePaste(e, row.id, 'quantity')}
                             onFocus={() => setSelectedRowId(row.id)}
                           />
-                          <div className="relative group/unit">
+                          <div className="relative group/unit flex items-center">
                             <input 
                               className="invoice-table-input invoice-input text-[10.5px] w-10 uppercase focus:bg-sky-100" 
                               value={row.unit || ''} 
                               onChange={(e) => handleRowChange(row.id, 'unit', e.target.value)} 
                               onKeyDown={(e) => handleKeyDown(e, row.id, 'unit')}
+                              onPaste={(e) => handlePaste(e, row.id, 'unit')}
                               onFocus={() => setSelectedRowId(row.id)}
                               placeholder="UNIT" 
                             />
@@ -1309,22 +1820,48 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           </div>
                         </div>
                       </td>
-                      <td className="border border-black p-1">
-                        <div className="flex items-center">
-                          <span className="text-[9px] mr-1">{row.unit ? formData.currencySymbol : ''}</span>
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input 
+                            className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
+                            value={formatNumber(row.proc) || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'proc', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'proc')}
+                            onPaste={(e) => handlePaste(e, row.id, 'proc')}
+                            onFocus={() => setSelectedRowId(row.id)}
+                          />
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input 
+                            className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
+                            value={formatNumber(row.procAmount) || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'procAmount', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'procAmount')}
+                            onPaste={(e) => handlePaste(e, row.id, 'procAmount')}
+                            onFocus={() => setSelectedRowId(row.id)}
+                          />
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
                           <input 
                             className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.price) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'price', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'price')}
+                            onPaste={(e) => handlePaste(e, row.id, 'price')}
                             onFocus={() => setSelectedRowId(row.id)}
                           />
                         </div>
                       </td>
-                      <td className="border border-black p-1 text-right relative">
-                        <div className="font-bold" style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}>
-                          {row.unit ? `${formData.currencySymbol}${formatNumber(row.amount)}` : ''}
+                      <td className="border border-black p-1 text-right relative align-middle">
+                        <div className="font-bold flex items-center justify-end min-h-[22px]" style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}>
+                          {row.unit ? formatNumber(row.amount) : ''}
                         </div>
                         <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
                           <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
@@ -1335,12 +1872,20 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </tr>
               ))}
               <tr className="bg-slate-50">
-                <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px]">GRAND TOTAL</td>
-                <td className="border border-black p-1 text-center font-black text-[10.5px]">
-                  <input className="invoice-table-input invoice-input text-center font-black" value={formatNumber(formData.totalQuantity) || '0'} onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: parseNumber(e.target.value) }))} />
+                <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
+                  <div className="flex items-center justify-end min-h-[22px]">
+                    <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.totalQuantity) || '0'} onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: parseNumber(e.target.value) }))} />
+                  </div>
                 </td>
-                <td className="border border-black p-1"></td>
-                <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100">{formData.currencySymbol}{formatNumber(formData.totalAmount) || '0'}</td>
+                <td className="border border-black p-1 align-middle"></td>
+                <td className="border border-black p-1 align-middle"></td>
+                <td className="border border-black p-1 align-middle"></td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
+                  <div className="flex items-center justify-end min-h-[22px]">
+                    {formData.currencySymbol}{formatNumber(formData.totalAmount) || '0'}
+                  </div>
+                </td>
               </tr>
             </tbody>
           </table>
@@ -1366,24 +1911,65 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           </div>
 
           <div className="mt-8 space-y-4">
-            <div className="text-center py-4 border-y border-slate-100">
-              <input className="invoice-input text-center text-sm font-black" value={formData.trackingNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, trackingNo: e.target.value }))} placeholder="*** TRACKING NO. ***" />
-            </div>
-            <textarea 
-              ref={remarksRef}
-              className="invoice-textarea w-full text-[10.5px] text-slate-800 overflow-hidden resize-none" 
-              value={formData.remarks || ''} 
-              onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} 
-              onInput={(e) => {
-                const target = e.target as HTMLTextAreaElement;
-                target.style.height = 'auto';
-                target.style.height = `${target.scrollHeight}px`;
-              }}
-              placeholder="REMARKS / FREE OF CHARGE ITEMS..." 
-            />
+            {formData.showTrackingNo !== false ? (
+              <div className="relative group">
+                <div className="text-center py-4 border-y border-slate-100">
+                  <input className="invoice-input text-center text-sm font-black" value={formData.trackingNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, trackingNo: e.target.value }))} placeholder="*** TRACKING NO. ***" />
+                </div>
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showTrackingNo: false }))} 
+                  className="absolute right-0 top-0 mt-1 mr-1 p-1 bg-rose-50 text-rose-600 rounded opacity-0 group-hover:opacity-100 transition-opacity no-print"
+                  title="Tracking No 삭제"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ) : (
+              <div className="flex justify-center no-print">
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showTrackingNo: true }))} 
+                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100"
+                >
+                  + TRACKING NO 복구
+                </button>
+              </div>
+            )}
+
+            {formData.showRemarks !== false ? (
+              <div className="relative group">
+                <textarea 
+                  ref={remarksRef}
+                  className="invoice-textarea w-full text-[10.5px] text-slate-800 overflow-hidden resize-none" 
+                  value={formData.remarks || ''} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} 
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${target.scrollHeight}px`;
+                  }}
+                  placeholder="REMARKS / FREE OF CHARGE ITEMS..." 
+                />
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showRemarks: false }))} 
+                  className="absolute right-0 top-0 mt-1 mr-1 p-1 bg-rose-50 text-rose-600 rounded opacity-0 group-hover:opacity-100 transition-opacity no-print"
+                  title="Remarks 삭제"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ) : (
+              <div className="flex justify-center no-print">
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showRemarks: true }))} 
+                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100"
+                >
+                  + REMARKS 복구
+                </button>
+              </div>
+            )}
           </div>
 
-          <div className="mt-6 flex justify-between items-start border-t border-slate-200 pt-4">
+          <div className="mt-6 flex justify-between items-start border-t border-slate-200 pt-4 mt-auto">
             <div className="text-[10px] font-bold text-slate-800 space-y-0.5 mt-1">
               <div className="flex items-center gap-2">
                 <span className="whitespace-nowrap">TELEPHONE NO.:</span>
@@ -1421,6 +2007,378 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               
               <div className="flex items-center gap-4 mt-0.5">
                 <input className="invoice-input text-[11px] font-bold flex-1" value={formData.signedTitle || ''} onChange={(e) => setFormData(prev => ({ ...prev, signedTitle: e.target.value }))} placeholder="MANAGING DIRECTOR CHO, MOO-YEON." />
+                <div className="w-32 flex justify-end pr-2">
+                  <span className="signature-font text-xl text-blue-800 opacity-80">{formData.signatureName || ''}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* PACKING LIST SECTION */}
+        <div className="mt-20 pt-20 border-t-4 border-double border-slate-300 flex flex-col min-h-[1123px]">
+          <div className="text-center mb-8">
+            <h2 className="text-3xl font-black underline tracking-widest">{formData.invoiceType} PACKING LIST</h2>
+          </div>
+
+          <div className="invoice-grid">
+            {/* Row 1 & 2 Left: Shipper + ID CODE 병합 영역 */}
+            <div className="invoice-cell relative" style={{ gridColumn: '1 / span 2', gridRow: '1 / span 2', minHeight: '150px' }}>
+              <div className="flex justify-between items-start">
+                <div className="w-full">
+                  <label className="invoice-label">SHIPPER/ SELLER</label>
+                  <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">EXPORTER, IMPORTER & MANUFACTURER</span>
+                  <input className="invoice-input-bold w-full" value={formData.shipperName || ''} readOnly />
+                  <textarea 
+                    className="invoice-textarea w-full" 
+                    style={{ height: '80px' }} 
+                    value={formData.plShipperAddress || ''} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, plShipperAddress: e.target.value }))}
+                    placeholder="PACKING LIST SHIPPER ADDRESS"
+                  />
+                </div>
+              </div>
+              <div className="absolute top-[8px] right-[10px] text-right" style={{ width: '120px', borderLeft: '0.5px solid #e2e8f0', paddingLeft: '10px' }}>
+                <label className="invoice-label !mb-0">ID CODE</label>
+                <div className="text-right font-bold text-[10.5px] py-1">{formData.idCode || ''}</div>
+              </div>
+            </div>
+
+            {/* Row 1 Right: INVOICE NO (그리드 번호 3번으로 고정) */}
+            <div className="invoice-cell" style={{ gridColumn: '3' }}>
+              <label className="invoice-label">PACKING LIST NO. AND DATE</label>
+              <div className="flex gap-1">
+                <div className="font-bold text-[10.5px] flex-1">{formData.invoiceNo || ''}</div>
+                <div className="flex flex-col items-end">
+                  <div className="font-bold text-[10.5px]">{formData.invoiceDate || ''}</div>
+                  <span className="text-[9px] text-blue-500 font-bold">{formatDateToEnglish(formData.invoiceDate || '')}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 1 Far Right: PAGE (그리드 번호 4번으로 고정) */}
+            <div className="invoice-cell" style={{ gridColumn: '4', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+              <label className="invoice-label text-center">PAGE</label>
+              <div className="text-[10px] font-black text-center text-blue-600 bg-blue-50 py-1 rounded">자동</div>
+            </div>
+
+            {/* Row 2 Middle: P/O NO */}
+            <div className="invoice-cell" style={{ gridColumn: '3', gridRow: '2' }}>
+              <label className="invoice-label">P/O NO. AND DATE</label>
+              <div className="font-bold text-[10.5px]">{formData.poNo || ''}</div>
+            </div>
+
+            {/* Row 2 Right: FACTORY OUT */}
+            <div className="invoice-cell" style={{ gridColumn: '4', gridRow: '2' }}>
+              <label className="invoice-label text-center">DATE OF FACTORY OUT</label>
+              <div className="flex flex-col items-center">
+                <div className="font-bold text-[10.5px]">{formData.factoryOutDate || ''}</div>
+                <span className="text-[10px] text-blue-500 font-bold">{formatDateToEnglish(formData.factoryOutDate || '')}</span>
+              </div>
+            </div>
+
+            {/* Row 3-5 Left: Consignee */}
+            <div className="invoice-cell" style={{ gridColumn: '1 / span 2', gridRow: '3 / span 3' }}>
+              <label className="invoice-label">CONSIGNEE</label>
+              <div className="font-black text-[18px] uppercase">{formData.consigneeName || ''}</div>
+              <textarea 
+                className="invoice-textarea w-full text-[10.5px] whitespace-pre-wrap" 
+                style={{ minHeight: '60px' }}
+                value={formData.plConsigneeAddress || ''} 
+                onChange={(e) => setFormData(prev => ({ ...prev, plConsigneeAddress: e.target.value }))}
+                placeholder="PACKING LIST CONSIGNEE ADDRESS"
+              />
+              <div className="mt-1 space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-slate-400 w-12">TAX ID:</span>
+                  <div className="text-[10.5px] font-bold">{formData.consigneeTaxId || ''}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-slate-400 w-12">TEL:</span>
+                  <div className="text-[10.5px] font-bold">{formData.consigneeTel || ''}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[9px] font-black text-slate-400 w-12">ATTN:</span>
+                  <div className="text-[10.5px] font-black">{formData.consigneeAttn || ''}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Row 3 Right: Buyer */}
+            <div className="invoice-cell" style={{ gridColumn: '3 / span 2' }}>
+              <label className="invoice-label">BUYER (IF OTHER THAN CONSIGNEE)</label>
+              <div className="text-[10.5px] text-center min-h-[18px] uppercase">{formData.buyer || ''}</div>
+            </div>
+
+            {/* Row 4-6 Right: Other Reference */}
+            <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '4 / span 3' }}>
+              <label className="invoice-label">OTHER REFERENCE</label>
+              <div className="text-[10.5px] whitespace-pre-wrap min-h-[80px]">{formData.otherRef || ''}</div>
+            </div>
+
+            {/* Row 6 Left: Departure Date */}
+            <div className="invoice-cell" style={{ gridColumn: '1 / span 2', gridRow: '6' }}>
+              <label className="invoice-label">DEPARTURE DATE</label>
+              <div className="flex flex-col items-center">
+                <div className="font-black text-[10.5px]">{formData.departureDate || ''}</div>
+                <span className="text-[10px] text-blue-500 font-bold">{formatDateToEnglish(formData.departureDate || '')}</span>
+              </div>
+            </div>
+
+            {/* Row 7 Left: Vessel & From */}
+            <div className="invoice-cell" style={{ gridColumn: '1' }}>
+              <label className="invoice-label">VESSEL/ FLIGHT</label>
+              <div className="text-center font-bold text-[10.5px]">{formData.vesselFlight || ''}</div>
+            </div>
+            <div className="invoice-cell" style={{ gridColumn: '2' }}>
+              <label className="invoice-label">FROM</label>
+              <div className="text-center font-bold text-[10.5px]">{formData.from || ''}</div>
+            </div>
+
+            {/* Row 7-8 Right: Terms */}
+            <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '7 / span 2' }}>
+              <label className="invoice-label">TERMS OF DELIVERY AND PAYMENT</label>
+              <div className="text-[10.5px] text-center min-h-[60px] whitespace-pre-wrap">{formData.deliveryTerms || ''}</div>
+            </div>
+
+            {/* Row 8 Left: To */}
+            <div className="invoice-cell" style={{ gridColumn: '1 / span 2' }}>
+              <label className="invoice-label">TO</label>
+              <div className="text-center font-bold text-[10.5px]">{formData.to || ''}</div>
+            </div>
+          </div>
+
+          <table className="w-full border-collapse border border-black mt-4 font-['Gulim',_sans-serif]">
+            <thead>
+              <tr className="bg-slate-50">
+                <th className="border border-black p-2 text-[10.5px] font-black w-32">SHIPPING MARK</th>
+                <th className="border border-black p-2 text-[10.5px] font-black">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-24">QUANTITY</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">C/T Q'TY</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">NET WEIGHT (kg)</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">GROSS WEIGHT (kg)</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-24">CBM (M3)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(formData.rows || []).map((row, idx) => (
+                <tr key={`${row.id}-pk`} className={`group/row`}>
+                  {row.type === 'HEADER' ? (
+                    <>
+                      <td className="border border-black p-1 text-center font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
+                        <div className="flex items-center min-h-[22px]">
+                          <textarea 
+                            className="invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 flex items-center" 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: 'bold' }}
+                            value={row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo} 
+                            onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
+                            onInput={(e) => {
+                              const target = e.target as HTMLTextAreaElement;
+                              target.style.height = 'auto';
+                              target.style.height = `${target.scrollHeight}px`;
+                            }}
+                          />
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
+                        <div className="flex items-center min-h-[22px]">{row.headerLeft}</div>
+                      </td>
+                      <td className="border border-black p-1 align-middle"></td>
+                      <td colSpan={4} className="border border-black p-1 text-left font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
+                        <div className="flex items-center min-h-[22px] text-left">{row.headerRight}</div>
+                      </td>
+                    </>
+                  ) : row.type === 'TOTAL' ? (
+                    <>
+                      <td className="border border-black border-t-2 p-1 align-middle"></td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{row.description}</td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                        {formatNumber(row.quantity)} {row.unit}
+                      </td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(row.plProc)}</td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(row.plProcAmount)}</td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(row.plPrice)}</td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                        {formatNumber(row.plAmount)}
+                      </td>
+                    </>
+                  ) : (
+                    <>
+                      <td className="border border-black p-1 text-center text-[10.5px] align-middle">
+                        <textarea 
+                          className="invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0" 
+                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
+                          value={row.plPkgNo !== undefined ? row.plPkgNo : ''} 
+                          onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
+                          onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${target.scrollHeight}px`;
+                          }}
+                        />
+                      </td>
+                      <td className="border border-black p-1 text-[10.5px] align-middle">
+                        <textarea 
+                          className="invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none p-0" 
+                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
+                          value={row.description} 
+                          readOnly
+                          onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
+                          onInput={(e) => {
+                            const target = e.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${target.scrollHeight}px`;
+                          }}
+                        />
+                      </td>
+                      <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.quantity) || ''} readOnly onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} /> {row.unit}
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 text-right text-[10.5px] align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 text-right text-[10.5px] align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 text-right text-[10.5px] align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
+                        </div>
+                      </td>
+                      <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
+                        </div>
+                      </td>
+                    </>
+                  )}
+                </tr>
+              ))}
+              <tr className="bg-slate-50">
+                <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
+                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.totalQuantity) || '0'} onKeyDown={(e) => handleKeyDown(e, 'total', 'totalQuantity')} readOnly />
+                </td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
+                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((last, r) => {
+                    const val = extractLastNumber(r.plProc || '0');
+                    return val > 0 ? val : last;
+                  }, 0)) || '0'}
+                </td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
+                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0)) || '0'}
+                </td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
+                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0)) || '0'}
+                </td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
+                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0)) || '0'}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div className="mt-8 space-y-4">
+            {formData.showPlExtraRemarks !== false ? (
+              <div className="relative group text-left">
+                <div className="py-4 border-y border-slate-100 flex justify-start">
+                  <textarea 
+                    className="invoice-textarea w-full text-[10.5px] text-slate-800 overflow-hidden resize-none text-left" 
+                    style={{ minHeight: '30px' }}
+                    value={formData.plExtraRemarks || ''} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, plExtraRemarks: e.target.value }))} 
+                    placeholder="ADDITIONAL REMARKS..." 
+                    onInput={(e) => {
+                      const target = e.target as HTMLTextAreaElement;
+                      target.style.height = 'auto';
+                      target.style.height = `${target.scrollHeight}px`;
+                    }}
+                  />
+                </div>
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showPlExtraRemarks: false }))} 
+                  className="absolute right-0 top-0 mt-1 mr-1 p-1 bg-rose-50 text-rose-600 rounded opacity-0 group-hover:opacity-100 transition-opacity no-print"
+                  title="Extra Remarks 삭제"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ) : (
+              <div className="flex justify-center no-print">
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showPlExtraRemarks: true }))} 
+                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100"
+                >
+                  + EXTRA REMARKS 복구
+                </button>
+              </div>
+            )}
+
+            {formData.showPlRemarks !== false ? (
+              <div className="relative group">
+                <textarea 
+                  className="invoice-textarea w-full text-[10.5px] text-slate-800 overflow-hidden resize-none" 
+                  style={{ minHeight: '40px' }}
+                  value={formData.plRemarks || ''} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, plRemarks: e.target.value }))} 
+                  placeholder="PACKING LIST REMARKS..." 
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${target.scrollHeight}px`;
+                  }}
+                />
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showPlRemarks: false }))} 
+                  className="absolute right-0 top-0 mt-1 mr-1 p-1 bg-rose-50 text-rose-600 rounded opacity-0 group-hover:opacity-100 transition-opacity no-print"
+                  title="Packing Remarks 삭제"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+            ) : (
+              <div className="flex justify-center no-print">
+                <button 
+                  onClick={() => setFormData(prev => ({ ...prev, showPlRemarks: true }))} 
+                  className="text-xs font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded hover:bg-blue-100"
+                >
+                  + PACKING REMARKS 복구
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-6 flex justify-between items-start border-t border-slate-200 pt-4 mt-auto">
+            <div className="text-[10px] font-bold text-slate-800 space-y-0.5 mt-1 text-left">
+              <div>TELEPHONE NO.: {formData.footerTel}</div>
+              <div>FACIMILE NO.: {formData.footerFax}</div>
+            </div>
+            <div className="border-l border-black pl-4 w-[420px] text-left relative">
+              <div className="flex justify-between items-start mb-0.5">
+                <label className="text-[9px] font-black uppercase">SIGNED BY</label>
+                <select 
+                  className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print"
+                  value=""
+                  onChange={(e) => {
+                    const ent = entities.find(ent => ent.id === e.target.value);
+                    if (ent) handleEntitySelect(ent);
+                  }}
+                >
+                  <option value="">보관함에서 선택</option>
+                  {entities.filter(e => e.type === 'SIGNATURE').map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+                </select>
+              </div>
+              <div className="text-sm font-black mb-0.5">{formData.signedBy || 'AJIN PRECISION MFG., INC.'}</div>
+              <div className="flex items-center gap-4 mt-0.5">
+                <div className="text-[11px] font-bold flex-1">{formData.signedTitle || ''}</div>
                 <div className="w-32 flex justify-end pr-2">
                   <span className="signature-font text-xl text-blue-800 opacity-80">{formData.signatureName || ''}</span>
                 </div>
@@ -1498,11 +2456,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     <input className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold" value={editingEntity?.name || ''} onChange={(e) => setEditingEntity(prev => ({ ...prev, name: e.target.value }))} />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{editingEntity?.type === 'SIGNATURE' ? '직함' : 'ID CODE / 추가정보'}</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{editingEntity?.type === 'SIGNATURE' ? '서명' : 'ID CODE / 추가정보'}</label>
                     <input className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold" value={editingEntity?.extra || ''} onChange={(e) => setEditingEntity(prev => ({ ...prev, extra: e.target.value }))} />
                   </div>
                   <div className="col-span-2">
-                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{editingEntity?.type === 'SIGNATURE' ? '서명 텍스트 (필기체로 표시됨)' : '주소 / 상세내용'}</label>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase mb-1">{editingEntity?.type === 'SIGNATURE' ? 'BY 직함' : '주소 / 상세내용'}</label>
                     <textarea className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-bold min-h-[80px]" value={editingEntity?.content || ''} onChange={(e) => setEditingEntity(prev => ({ ...prev, content: e.target.value }))} />
                   </div>
                   {editingEntity?.type === 'CONSIGNEE' && (

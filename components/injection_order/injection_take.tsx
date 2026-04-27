@@ -179,6 +179,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           const ajInjections = parsed.filter((item: any) => 
             item.status === InjectionOrderSubCategory.DESTINATION || 
             item.status === InjectionOrderSubCategory.APPROVED
+            item.status === 'AJ사출발주'
           );
           allSourceItems = [...ajInjections];
         }

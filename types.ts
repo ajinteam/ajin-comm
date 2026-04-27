@@ -307,12 +307,21 @@ export interface NationalInvoiceRow {
   description?: string;
   quantity?: string;
   unit?: string;
+  proc?: string;
+  procAmount?: string;
   price?: string;
   amount?: string;
   headerLeft?: string;
   headerRight?: string;
   fontSize?: number;
   isBold?: boolean;
+
+  // Independent fields for Packing List
+  plPkgNo?: string;
+  plProc?: string;
+  plProcAmount?: string;
+  plPrice?: string;
+  plAmount?: string;
 }
 
 export interface NationalInvoiceItem {
@@ -357,11 +366,19 @@ export interface NationalInvoiceItem {
   // Footer
   trackingNo?: string;
   remarks?: string;
+  plRemarks?: string;
+  plExtraRemarks?: string;
+  plShipperAddress?: string;
+  plConsigneeAddress?: string;
   footerTel?: string;
   footerFax?: string;
   signedBy: string;
   signedTitle: string;
   signatureName: string;
+  showTrackingNo?: boolean;
+  showRemarks?: boolean;
+  showPlRemarks?: boolean;
+  showPlExtraRemarks?: boolean;
   completedByInitials?: string;
   completedAt?: string;
   modifiedByInitials?: string;
