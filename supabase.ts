@@ -133,7 +133,7 @@ export const pullStateFromCloud = async () => {
 
   try {
     const fetchTable = async (name: string) => {
-      const { data, error } = await supabase.from(name).select('content');
+      const { data, error } = await supabase.from(name).select('content, status');
       return error ? [] : (data || []);
     };
 
@@ -149,7 +149,13 @@ export const pullStateFromCloud = async () => {
     ]);
 
     // Supabase 데이터를 소스로 사용 (로컬 데이터와 병합하지 않고 클라우드 상태를 반영)
-    const getCloudData = (cloudList: any[]) => cloudList.map(i => i.content).filter(Boolean);
+    const getCloudData = (cloudList: any[]) => cloudList.map(i => {
+      if (!i.content) return null;
+      return {
+        ...i.content,
+        status: i.status || i.content.status // Use DB status as priority
+      };
+    }).filter(Boolean);
     const recipients = recipientsRes.data || [];
 
     const finalInjectionOrders = [...getCloudData(injectionOrders), ...getCloudData(injectionTakes)];
@@ -254,10 +260,12 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
             
             if (eventType === 'INSERT' || eventType === 'UPDATE') {
               const doc = (newRecord as any).content;
+              const status = (newRecord as any).status;
               if (doc) {
+                const updatedDoc = { ...doc, status: status || doc.status };
                 const index = list.findIndex((item: any) => item.id === doc.id);
-                if (index > -1) list[index] = doc;
-                else list.unshift(doc);
+                if (index > -1) list[index] = updatedDoc;
+                else list.unshift(updatedDoc);
               }
             } else if (eventType === 'DELETE') {
               const id = (oldRecord as any).id;
@@ -273,10 +281,12 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
             
             if (eventType === 'INSERT' || eventType === 'UPDATE') {
               const doc = (newRecord as any).content;
+              const status = (newRecord as any).status;
               if (doc) {
+                const updatedDoc = { ...doc, status: status || doc.status };
                 const index = list.findIndex((item: any) => item.id === doc.id);
-                if (index > -1) list[index] = doc;
-                else list.unshift(doc);
+                if (index > -1) list[index] = updatedDoc;
+                else list.unshift(updatedDoc);
               }
             } else if (eventType === 'DELETE') {
               const id = (oldRecord as any).id;

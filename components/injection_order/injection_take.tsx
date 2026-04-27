@@ -238,9 +238,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const titleNormalized = searchTerm.trim().toLowerCase();
     const vendorNormalized = vendorSearch.trim().toLowerCase();
 
-    const matchingDocs = po1Items.filter(item => 
-      (item.title || '').toLowerCase() === titleNormalized
-    );
+    const matchingDocs = po1Items.filter(item => {
+      const title = (item.title || '').trim().toLowerCase();
+      // Exact match or partial match for better UX
+      return title === titleNormalized || title.includes(titleNormalized) || titleNormalized.includes(title);
+    });
 
     if (matchingDocs.length === 0) {
       alert('일치하는 기종의 문서를 찾을 수 없습니다.');
