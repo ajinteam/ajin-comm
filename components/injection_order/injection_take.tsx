@@ -178,7 +178,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           // Only load approved or destination items as source
           const ajInjections = parsed.filter((item: any) => 
             item.status === InjectionOrderSubCategory.DESTINATION || 
-            item.status === InjectionOrderSubCategory.APPROVED
+            item.status === InjectionOrderSubCategory.APPROVED || 
             item.status === 'AJ사출발주'
           );
           allSourceItems = [...ajInjections];
