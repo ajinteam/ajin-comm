@@ -16,6 +16,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   const [activeItem, setActiveItem] = useState<ShippingReportItem | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
 
   // Form State
   const [formData, setFormData] = useState<ShippingReportItem>({
@@ -368,17 +369,32 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
               font-family: 'Gulim', '굴림', 'Nanum Gothic', sans-serif;
             }
             table { border-collapse: collapse; width: 100%; border: 2px solid black; table-layout: fixed; }
-            th, td { border: 1px solid black; padding: 4px; font-size: 10px; text-align: center; word-break: break-all; }
-            th { background-color: #fde6d2 !important; -webkit-print-color-adjust: exact; }
+            th, td { border: 1px solid black; padding: 4px; text-align: center; word-break: break-all; }
+            th { font-size: 11px; background-color: #fde6d2 !important; -webkit-print-color-adjust: exact; }
+            td { font-size: 12px; }
             .bg-yellow-200 { background-color: #fef08a !important; -webkit-print-color-adjust: exact; }
             img { max-width: 150px; max-height: 100px; object-fit: contain; display: block; margin: 0 auto; }
             .no-print { display: none !important; }
             .text-left { text-align: left !important; }
+            .box-info-cell { 
+              position: relative; 
+              text-align: left !important; 
+              padding-left: 12px !important; 
+            }
             .font-black { font-weight: 900; }
             .font-bold { font-weight: 700; }
           </style>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 100);
+            };
+            window.onafterprint = function() {
+              window.close();
+            };
+          </script>
         </head>
-        <body onload="window.print()">
+        <body>
           <div class="p-4">
             <h1 class="text-3xl font-black mb-4">출하 보고서 / Báo cáo xuất hàng</h1>
             <div class="flex gap-8 mb-4 text-sm font-bold">
@@ -410,8 +426,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                     <td class="font-black">${row.qty}</td>
                     <td>${row.image ? `<img src="${row.image}" />` : ''}</td>
                     <td>${row.size}</td>
-                    <td class="text-left" style="font-size: 9px; white-space: pre-wrap;">${row.remarks}</td>
-                    <td class="text-center" style="font-size: 9px; white-space: pre-wrap;">${row.boxInfo}</td>
+                    <td class="text-left" style="white-space: pre-wrap;">${row.remarks}</td>
+                    <td class="box-info-cell" style="white-space: pre-wrap;">${row.boxInfo}</td>
                     <td>${row.boxQty}</td>
                   </tr>
                 `).join('')}
@@ -530,7 +546,9 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                   </td>
                   <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'size' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-size`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.size} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'size'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'size')} onPaste={(e) => handlePaste(e, row.id, 'size')} onChange={(e) => handleRowChange(row.id, 'size', e.target.value)} /></td>
                   <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'remarks' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-remarks`} className="w-full h-full p-1 resize-none focus:outline-none text-xs text-left overflow-hidden bg-transparent" rows={1} value={row.remarks} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'remarks'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'remarks')} onPaste={(e) => handlePaste(e, row.id, 'remarks')} onChange={(e) => handleRowChange(row.id, 'remarks', e.target.value)} /></td>
-                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'boxInfo' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-boxInfo`} className="w-full h-full p-1 resize-none focus:outline-none text-xs text-center overflow-hidden bg-transparent" rows={1} value={row.boxInfo} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxInfo'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxInfo')} onPaste={(e) => handlePaste(e, row.id, 'boxInfo')} onChange={(e) => handleRowChange(row.id, 'boxInfo', e.target.value)} /></td>
+                  <td className={`border-r border-black relative ${focusedCell?.rowId === row.id && focusedCell?.field === 'boxInfo' ? 'bg-sky-100' : ''}`}>
+                    <textarea id={`input-${row.id}-boxInfo`} className="w-full h-full p-1 pl-4 resize-none focus:outline-none text-xs text-left overflow-hidden bg-transparent" rows={1} value={row.boxInfo} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxInfo'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxInfo')} onPaste={(e) => handlePaste(e, row.id, 'boxInfo')} onChange={(e) => handleRowChange(row.id, 'boxInfo', e.target.value)} />
+                  </td>
                   <td className={`${focusedCell?.rowId === row.id && focusedCell?.field === 'boxQty' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-boxQty`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.boxQty} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxQty'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxQty')} onPaste={(e) => handlePaste(e, row.id, 'boxQty')} onChange={(e) => handleRowChange(row.id, 'boxQty', e.target.value)} /></td>
                 </tr>
               ))}
@@ -574,49 +592,104 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       </div>
 
       <div className="bg-white p-6 rounded-[2.5rem] border border-slate-200 shadow-sm">
-        <div className="relative mb-8">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-          <input 
-            type="text"
-            placeholder="제목 또는 작성자 검색..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold"
-          />
+        <div className="flex flex-col md:flex-row gap-4 mb-8">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <input 
+              type="text"
+              placeholder="제목 또는 작성자 검색..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-12 pr-6 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:outline-none font-bold"
+            />
+          </div>
+          <div className="flex bg-slate-100 p-1 rounded-2xl">
+            <button 
+              onClick={() => setViewMode('grid')}
+              className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+            >
+              그리드
+            </button>
+            <button 
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
+            >
+              리스트
+            </button>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredItems.map(item => (
-            <div 
-              key={item.id}
-              className="group bg-white p-6 rounded-3xl border border-slate-100 hover:border-blue-500 hover:shadow-xl transition-all cursor-pointer relative"
-              onClick={() => handleEdit(item)}
-            >
-              <div className="flex justify-between items-start mb-4">
-                <div className="p-3 bg-rose-50 rounded-2xl text-rose-600 group-hover:bg-rose-500 group-hover:text-white transition-colors">
-                  <FileText className="w-6 h-6" />
+        {viewMode === 'grid' ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+            {filteredItems.map(item => (
+              <div 
+                key={item.id}
+                className="group bg-white p-4 rounded-2xl border border-slate-100 hover:border-blue-500 hover:shadow-lg transition-all cursor-pointer relative"
+                onClick={() => handleEdit(item)}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div className="p-2.5 bg-rose-50 rounded-xl text-rose-600 group-hover:bg-rose-500 group-hover:text-white transition-colors">
+                    <FileText className="w-5 h-5" />
+                  </div>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                    className="p-1.5 text-slate-300 hover:text-red-500 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
-                  className="p-2 text-slate-300 hover:text-red-500 transition-colors"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                <h3 className="text-sm font-black text-slate-800 line-clamp-1 mb-0.5">{item.model}</h3>
+                <p className="text-[10px] font-bold text-slate-400 mb-2">{item.dataDate}</p>
+                <div className="flex justify-between items-center pt-2 border-t border-slate-50">
+                  <span className="text-[8px] font-black uppercase tracking-tighter text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-md">{item.authorId}</span>
+                  <span className="text-[8px] font-bold text-slate-300">{new Date(item.createdAt).toLocaleDateString()}</span>
+                </div>
               </div>
-              <h3 className="text-xl font-black text-slate-800 line-clamp-1 mb-1">{item.model}</h3>
-              <p className="text-xs font-bold text-slate-400 mb-4">{item.dataDate}</p>
-              <div className="flex justify-between items-center pt-4 border-t border-slate-50">
-                <span className="text-[10px] font-black uppercase tracking-tighter text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg">{item.authorId}</span>
-                <span className="text-[10px] font-bold text-slate-300">{new Date(item.createdAt).toLocaleDateString()}</span>
-              </div>
-            </div>
-          ))}
-          {filteredItems.length === 0 && (
-            <div className="col-span-full py-20 text-center text-slate-300 font-bold italic">
-              목록이 비어 있습니다.
-            </div>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="border-b border-slate-100">
+                  <th className="py-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Model</th>
+                  <th className="py-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Date</th>
+                  <th className="py-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Author</th>
+                  <th className="py-4 px-4 text-xs font-black text-slate-400 uppercase tracking-widest">Created</th>
+                  <th className="py-4 px-4 text-right text-xs font-black text-slate-400 uppercase tracking-widest">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map(item => (
+                  <tr 
+                    key={item.id} 
+                    className="group border-b border-slate-50 hover:bg-slate-50/50 cursor-pointer transition-colors"
+                    onClick={() => handleEdit(item)}
+                  >
+                    <td className="py-4 px-4"><span className="text-sm font-black text-slate-800">{item.model}</span></td>
+                    <td className="py-4 px-4"><span className="text-xs font-bold text-slate-500">{item.dataDate}</span></td>
+                    <td className="py-4 px-4"><span className="text-[10px] font-black uppercase text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg">{item.authorId}</span></td>
+                    <td className="py-4 px-4"><span className="text-xs font-bold text-slate-400">{new Date(item.createdAt).toLocaleDateString()}</span></td>
+                    <td className="py-4 px-4 text-right">
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }}
+                        className="p-2 text-slate-300 hover:text-red-500 transition-colors"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        
+        {filteredItems.length === 0 && (
+          <div className="py-20 text-center text-slate-300 font-bold italic">
+            목록이 비어 있습니다.
+          </div>
+        )}
       </div>
     </div>
   );
