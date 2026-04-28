@@ -608,7 +608,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
               onClick={() => setViewMode('grid')}
               className={`px-4 py-2 rounded-xl font-bold text-xs transition-all ${viewMode === 'grid' ? 'bg-white shadow-sm text-blue-600' : 'text-slate-500'}`}
             >
-              그리드
+              아이콘
             </button>
             <button 
               onClick={() => setViewMode('list')}
