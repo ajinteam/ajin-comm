@@ -70,6 +70,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     deliveryTerms: 'TOY TRAIN PARTS SAMPLE\nCOMMERCIAL VALUE',
     totalQuantity: '0',
     totalAmount: '0',
+    plTotalCtQty: '0',
+    plTotalNetWeight: '0',
+    plTotalGrossWeight: '0',
+    plTotalCbm: '0',
     footerTel: '(82-2) 894-2611',
     footerFax: '(82-2) 802-9941',
     signedBy: 'AJIN PRECISION MFG., INC.',
@@ -243,8 +247,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     }));
   };
 
-  const handleRowChange = (id: string, field: keyof NationalInvoiceRow, value: any) => {
+  const handleRowChange = (id: string, field: keyof NationalInvoiceRow | keyof NationalInvoiceItem, value: any) => {
     setFormData(prev => {
+      // If no ID is provided, we assume it's a top-level field update
+      if (!id) {
+        let val = value;
+        if (field === 'totalQuantity' || field === 'totalAmount' || field === 'plTotalCtQty' || field === 'plTotalNetWeight' || field === 'plTotalGrossWeight' || field === 'plTotalCbm') {
+          val = parseNumber(value);
+        }
+        return { ...prev, [field]: val };
+      }
+
       let newRows = (prev.rows || []).map(r => {
         if (r.id === id) {
           let val = value;
@@ -285,6 +298,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       let plRunningProc = 0;
       let plRunningProcAmt = 0;
       let plRunningPrice = 0;
+      
+      let blockHasPlProc = false;
+      let blockHasPlNet = false;
+      let blockHasPlGross = false;
+      let blockHasPlCbm = false;
 
       newRows = newRows.map((r, idx) => {
         if (r.type === 'ITEM') {
@@ -302,6 +320,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           plRunningProcAmt += parseFloat(parseNumber(r.plProcAmount || '0')) || 0;
           plRunningPrice += parseFloat(parseNumber(r.plPrice || '0')) || 0;
 
+          if (r.plProc) blockHasPlProc = true;
+          if (r.plProcAmount) blockHasPlNet = true;
+          if (r.plPrice) blockHasPlGross = true;
+          if (r.plAmount) blockHasPlCbm = true;
+
           return r;
         } else if (r.type === 'TOTAL') {
           const updated = { 
@@ -311,12 +334,21 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             proc: runningProc.toString(),
             procAmount: runningProcAmt.toFixed(2),
             price: runningPrice.toFixed(2),
-            // PL independent totals
-            plAmount: plRunningAmt.toFixed(2),
-            plProc: plRunningProc.toString(),
-            plProcAmount: plRunningProcAmt.toFixed(2),
-            plPrice: plRunningPrice.toFixed(2)
           };
+
+          // PL independent totals - only update if there's content in specific columns for this block
+          if (blockHasPlProc) updated.plProc = plRunningProc.toString();
+          else if (r.id !== id) updated.plProc = '';
+
+          if (blockHasPlNet) updated.plProcAmount = plRunningProcAmt.toFixed(2);
+          else if (r.id !== id) updated.plProcAmount = '';
+
+          if (blockHasPlGross) updated.plPrice = plRunningPrice.toFixed(2);
+          else if (r.id !== id) updated.plPrice = '';
+
+          if (blockHasPlCbm) updated.plAmount = plRunningAmt.toFixed(2);
+          else if (r.id !== id) updated.plAmount = '';
+          
           // Reset running totals after each subtotal
           runningAmt = 0;
           runningQty = 0;
@@ -328,6 +360,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           plRunningProc = 0;
           plRunningProcAmt = 0;
           plRunningPrice = 0;
+          blockHasPlProc = false;
+          blockHasPlNet = false;
+          blockHasPlGross = false;
+          blockHasPlCbm = false;
 
           return updated;
         }
@@ -337,7 +373,63 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const grandTotalAmt = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
       const grandTotalQty = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
       
-      return { ...prev, rows: newRows, totalAmount: grandTotalAmt.toFixed(2), totalQuantity: grandTotalQty.toString() };
+      let plTotalCtQty = prev.plTotalCtQty;
+      let plTotalNetWeight = prev.plTotalNetWeight;
+      let plTotalGrossWeight = prev.plTotalGrossWeight;
+      let plTotalCbm = prev.plTotalCbm;
+
+      const hasPlProc = newRows.some(r => r.type === 'ITEM' && r.plProc);
+      const hasPlNet = newRows.some(r => r.type === 'ITEM' && r.plProcAmount);
+      const hasPlGross = newRows.some(r => r.type === 'ITEM' && r.plPrice);
+      const hasPlCbm = newRows.some(r => r.type === 'ITEM' && r.plAmount);
+
+      // Grand totals per column
+      if (hasPlProc) {
+        plTotalCtQty = newRows.filter(r => r.type === 'ITEM').reduce((last, r) => {
+          const val = extractLastNumber(r.plProc || '0');
+          return val > 0 ? val : last;
+        }, 0).toString();
+      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
+        plTotalCtQty = '';
+      }
+
+      if (hasPlNet) {
+        plTotalNetWeight = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0).toFixed(2);
+      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
+        plTotalNetWeight = '';
+      }
+
+      if (hasPlGross) {
+        plTotalGrossWeight = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0).toFixed(2);
+      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
+        plTotalGrossWeight = '';
+      }
+
+      if (hasPlCbm) {
+        plTotalCbm = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0).toFixed(2);
+      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
+        plTotalCbm = '';
+      }
+
+      // Manual override handling if currently editing grand totals
+      if (['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
+        const val = parseNumber(value);
+        if (field === 'plTotalCtQty') plTotalCtQty = val;
+        if (field === 'plTotalNetWeight') plTotalNetWeight = val;
+        if (field === 'plTotalGrossWeight') plTotalGrossWeight = val;
+        if (field === 'plTotalCbm') plTotalCbm = val;
+      }
+
+      return { 
+        ...prev, 
+        rows: newRows, 
+        totalAmount: grandTotalAmt.toFixed(2), 
+        totalQuantity: grandTotalQty.toString(),
+        plTotalCtQty,
+        plTotalNetWeight,
+        plTotalGrossWeight,
+        plTotalCbm
+      };
     });
   };
 
@@ -705,10 +797,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
               <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.description || 'TOTAL'}</td>
               <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || '0'}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || '0'}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || '0'}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount) || '0'}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount) || ''}</td>
             </tr>
           `;
         }
@@ -725,14 +817,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         `;
       }).join('');
 
-      const plItemRows = (formData.rows || []).filter(r => r.type === 'ITEM');
-      const plTotalProc = plItemRows.reduce((last, r) => {
-        const val = extractLastNumber(r.plProc || '0');
-        return val > 0 ? val : last;
-      }, 0);
-      const plTotalProcAmt = plItemRows.reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0);
-      const plTotalGrossWeight = plItemRows.reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0);
-      const plTotalCbm = plItemRows.reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0);
+      const plTotalCtQty = formData.plTotalCtQty || '';
+      const plTotalNetWeight = formData.plTotalNetWeight || '';
+      const plTotalGrossWeight = formData.plTotalGrossWeight || '';
+      const plTotalCbm = formData.plTotalCbm || '';
 
      win.document.write(`
   <html>
@@ -992,7 +1080,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     <td style="padding: 11px 8px;"></td>
                     <td style="padding: 11px 8px;"></td>
                     <td style="padding: 11px 8px;"></td>
-                    <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || '0.00'}</td>
+                    <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1120,10 +1208,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
                     <td colspan="2" style="padding: 11px 8px; text-align: right; vertical-align: middle;">GRAND TOTAL</td>
                     <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.totalQuantity) || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalProc) || '0'}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalProcAmt) || '0'}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight) || '0'}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm) || '0.00'}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty) || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight) || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight) || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm) || ''}</td>
                   </tr>
                 </tbody>
               </table>
@@ -2192,15 +2280,26 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   ) : row.type === 'TOTAL' ? (
                     <>
                       <td className="border border-black border-t-2 p-1 align-middle"></td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{row.description}</td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        {formatNumber(row.quantity)} {row.unit}
+                        <input className="invoice-table-input invoice-input text-right font-black" value={row.description || 'TOTAL'} onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} />
                       </td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(row.plProc)}</td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(row.plProcAmount)}</td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(row.plPrice)}</td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        {formatNumber(row.plAmount)}
+                        <div className="flex items-center justify-end gap-1">
+                          <input className="invoice-table-input invoice-input text-right font-black w-16" value={formatNumber(row.quantity) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
+                          <span>{row.unit}</span>
+                        </div>
+                      </td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
+                      </td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
+                      </td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
+                      </td>
+                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
                       </td>
                     </>
                   ) : (
@@ -2265,22 +2364,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <tr className="bg-slate-50">
                 <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.totalQuantity) || '0'} onKeyDown={(e) => handleKeyDown(e, 'total', 'totalQuantity')} readOnly />
+                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.totalQuantity) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((last, r) => {
-                    const val = extractLastNumber(r.plProc || '0');
-                    return val > 0 ? val : last;
-                  }, 0)) || '0'}
+                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalCtQty) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0)) || '0'}
+                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalNetWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0)) || '0'}
+                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalGrossWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
-                  {formatNumber((formData.rows || []).filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0)) || '0'}
+                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalCbm) || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
                 </td>
               </tr>
             </tbody>

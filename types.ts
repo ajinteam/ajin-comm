@@ -370,6 +370,12 @@ export interface NationalInvoiceItem {
   totalQuantity: string;
   totalAmount: string;
   
+  // Packing List Totals
+  plTotalCtQty?: string;
+  plTotalNetWeight?: string;
+  plTotalGrossWeight?: string;
+  plTotalCbm?: string;
+  
   // Footer
   trackingNo?: string;
   remarks?: string;
