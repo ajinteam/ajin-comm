@@ -1113,7 +1113,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <div style="page-break-before: always;"></div>
 
             <div id="packing-list-content" style="display: flex; flex-direction: column; min-height: 260mm; counter-reset: page;">
-              <div class="header-title">${formData.invoiceType} PACKING LIST</div>
+              <div class="header-title">PACKING LIST</div>
 
               <div class="grid-container">
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; position: relative;">
@@ -2106,7 +2106,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         {/* PACKING LIST SECTION */}
         <div className="mt-20 pt-20 border-t-4 border-double border-slate-300 flex flex-col min-h-[1123px]">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black underline tracking-widest">{formData.invoiceType} PACKING LIST</h2>
+            <h2 className="text-3xl font-black underline tracking-widest">PACKING LIST</h2>
           </div>
 
           <div className="invoice-grid">

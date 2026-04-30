@@ -314,9 +314,19 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('정말 삭제하시겠습니까?')) return;
     try {
       const allItems = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
+      const itemToDelete = allItems.find((i: any) => i.id === id);
+      
+      if (itemToDelete && itemToDelete.status === ShippingReportSubCategory.COMPLETED) {
+        if (currentUser.initials.toUpperCase() !== 'MASTER') {
+          alert('완료된 문서는 마스터만 삭제할 수 있습니다.');
+          return;
+        }
+      }
+
+      if (!confirm('정말 삭제하시겠습니까?')) return;
+      
       const updated = allItems.filter((i: any) => i.id !== id);
       localStorage.setItem('ajin_shipping_reports', JSON.stringify(updated));
       await deleteSingleDoc('na_invoice_image', id);
