@@ -597,7 +597,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const handleAddEntity = () => {
     if (!editingEntity?.name || !editingEntity?.content) return;
     const newEntity: NationalEntity = {
-      id: editingEntity.id || `ent-${Date.now()}`,
+      id: editingEntity.id || `${editingEntity.type?.toLowerCase() || 'consignee'}-${Date.now()}`,
       type: editingEntity.type as any,
       name: editingEntity.name,
       content: editingEntity.content,
@@ -1442,7 +1442,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             인쇄 / PDF
           </button>
-          <button onClick={() => setIsEntityModalOpen(true)} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
+          <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
           <button onClick={() => handleSave(NationalInvoiceSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-amber-500/20">임시저장</button>
           <button onClick={() => handleSave(NationalInvoiceSubCategory.COMPLETED)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">작성완료</button>
         </div>

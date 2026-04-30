@@ -73,16 +73,40 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     setHistory([]);
   };
 
+  useEffect(() => {
+    if (activeItem) {
+      // Small timeout to ensure DOM is ready for resizing
+      setTimeout(() => {
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(ta => {
+          ta.style.height = 'auto';
+          ta.style.height = ta.scrollHeight + 'px';
+        });
+      }, 100);
+    }
+  }, [activeItem]);
+
+  const formatNumberWithCommas = (value: string) => {
+    const raw = value.replace(/,/g, '');
+    if (raw === '' || isNaN(Number(raw))) return raw;
+    return Number(raw).toLocaleString();
+  };
+
   const handleRowChange = (rowId: string, field: keyof ShippingReportRow, value: string) => {
+    let finalValue = value;
+    if (field === 'qty') {
+      finalValue = formatNumberWithCommas(value);
+    }
+
     setHistory([...history, JSON.parse(JSON.stringify(formData))]);
     setFormData(prev => {
       const updatedRows = prev.rows.map(row => {
         if (row.id === rowId) {
-          const updatedRow = { ...row, [field]: value };
+          const updatedRow = { ...row, [field]: finalValue };
           
           // Requirement 5: Auto-populate from COMPLETED documents if itemNo is entered
-          if (field === 'itemNo' && value.trim().length >= 3) {
-            const val = value.trim();
+          if (field === 'itemNo' && finalValue.trim().length >= 3) {
+            const val = finalValue.trim();
             // Search in Shipping Reports (COMPLETED)
             const shippingReports = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
             const completedReports = shippingReports.filter((r: any) => r.status === ShippingReportSubCategory.COMPLETED);
@@ -485,12 +509,18 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                   onChange={(e) => setFormData({...formData, dataDate: e.target.value})}
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <span>Model :</span>
-                <input 
-                  className="border-b border-slate-300 focus:outline-none w-48 font-black text-blue-600"
+              <div className="flex items-center gap-2 flex-1">
+                <span className="shrink-0">Model :</span>
+                <textarea 
+                  className="border-b border-slate-300 focus:outline-none flex-1 font-black text-blue-600 resize-none overflow-hidden bg-transparent"
+                  rows={1}
                   value={formData.model}
-                  onChange={(e) => setFormData({...formData, model: e.target.value})}
+                  onChange={(e) => {
+                    setFormData({...formData, model: e.target.value});
+                    autoResize(null, e.target);
+                  }}
+                  onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)}
+                  onFocus={(e) => autoResize(null, e.target)}
                   placeholder="예: CPH-329R3"
                 />
               </div>

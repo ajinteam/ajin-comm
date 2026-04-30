@@ -184,7 +184,7 @@ export const pullStateFromCloud = async () => {
       const remarks = (item.remark || '').split(' | ');
       return {
         id: item.id,
-        type: item.id.startsWith('shipper-') ? 'SHIPPER' : 'CONSIGNEE',
+        type: item.id.startsWith('shipper-') ? 'SHIPPER' : (item.id.startsWith('signature-') ? 'SIGNATURE' : 'CONSIGNEE'),
         name: item.name,
         content: remarks[0] || '',
         extra: remarks[1] || '',
@@ -337,7 +337,7 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
                 const remarks = (item.remark || '').split(' | ');
                 const mapped = {
                   id: item.id,
-                  type: item.id.startsWith('shipper-') ? 'SHIPPER' : 'CONSIGNEE',
+                  type: item.id.startsWith('shipper-') ? 'SHIPPER' : (item.id.startsWith('signature-') ? 'SIGNATURE' : 'CONSIGNEE'),
                   name: item.name,
                   content: remarks[0] || '',
                   extra: remarks[1] || '',
