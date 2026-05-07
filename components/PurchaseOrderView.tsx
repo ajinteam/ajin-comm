@@ -1707,7 +1707,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   />
                                   {cell.f === 'itemName' && row.fileUrl && (
                                     <button 
-                                      onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                      onClick={(e) => { e.stopPropagation(); if (row.fileUrl) window.open(row.fileUrl, '_blank'); }}
                                       className="absolute right-0.5 top-0.5 text-red-500 hover:scale-110 transition-transform no-print" 
                                       title="도면 미리보기"
                                     >
@@ -2072,7 +2072,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                     {row[cell.f]}
                                     {cell.f === 'itemName' && row.fileUrl && (
                                       <button 
-                                        onClick={(e) => { e.stopPropagation(); setPreviewFileUrl(row.fileUrl || null); }}
+                                        onClick={(e) => { e.stopPropagation(); if (row.fileUrl) window.open(row.fileUrl, '_blank'); }}
                                         className="absolute right-0 top-0 text-red-500 hover:scale-110 transition-transform no-print" 
                                         title="도면 미리보기"
                                       >
