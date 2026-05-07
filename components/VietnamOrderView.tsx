@@ -344,7 +344,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   };
 
   const handleDeleteRow = (idx: number) => {
-    if (vRows.length <= 1) return;
     takeSnapshot();
     setVRows(vRows.filter((_, i) => i !== idx));
   };
@@ -617,7 +616,18 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
   const handlePrint = () => {
     const content = document.querySelector('.vietnam-order-print')?.innerHTML;
-    if (!content) return;
+    const tableElement = document.querySelector('.vietnam-order-print table');
+    if (!content || !tableElement) return;
+
+    // Capture widths of th elements to maintain proportions in print
+    const ths = tableElement.querySelectorAll('thead th');
+    const colgroup = Array.from(ths).map(th => {
+      const width = (th as HTMLElement).getBoundingClientRect().width;
+      return `<col style="width: ${width}px">`;
+    }).join('');
+
+    // Inject colgroup into the table content for print
+    const contentWithColgroup = content.replace(/<table([^>]*)>/, `<table$1>${colgroup}`);
 
     let printTitle = '';
     if (activeItem) {
@@ -666,7 +676,7 @@ td {
           .info-row { border-bottom: none !important; }
         </style>
         </head><body onload="window.print(); window.close();">
-          <div class="document-wrapper">${content}</div>
+          <div class="document-wrapper">${contentWithColgroup}</div>
         </body></html>
       `);
       win.document.close();
@@ -700,7 +710,8 @@ td {
               ...it, title: finalTitle, date: vDate, clientName: vClientName, clientAddress: vClientAddress, taxId: vTaxId, deliveryAddress: vDeliveryAddress,
               clientTel: vClientTel, writerName: vWriterName, modelName: vModelName,
               beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
-              rows: vRows.filter(r => r.itemName.trim() || r.image), status: targetStatus,
+              rows: vRows.filter(r => r.itemName.trim() || r.image || r.drawingNo.trim() || r.specification.trim()), 
+              status: targetStatus,
               rejectReason: isTemp ? it.rejectReason : undefined, 
               rejectLog: isTemp ? it.rejectLog : undefined, 
               merges, aligns, weights, borders,
@@ -724,7 +735,8 @@ td {
             id: `VN${docType === 'PAYMENT' ? 'PAY' : (docType === 'METAL' ? 'MET' : 'PO')}-${Date.now()}`, title: finalTitle, type: docType, date: vDate, clientName: vClientName, clientAddress: vClientAddress, taxId: vTaxId, deliveryAddress: vDeliveryAddress,
             clientTel: vClientTel, writerName: vWriterName, modelName: vModelName,
             beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
-            rows: vRows.filter(r => r.itemName.trim() || r.image), status: targetStatus, authorId: currentUser.initials, createdAt: new Date().toISOString(),
+            rows: vRows.filter(r => r.itemName.trim() || r.image || r.drawingNo.trim() || r.specification.trim()), 
+            status: targetStatus, authorId: currentUser.initials, createdAt: new Date().toISOString(),
             merges, aligns, weights, borders,
             stamps: isTemp ? {} : { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } }
         };
@@ -861,7 +873,7 @@ td {
     setVBankAddr(item.bankAddr || '');
     setVVatRate(item.vatRate || 10);
     setVRemark(item.remark || '');
-    setVRows(item.rows.length >= (item.type === 'PAYMENT' ? 3 : 5) ? item.rows : [...item.rows, ...Array((item.type === 'PAYMENT' ? 3 : 5) - item.rows.length).fill(null).map(createEmptyRow)]);
+    setVRows(item.rows);
     setMerges(item.merges || {});
     setAligns(item.aligns || {});
     setWeights(item.weights || {});
@@ -1155,14 +1167,14 @@ td {
                     <tr>
                         <th className={`border border-black w-8 ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'}`}>STT</th>
                         {isMetalDoc && (
-                          <th className="border border-black w-20 text-black">
+                          <th className="border border-black w-16 text-black">
                             <div className="flex flex-col items-center leading-tight py-0.5">
                               <span>số bản vẽ</span>
                               <span className="text-[10px] font-bold opacity-80">(도번)</span>
                             </div>
                           </th>
                         )}
-                        <th className="border border-black w-[35%] min-w-[180px]">
+                        <th className={`border border-black ${isMetalDoc ? 'min-w-[280px]' : 'w-[35%] min-w-[180px]'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>TÊN VẬT TƯ</span>
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '품목' : '구매품목'})</span>
@@ -1174,7 +1186,7 @@ td {
                             <span className="text-[10px] font-bold opacity-80">(사진)</span>
                           </div>
                         </th>}
-                        <th className={`border border-black ${isMetalDoc ? 'w-32' : 'w-16'}`}>
+                        <th className={`border border-black ${isMetalDoc ? 'w-20' : 'w-16'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>{isMetalDoc ? 'QUY CÁCH' : 'ĐVT'}</span>
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '규격' : '단위'})</span>
@@ -1216,6 +1228,13 @@ td {
                     </tr>
                 </thead>
                 <tbody>
+                    {dRows.length === 0 && !isReadOnly && (
+                        <tr>
+                            <td colSpan={isMetalDoc ? 10 : (isPayDoc ? 8 : 9)} className="border border-black p-4 text-center bg-slate-50 no-print">
+                                <button onClick={() => setVRows([createEmptyRow()])} className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-xs shadow-md">+ Add First Row</button>
+                            </td>
+                        </tr>
+                    )}
                     {dRows.map((row, rIdx) => (
                         <tr key={row.id}>
                             <td className="border border-black text-center font-normal">{rIdx + 1}</td>
@@ -1352,14 +1371,14 @@ td {
                     ))}
                     
                     <tr className={`bg-slate-50 print:bg-white ${isPayDoc || isMetalDoc || isOrderDoc ? 'h-5' : ''}`}>
-                        <td colSpan={isPayDoc ? 5 : 6} className={`border border-black p-1 text-center ${isPayDoc || isMetalDoc || isOrderDoc ? 'text-xs' : 'text-sm'} tracking-wider uppercase font-bold-print`}>Cộng (합계 금액)부가세 제외</td>
+                        <td colSpan={isMetalDoc ? 7 : (isPayDoc ? 5 : 6)} className={`border border-black p-1 text-center ${isPayDoc || isMetalDoc || isOrderDoc ? 'text-xs' : 'text-sm'} tracking-wider uppercase font-bold-print`}>Cộng (합계 금액)부가세 제외</td>
                         <td colSpan={2} className={`border border-black p-1 text-right font-mono ${isPayDoc || isMetalDoc || isOrderDoc ? 'text-sm' : 'text-base'} font-bold-print`}>{formatNumber(subtotal)}</td>
                         {!isReadOnly && <td className="border border-black no-print"></td>}
                     </tr>
                     {(isPayDoc || isMetalDoc || isOrderDoc) && (
                       <>
                         <tr className="bg-slate-50 print:bg-white h-5">
-                            <td colSpan={isPayDoc ? 5 : 6} className="border border-black p-1 text-center text-xs tracking-wider uppercase font-bold-print">
+                            <td colSpan={isMetalDoc ? 7 : (isPayDoc ? 5 : 6)} className="border border-black p-1 text-center text-xs tracking-wider uppercase font-bold-print">
                                 <div className="flex items-center justify-center gap-2">
                                     <span>Thuế</span>
                                     {isReadOnly ? <span className="font-normal-print">{dVatRate}</span> : <input type="number" value={vVatRate} onChange={e => setVVatRate(parseInt(e.target.value) || 0)} className="w-12 px-1 border rounded text-center font-normal-print"/>}
@@ -1370,7 +1389,7 @@ td {
                             {!isReadOnly && <td className="border border-black no-print"></td>}
                         </tr>
                         <tr className="bg-slate-100 print:bg-white h-5">
-                            <td colSpan={isPayDoc ? 5 : 6} className="border border-black p-1 text-center text-xs tracking-wider uppercase font-bold-print">Tổng (총금액)</td>
+                            <td colSpan={isMetalDoc ? 7 : (isPayDoc ? 5 : 6)} className="border border-black p-1 text-center text-xs tracking-wider uppercase font-bold-print">Tổng (총금액)</td>
                             <td colSpan={2} className="border border-black p-1 text-right font-mono text-sm font-bold-print">{formatNumber(total)}</td>
                             {!isReadOnly && <td className="border border-black no-print"></td>}
                         </tr>
