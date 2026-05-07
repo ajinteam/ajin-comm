@@ -237,58 +237,82 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   }, [sub, fetchStorageFiles]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const selectedFiles = e.target.files;
+    if (!selectedFiles || selectedFiles.length === 0) return;
     
-    if (file.type !== 'application/pdf') {
-      alert('PDF 파일만 업로드 가능합니다.');
-      return;
-    }
-
     setIsUploading(true);
+    let successCount = 0;
+    let failCount = 0;
+
     try {
-      const cleanName = file.name.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣._-]/g, '');
-      const fileName = `${Date.now()}_${cleanName}`;
+      const filesArray = Array.from(selectedFiles) as File[];
       
-      // Supabase 연동이 되어있을 때
-      if (supabase) {
-        const { error } = await supabase.storage
-          .from('ajin-pdfdata')
-          .upload(fileName, file);
-        if (error) throw error;
-      } else {
-        // Supabase 연동 전: LocalStorage에 가상 저장 (Preview 테스트용)
-        const reader = new FileReader();
-        reader.onloadend = async () => {
-          const base64data = reader.result as string;
-          const mockFile: StorageFile = {
-            id: `mock-${Date.now()}`,
-            name: fileName,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            last_accessed_at: new Date().toISOString(),
-            metadata: {
-              size: file.size,
-              mimetype: file.type
-            },
-            isMock: true,
-            base64: base64data
-          };
-          
-          const currentMock = JSON.parse(localStorage.getItem('ajin_mock_storage') || '[]');
-          localStorage.setItem('ajin_mock_storage', JSON.stringify([mockFile, ...currentMock]));
-          alert('가상 저장소(LocalStorage)에 파일이 임시 저장되었습니다.');
-          await fetchStorageFiles();
-        };
-        reader.readAsDataURL(file);
+      for (let i = 0; i < filesArray.length; i++) {
+        const file = filesArray[i];
+        
+        if (file.type !== 'application/pdf') {
+          console.warn(`Skipping non-PDF file: ${file.name}`);
+          failCount++;
+          continue;
+        }
+
+        const cleanName = file.name.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣._-]/g, '');
+        const fileName = `${Date.now()}_${i}_${cleanName}`;
+        
+        try {
+          if (supabase) {
+            const { error } = await supabase.storage
+              .from('ajin-pdfdata')
+              .upload(fileName, file);
+            if (error) throw error;
+            successCount++;
+          } else {
+            // LocalStorage fallback for preview
+            await new Promise<void>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                const base64data = reader.result as string;
+                const mockFile: StorageFile = {
+                  id: `mock-${Date.now()}-${i}`,
+                  name: fileName,
+                  created_at: new Date().toISOString(),
+                  updated_at: new Date().toISOString(),
+                  last_accessed_at: new Date().toISOString(),
+                  metadata: {
+                    size: file.size,
+                    mimetype: file.type
+                  },
+                  isMock: true,
+                  base64: base64data
+                };
+                
+                const currentMock = JSON.parse(localStorage.getItem('ajin_mock_storage') || '[]');
+                localStorage.setItem('ajin_mock_storage', JSON.stringify([mockFile, ...currentMock]));
+                resolve();
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
+            successCount++;
+          }
+        } catch (err) {
+          console.error(`Upload error for ${file.name}:`, err);
+          failCount++;
+        }
       }
       
-      if (supabase) {
-        alert('파일 업로드가 완료되었습니다.');
+      if (successCount > 0) {
+        if (!supabase) {
+          alert(`가상 저장소(LocalStorage)에 ${successCount}개의 파일이 임시 저장되었습니다.${failCount > 0 ? ` (${failCount}개 실패)` : ''}`);
+        } else {
+          alert(`${successCount}개의 파일 업로드가 완료되었습니다.${failCount > 0 ? ` (${failCount}개 실패)` : ''}`);
+        }
         await fetchStorageFiles();
+      } else if (failCount > 0) {
+        alert('파일 업로드에 실패했습니다. PDF 형식만 가능합니다.');
       }
     } catch (err: any) {
-      console.error('Upload error:', err);
+      console.error('General upload error:', err);
       alert(`업로드 중 오류가 발생했습니다: ${err.message || '알 수 없는 오류'}`);
     } finally {
       setIsUploading(false);
@@ -1316,7 +1340,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
             <div className="relative flex-1 md:w-64">
               <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="파일명 검색..." className="w-full px-5 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-medium bg-white shadow-sm"/>
             </div>
-            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf" className="hidden"/>
+            <input type="file" ref={fileInputRef} onChange={handleFileUpload} accept=".pdf" className="hidden" multiple/>
             <button 
               onClick={() => fileInputRef.current?.click()} 
               disabled={isUploading} 
