@@ -861,7 +861,7 @@ td {
     setVBankAddr(item.bankAddr || '');
     setVVatRate(item.vatRate || 10);
     setVRemark(item.remark || '');
-    setVRows(item.rows);
+    setVRows(item.rows.length >= (item.type === 'PAYMENT' ? 3 : 5) ? item.rows : [...item.rows, ...Array((item.type === 'PAYMENT' ? 3 : 5) - item.rows.length).fill(null).map(createEmptyRow)]);
     setMerges(item.merges || {});
     setAligns(item.aligns || {});
     setWeights(item.weights || {});
