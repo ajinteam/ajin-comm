@@ -650,29 +650,30 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
         <style>
           @page { size: A4 portrait; margin: 0; }
-          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; }
+          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; color: black !important; }
           .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
-          * { color: black !important; border-color: black !important; print-color-adjust: exact; }
-          .font-bold-print { font-weight: 700 !important; }
-          .font-normal-print { font-weight: 400 !important; }
+          * { color: black !important; border-color: black !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+          .font-bold-print { font-weight: 700 !important; color: black !important; }
+          .font-normal-print { font-weight: 400 !important; color: black !important; }
           .no-print { display: none !important; }
-          table { border-collapse: collapse; width: 100%; table-layout: fixed; }
-         th { 
-  border: 1px solid black; 
-  padding: 2px 4px; 
-  vertical-align: middle; 
-  font-size: 11px;
-}
-
-td { 
-  border: 1px solid black; 
-  padding: 2px 4px; 
-  vertical-align: middle; 
-  word-break: break-all; 
-  overflow: hidden; 
-  font-size: 10px;
-}
-          .document-wrapper { padding: 25mm 10mm 10mm 10mm;}
+          table { border-collapse: collapse; width: 100%; table-layout: fixed; border-color: black !important; }
+          th { 
+            border: 1px solid black; 
+            padding: 2px 4px; 
+            vertical-align: middle !important; 
+            font-size: 11px;
+            color: black !important;
+          }
+          td { 
+            border: 1px solid black; 
+            padding: 2px 4px; 
+            vertical-align: middle !important; 
+            word-break: break-all; 
+            overflow: hidden; 
+            font-size: 10px;
+            color: black !important;
+          }
+          .document-wrapper { padding: 25mm 10mm 10mm 10mm; color: black !important; }
           .info-row { border-bottom: none !important; }
         </style>
         </head><body onload="window.print(); window.close();">
@@ -1165,66 +1166,66 @@ td {
             <table className="w-full border-collapse border border-black text-[12px] font-bold">
                 <thead className="bg-slate-100 print:bg-white font-black text-center">
                     <tr>
-                        <th className={`border border-black w-8 ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'}`}>STT</th>
+                        <th className={`border border-black w-8 align-middle ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'}`}>STT</th>
                         {isMetalDoc && (
-                          <th className="border border-black w-16 text-black">
+                          <th className="border border-black w-16 text-black align-middle">
                             <div className="flex flex-col items-center leading-tight py-0.5">
                               <span>số bản vẽ</span>
                               <span className="text-[10px] font-bold opacity-80">(도번)</span>
                             </div>
                           </th>
                         )}
-                        <th className={`border border-black ${isMetalDoc ? 'min-w-[280px]' : 'w-[35%] min-w-[180px]'}`}>
+                        <th className={`border border-black align-middle ${isMetalDoc ? 'min-w-[280px]' : 'w-[35%] min-w-[180px]'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>TÊN VẬT TƯ</span>
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '품목' : '구매품목'})</span>
                           </div>
                         </th>
-                        {!isPayDoc && !isMetalDoc && <th className="border border-black w-28">
+                        {!isPayDoc && !isMetalDoc && <th className="border border-black w-28 align-middle">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>HÌNH ẢNH</span>
                             <span className="text-[10px] font-bold opacity-80">(사진)</span>
                           </div>
                         </th>}
-                        <th className={`border border-black ${isMetalDoc ? 'w-20' : 'w-16'}`}>
+                        <th className={`border border-black align-middle ${isMetalDoc ? 'w-26' : 'w-16'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>{isMetalDoc ? 'QUY CÁCH' : 'ĐVT'}</span>
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '규격' : '단위'})</span>
                           </div>
                         </th>
                         {isMetalDoc && (
-                          <th className="border border-black w-16">
+                          <th className="border border-black w-10 align-middle">
                             <div className="flex flex-col items-center leading-tight py-0.5">
                               <span>ĐVT</span>
                               <span className="text-[10px] font-bold opacity-80">(단위)</span>
                             </div>
                           </th>
                         )}
-                        <th className="border border-black w-16">
+                        <th className="border border-black w-16 align-middle">
                           <div className="flex flex-col items-center leading-tight py-0.5 text-[10px]">
                             <span>SỐ LƯỢNG</span>
                             <span className="text-[9px] font-bold opacity-80">(수량)</span>
                           </div>
                         </th>
-                        <th className={`border border-black ${isMetalDoc ? 'w-16' : 'w-24'}`}>
+                        <th className={`border border-black align-middle ${isMetalDoc ? 'w-16' : 'w-24'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Đơn giá</span>
                             <span className="text-[10px] font-bold opacity-80">(단가)</span>
                           </div>
                         </th>
-                        <th className={`border border-black ${isMetalDoc ? 'w-24' : 'w-24'}`}>
+                        <th className={`border border-black align-middle ${isMetalDoc ? 'w-24' : 'w-24'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Thành tiền</span>
                             <span className="text-[10px] font-bold opacity-80">(금액)</span>
                           </div>
                         </th>
-                        <th className="border border-black w-24">
+                        <th className="border border-black w-24 align-middle">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Ghi chú</span>
                             <span className="text-[10px] font-bold opacity-80">(비고)</span>
                           </div>
                         </th>
-                        {!isReadOnly && <th className="border border-black w-14 no-print">Manage</th>}
+                        {!isReadOnly && <th className="border border-black w-14 no-print align-middle">Manage</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -1237,7 +1238,7 @@ td {
                     )}
                     {dRows.map((row, rIdx) => (
                         <tr key={row.id}>
-                            <td className="border border-black text-center font-normal">{rIdx + 1}</td>
+                            <td className="border border-black text-center font-normal align-middle">{rIdx + 1}</td>
                             {[
                                 ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }, { f: 'itemName', c: 1 }, { f: 'specification', c: 2 }] : [
                                     { f: 'itemName', c: 1 },
@@ -1262,7 +1263,7 @@ td {
                                         onMouseDown={() => !isReadOnly && handleCellMouseDown(rIdx, cell.c)}
                                         onMouseEnter={() => !isReadOnly && handleCellMouseEnter(rIdx, cell.c)}
                                         style={{ ...borderS }}
-                                        className={`border border-black p-0 relative ${isSelected ? 'bg-blue-50 ring-1 ring-blue-300 z-10' : ''}`}
+                                        className={`border border-black p-0 relative align-middle ${isSelected ? 'bg-blue-50 ring-1 ring-blue-300 z-10' : ''}`}
                                     >
                                         {cell.f === 'image' ? (
                                             <div 
