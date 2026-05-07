@@ -86,6 +86,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   });
 
   const [formData, setFormData] = useState<Partial<NationalInvoiceItem>>(getInitialFormData());
+  const [originalData, setOriginalData] = useState<Partial<NationalInvoiceItem> | null>(null);
   const [history, setHistory] = useState<Partial<NationalInvoiceItem>[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoAction = useRef(false);
@@ -144,12 +145,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         const item = items.find(i => i.id === editId);
         if (item && formData.id !== editId) {
           setFormData(item);
+          setOriginalData(JSON.parse(JSON.stringify(item)));
         }
       } else {
         // No editId means "New Invoice"
         // Only reset if we are currently showing an existing document
         if (formData.id) {
           setFormData(getInitialFormData());
+          setOriginalData(null);
         }
       }
     }
@@ -608,6 +611,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     });
   }, [formData.rows]);
 
+  const isEdited = (field: string, rowId?: string) => {
+    const trackingData = formData.originalData || originalData;
+    if (formData.status !== NationalInvoiceSubCategory.COMPLETED || !trackingData) return false;
+    if (rowId) {
+      const currentRow = (formData.rows || []).find(r => r.id === rowId);
+      const originalRow = (trackingData.rows || []).find(r => r.id === rowId);
+      if (!originalRow) return true;
+      return JSON.stringify((currentRow as any)?.[field]) !== JSON.stringify((originalRow as any)?.[field]);
+    }
+    return JSON.stringify((formData as any)[field]) !== JSON.stringify((trackingData as any)[field]);
+  };
+
+  const getEditedColor = (field: string, rowId?: string) => {
+    return isEdited(field, rowId) ? 'text-red-500 print:text-black' : '';
+  };
+
   const handleCurrencyChange = (curr: 'USD' | 'EUR' | 'KRW' | 'JPY' | 'VND') => {
     const symbols = { USD: '$', EUR: '€', KRW: '₩', JPY: '¥', VND: '₫' };
     setFormData(prev => ({ ...prev, currency: curr, currencySymbol: symbols[curr] }));
@@ -626,7 +645,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       createdAt: isUpdate ? formData.createdAt! : new Date().toISOString(),
       ...(isCompleting && !wasAlreadyCompleted ? {
         completedByInitials: currentUser.initials,
-        completedAt: new Date().toISOString()
+        completedAt: new Date().toISOString(),
+        originalData: JSON.parse(JSON.stringify(formData))
       } : {}),
       ...(isUpdate && wasAlreadyCompleted ? {
         modifiedByInitials: currentUser.initials,
@@ -1531,7 +1551,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             인쇄 / PDF
           </button>
           <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
-          <button onClick={() => handleSave(NationalInvoiceSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-amber-500/20">임시저장</button>
+          {formData.status !== NationalInvoiceSubCategory.COMPLETED && (
+            <button onClick={() => handleSave(NationalInvoiceSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-amber-500/20">임시저장</button>
+          )}
           <button onClick={() => handleSave(NationalInvoiceSubCategory.COMPLETED)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">작성완료</button>
         </div>
       </div>
@@ -1552,7 +1574,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       
       {/* 회사명 입력 */}
       <input 
-        className="invoice-input-bold w-full" 
+        className={`invoice-input-bold w-full ${getEditedColor('shipperName')}`}
         value={formData.shipperName || ''} 
         onChange={(e) => setFormData(prev => ({ ...prev, shipperName: e.target.value }))}
         placeholder="COMPANY NAME"
@@ -1560,7 +1582,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       
       {/* 주소 입력 (병합되어 이제 가로로 더 넓게 쓸 수 있습니다) */}
       <textarea 
-        className="invoice-textarea w-full" 
+        className={`invoice-textarea w-full ${getEditedColor('shipperAddress')}`}
         style={{ height: '80px' }}
         value={formData.shipperAddress || ''} 
         onChange={(e) => setFormData(prev => ({ ...prev, shipperAddress: e.target.value }))}
@@ -1586,7 +1608,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   <div className="absolute top-[8px] right-[10px] text-right" style={{ width: '120px', borderLeft: '0.5px solid #e2e8f0', paddingLeft: '10px' }}>
     <label className="invoice-label !mb-0">ID CODE</label>
     <input 
-      className="invoice-input text-right !bg-transparent font-bold" 
+      className={`invoice-input text-right !bg-transparent font-bold ${getEditedColor('idCode')}`}
       value={formData.idCode || ''} 
       onChange={(e) => setFormData(prev => ({ ...prev, idCode: e.target.value }))} 
     />
@@ -1599,9 +1621,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 <div className="invoice-cell" style={{ gridColumn: '3' }}>
   <label className="invoice-label">INVOICE NO. AND DATE</label>
   <div className="flex gap-1">
-    <input className="invoice-input" value={formData.invoiceNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, invoiceNo: e.target.value }))} placeholder="AJI-2001004" />
+    <input className={`invoice-input ${getEditedColor('invoiceNo')}`} value={formData.invoiceNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, invoiceNo: e.target.value }))} placeholder="AJI-2001004" />
     <div className="flex flex-col items-end">
-      <input type="date" className="invoice-input text-[10px]" value={formData.invoiceDate || ''} onChange={(e) => setFormData(prev => ({ ...prev, invoiceDate: e.target.value }))} />
+      <input type="date" className={`invoice-input text-[10px] ${getEditedColor('invoiceDate')}`} value={formData.invoiceDate || ''} onChange={(e) => setFormData(prev => ({ ...prev, invoiceDate: e.target.value }))} />
       <span className="text-[9px] text-blue-500 font-bold">{formatDateToEnglish(formData.invoiceDate || '')}</span>
     </div>
   </div>
@@ -1616,14 +1638,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 {/* Row 2 Middle: P/O NO (INVOICE NO 아래인 3번 위치로 이동) */}
 <div className="invoice-cell" style={{ gridColumn: '3', gridRow: '2' }}>
   <label className="invoice-label">P/O NO. AND DATE</label>
-  <input className="invoice-input" value={formData.poNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, poNo: e.target.value }))} />
+  <input className={`invoice-input ${getEditedColor('poNo')}`} value={formData.poNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, poNo: e.target.value }))} />
 </div>
 
 {/* Row 2 Right: FACTORY OUT (PAGE 아래인 4번 위치로 고정) */}
 <div className="invoice-cell" style={{ gridColumn: '4', gridRow: '2' }}>
   <label className="invoice-label text-center">DATE OF FACTORY OUT</label>
   <div className="flex flex-col items-center">
-    <input type="date" className="invoice-input-medium text-lg" value={formData.factoryOutDate || ''} onChange={(e) => setFormData(prev => ({ ...prev, factoryOutDate: e.target.value }))} />
+    <input type="date" className={`invoice-input-medium text-lg ${getEditedColor('factoryOutDate')}`} value={formData.factoryOutDate || ''} onChange={(e) => setFormData(prev => ({ ...prev, factoryOutDate: e.target.value }))} />
     <span className="text-[10px] text-blue-500 font-bold">{formatDateToEnglish(formData.factoryOutDate || '')}</span>
   </div>
 </div>
@@ -1645,24 +1667,24 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </select>
               </div>
               <input 
-                className="invoice-input-bold" 
+                className={`invoice-input-bold ${getEditedColor('consigneeName')}`} 
                 value={formData.consigneeName || ''} 
                 onChange={(e) => setFormData(prev => ({ ...prev, consigneeName: e.target.value }))}
                 placeholder="COMPANY NAME"
               />
-              <textarea className="invoice-textarea" value={formData.consigneeAddress || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeAddress: e.target.value }))} placeholder="ADDRESS & CONTACT" />
+              <textarea className={`invoice-textarea ${getEditedColor('consigneeAddress')}`} value={formData.consigneeAddress || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeAddress: e.target.value }))} placeholder="ADDRESS & CONTACT" />
               <div className="mt-1 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 w-12">TAX ID:</span>
-                  <input className="invoice-input font-bold" value={formData.consigneeTaxId || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeTaxId: e.target.value }))} placeholder="TAX ID" />
+                  <input className={`invoice-input font-bold ${getEditedColor('consigneeTaxId')}`} value={formData.consigneeTaxId || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeTaxId: e.target.value }))} placeholder="TAX ID" />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 w-12">TEL:</span>
-                  <input className="invoice-input font-bold" value={formData.consigneeTel || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeTel: e.target.value }))} placeholder="TEL" />
+                  <input className={`invoice-input font-bold ${getEditedColor('consigneeTel')}`} value={formData.consigneeTel || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeTel: e.target.value }))} placeholder="TEL" />
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 w-12">ATTN:</span>
-                  <input className="invoice-input font-black" value={formData.consigneeAttn || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeAttn: e.target.value }))} placeholder="ATTN" />
+                  <input className={`invoice-input font-black ${getEditedColor('consigneeAttn')}`} value={formData.consigneeAttn || ''} onChange={(e) => setFormData(prev => ({ ...prev, consigneeAttn: e.target.value }))} placeholder="ATTN" />
                 </div>
               </div>
             </div>
@@ -1670,20 +1692,20 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 3 Right: Buyer */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2' }}>
               <label className="invoice-label">BUYER (IF OTHER THAN CONSIGNEE)</label>
-              <textarea className="invoice-textarea min-h-[30px] text-center" value={formData.buyer || ''} onChange={(e) => setFormData(prev => ({ ...prev, buyer: e.target.value }))} />
+              <textarea className={`invoice-textarea min-h-[30px] text-center ${getEditedColor('buyer')}`} value={formData.buyer || ''} onChange={(e) => setFormData(prev => ({ ...prev, buyer: e.target.value }))} />
             </div>
 
             {/* Row 4-6 Right: Other Reference */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '4 / span 3' }}>
               <label className="invoice-label">OTHER REFERENCE</label>
-              <textarea className="invoice-textarea min-h-[80px]" value={formData.otherRef || ''} onChange={(e) => setFormData(prev => ({ ...prev, otherRef: e.target.value }))} />
+              <textarea className={`invoice-textarea min-h-[80px] ${getEditedColor('otherRef')}`} value={formData.otherRef || ''} onChange={(e) => setFormData(prev => ({ ...prev, otherRef: e.target.value }))} />
             </div>
 
             {/* Row 6 Left: Departure Date */}
             <div className="invoice-cell" style={{ gridColumn: '1 / span 2', gridRow: '6' }}>
               <label className="invoice-label">DEPARTURE DATE</label>
               <div className="flex flex-col items-center">
-                <input type="date" className="invoice-input text-center font-black text-lg" value={formData.departureDate || ''} onChange={(e) => setFormData(prev => ({ ...prev, departureDate: e.target.value }))} />
+                <input type="date" className={`invoice-input text-center font-black text-lg ${getEditedColor('departureDate')}`} value={formData.departureDate || ''} onChange={(e) => setFormData(prev => ({ ...prev, departureDate: e.target.value }))} />
                 <span className="text-[10px] text-blue-500 font-bold">{formatDateToEnglish(formData.departureDate || '')}</span>
               </div>
             </div>
@@ -1692,7 +1714,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <div className="invoice-cell" style={{ gridColumn: '1' }}>
               <label className="invoice-label">VESSEL/ FLIGHT</label>
               <div className="flex gap-1">
-                <input className="invoice-input text-center" value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))} placeholder="FEDEX" />
+                <input className={`invoice-input text-center ${getEditedColor('vesselFlight')}`} value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))} placeholder="FEDEX" />
                 <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="FEDEX">FEDEX</option>
@@ -1706,7 +1728,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <div className="invoice-cell" style={{ gridColumn: '2' }}>
               <label className="invoice-label">FROM</label>
               <div className="flex gap-1">
-                <input className="invoice-input text-center" value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))} />
+                <input className={`invoice-input text-center ${getEditedColor('from')}`} value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))} />
                 <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="SEOUL, KOREA">SEOUL, KOREA</option>
@@ -1720,14 +1742,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 7-8 Right: Terms */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '7 / span 2' }}>
               <label className="invoice-label">TERMS OF DELIVERY AND PAYMENT</label>
-              <textarea className="invoice-textarea min-h-[60px] text-center" value={formData.deliveryTerms || ''} onChange={(e) => setFormData(prev => ({ ...prev, deliveryTerms: e.target.value }))} />
+              <textarea className={`invoice-textarea min-h-[60px] text-center ${getEditedColor('deliveryTerms')}`} value={formData.deliveryTerms || ''} onChange={(e) => setFormData(prev => ({ ...prev, deliveryTerms: e.target.value }))} />
             </div>
 
             {/* Row 8 Left: To */}
             <div className="invoice-cell" style={{ gridColumn: '1 / span 2' }}>
               <label className="invoice-label">TO</label>
               <div className="flex gap-1">
-                <input className="invoice-input text-center" value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))} />
+                <input className={`invoice-input text-center ${getEditedColor('to')}`} value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))} />
                 <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="TOKYO, JAPAN">TOKYO, JAPAN</option>
@@ -1761,7 +1783,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 align-middle">
                         <div className="flex items-center min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input text-center font-black underline focus:bg-sky-100" 
+                            className={`invoice-table-input invoice-input text-center font-black underline focus:bg-sky-100 ${getEditedColor('pkgNo', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
                             value={row.pkgNo || ''} 
                             onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
@@ -1774,7 +1796,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         <div className="flex items-center min-h-[22px]">
                           <div className="flex justify-between font-black underline w-full">
                             <input 
-                              className="invoice-table-input invoice-input focus:bg-sky-100" 
+                              className={`invoice-table-input invoice-input focus:bg-sky-100 ${getEditedColor('headerLeft', row.id)}`} 
                               style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                               value={row.headerLeft || ''} 
                               onChange={(e) => handleRowChange(row.id, 'headerLeft', e.target.value)} 
@@ -1789,7 +1811,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td colSpan={4} className="border border-black p-1 align-middle">
                         <div className="flex items-center min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input text-left font-black underline focus:bg-sky-100" 
+                            className={`invoice-table-input invoice-input text-left font-black underline focus:bg-sky-100 ${getEditedColor('headerRight', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={row.headerRight || ''} 
                             onChange={(e) => handleRowChange(row.id, 'headerRight', e.target.value)} 
@@ -1810,7 +1832,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black border-t-2 p-1"></td>
                       <td className="border border-black border-t-2 p-1 text-right font-black">
                         <input 
-                          className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                          className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('description', row.id)}`} 
                           style={{ fontSize: `10.5px`, fontWeight: 'bold', minHeight: '18px' }}
                           value={row.description || 'TOTAL'} 
                           onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} 
@@ -1821,14 +1843,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black border-t-2 p-1">
                         <div className="flex items-center justify-end gap-1">
                           <input 
-                            className="invoice-table-input invoice-input text-right font-black focus:bg-sky-100 w-16" 
+                            className={`invoice-table-input invoice-input text-right font-black focus:bg-sky-100 w-16 ${getEditedColor('quantity', row.id)}`} 
                             style={{ fontSize: `10.5px`, fontWeight: 'bold' }}
                             value={formatNumber(row.quantity) || '0'} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')}
                             onFocus={() => setSelectedRowId(row.id)}
                           />
-                          <span className="text-[10.5px] font-black uppercase">{row.unit || 'UNIT'}</span>
+                          <span className={`text-[10.5px] font-black uppercase ${getEditedColor('unit', row.id)}`}>{row.unit || 'UNIT'}</span>
                         </div>
                       </td>
                       <td className="border border-black border-t-2 p-1"></td>
@@ -1846,7 +1868,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 align-middle">
                         <div className="flex items-center min-h-[22px]">
                           <textarea 
-                            className="invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none" 
+                            className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none ${getEditedColor('pkgNo', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
                             value={row.pkgNo || ''} 
                             onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
@@ -1864,7 +1886,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 relative align-middle">
                         <div className="flex items-center min-h-[22px]">
                           <textarea 
-                            className="invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none" 
+                            className={`invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none ${getEditedColor('description', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
                             value={row.description || ''} 
                             onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} 
@@ -1882,7 +1904,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 align-middle text-right">
                         <div className="flex gap-1 justify-end items-center min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                            className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('quantity', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.quantity) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
@@ -1892,7 +1914,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           />
                           <div className="relative group/unit flex items-center">
                             <input 
-                              className="invoice-table-input invoice-input text-[10.5px] w-10 uppercase focus:bg-sky-100" 
+                              className={`invoice-table-input invoice-input text-[10.5px] w-10 uppercase focus:bg-sky-100 ${getEditedColor('unit', row.id)}`} 
                               value={row.unit || ''} 
                               onChange={(e) => handleRowChange(row.id, 'unit', e.target.value)} 
                               onKeyDown={(e) => handleKeyDown(e, row.id, 'unit')}
@@ -1911,7 +1933,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                            className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('proc', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.proc) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'proc', e.target.value)} 
@@ -1924,7 +1946,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                            className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('procAmount', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.procAmount) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'procAmount', e.target.value)} 
@@ -1937,7 +1959,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
                           <input 
-                            className="invoice-table-input invoice-input text-right focus:bg-sky-100" 
+                            className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('price', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.price) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'price', e.target.value)} 
@@ -1948,7 +1970,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right relative align-middle">
-                        <div className="font-bold flex items-center justify-end min-h-[22px]" style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}>
+                        <div className={`font-bold flex items-center justify-end min-h-[22px] ${getEditedColor('amount', row.id)}`} style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}>
                           {row.unit ? formatNumber(row.amount) : ''}
                         </div>
                         <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
@@ -1963,14 +1985,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
                   <div className="flex items-center justify-end min-h-[22px]">
-                    <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.totalQuantity) || '0'} onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: parseNumber(e.target.value) }))} />
+                    <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity) || '0'} onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: parseNumber(e.target.value) }))} />
                   </div>
                 </td>
                 <td className="border border-black p-1 align-middle"></td>
                 <td className="border border-black p-1 align-middle"></td>
                 <td className="border border-black p-1 align-middle"></td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
-                  <div className="flex items-center justify-end min-h-[22px]">
+                  <div className={`flex items-center justify-end min-h-[22px] ${getEditedColor('totalAmount')}`}>
                     {formData.currencySymbol}{formatNumber(formData.totalAmount) || '0'}
                   </div>
                 </td>
@@ -2002,7 +2024,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {formData.showTrackingNo !== false ? (
               <div className="relative group">
                 <div className="text-center py-4 border-y border-slate-100">
-                  <input className="invoice-input text-center text-sm font-black" value={formData.trackingNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, trackingNo: e.target.value }))} placeholder="*** TRACKING NO. ***" />
+                  <input className={`invoice-input text-center text-sm font-black ${getEditedColor('trackingNo')}`} value={formData.trackingNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, trackingNo: e.target.value }))} placeholder="*** TRACKING NO. ***" />
                 </div>
                 <button 
                   onClick={() => setFormData(prev => ({ ...prev, showTrackingNo: false }))} 
@@ -2027,7 +2049,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <div className="relative group">
                 <textarea 
                   ref={remarksRef}
-                  className="invoice-textarea w-full text-[10.5px] text-slate-800 overflow-hidden resize-none" 
+                  className={`invoice-textarea w-full text-[10.5px] text-slate-800 overflow-hidden resize-none ${getEditedColor('remarks')}`} 
                   value={formData.remarks || ''} 
                   onChange={(e) => setFormData(prev => ({ ...prev, remarks: e.target.value }))} 
                   onInput={(e) => {
@@ -2062,7 +2084,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <div className="flex items-center gap-2">
                 <span className="whitespace-nowrap">TELEPHONE NO.:</span>
                 <input 
-                  className="invoice-input font-bold p-0 min-w-[150px]" 
+                  className={`invoice-input font-bold p-0 min-w-[150px] ${getEditedColor('footerTel')}`} 
                   value={formData.footerTel || ''} 
                   onChange={(e) => setFormData(prev => ({ ...prev, footerTel: e.target.value }))} 
                 />
@@ -2070,7 +2092,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <div className="flex items-center gap-2">
                 <span className="whitespace-nowrap">FACIMILE NO.:</span>
                 <input 
-                  className="invoice-input font-bold p-0 min-w-[150px]" 
+                  className={`invoice-input font-bold p-0 min-w-[150px] ${getEditedColor('footerFax')}`} 
                   value={formData.footerFax || ''} 
                   onChange={(e) => setFormData(prev => ({ ...prev, footerFax: e.target.value }))} 
                 />
@@ -2091,12 +2113,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   {entities.filter(e => e.type === 'SIGNATURE').map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
                 </select>
               </div>
-              <input className="invoice-input text-sm font-black mb-0.5" value={formData.signedBy || ''} onChange={(e) => setFormData(prev => ({ ...prev, signedBy: e.target.value }))} placeholder="AJIN PRECISION MFG., INC." />
+              <input className={`invoice-input text-sm font-black mb-0.5 ${getEditedColor('signedBy')}`} value={formData.signedBy || ''} onChange={(e) => setFormData(prev => ({ ...prev, signedBy: e.target.value }))} placeholder="AJIN PRECISION MFG., INC." />
               
               <div className="flex items-center gap-4 mt-0.5">
-                <input className="invoice-input text-[11px] font-bold flex-1" value={formData.signedTitle || ''} onChange={(e) => setFormData(prev => ({ ...prev, signedTitle: e.target.value }))} placeholder="MANAGING DIRECTOR CHO, MOO-YEON." />
+                <input className={`invoice-input text-[11px] font-bold flex-1 ${getEditedColor('signedTitle')}`} value={formData.signedTitle || ''} onChange={(e) => setFormData(prev => ({ ...prev, signedTitle: e.target.value }))} placeholder="MANAGING DIRECTOR CHO, MOO-YEON." />
                 <div className="w-32 flex justify-end pr-2">
-                  <span className="signature-font text-xl text-blue-800 opacity-80">{formData.signatureName || ''}</span>
+                  <span className={`signature-font text-xl text-blue-800 opacity-80 ${getEditedColor('signatureName')}`}>{formData.signatureName || ''}</span>
                 </div>
               </div>
             </div>
@@ -2116,9 +2138,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <div className="w-full">
                   <label className="invoice-label">SHIPPER/ SELLER</label>
                   <span className="text-[8px] font-bold text-slate-400 uppercase block mb-1">EXPORTER, IMPORTER & MANUFACTURER</span>
-                  <input className="invoice-input-bold w-full" value={formData.shipperName || ''} readOnly />
+                  <input className={`invoice-input-bold w-full ${getEditedColor('shipperName')}`} value={formData.shipperName || ''} readOnly />
                   <textarea 
-                    className="invoice-textarea w-full" 
+                    className={`invoice-textarea w-full ${getEditedColor('plShipperAddress')}`} 
                     style={{ height: '80px' }} 
                     value={formData.plShipperAddress || ''} 
                     onChange={(e) => setFormData(prev => ({ ...prev, plShipperAddress: e.target.value }))}
@@ -2128,7 +2150,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               </div>
               <div className="absolute top-[8px] right-[10px] text-right" style={{ width: '120px', borderLeft: '0.5px solid #e2e8f0', paddingLeft: '10px' }}>
                 <label className="invoice-label !mb-0">ID CODE</label>
-                <div className="text-right font-bold text-[10.5px] py-1">{formData.idCode || ''}</div>
+                <div className={`text-right font-bold text-[10.5px] py-1 ${getEditedColor('idCode')}`}>{formData.idCode || ''}</div>
               </div>
             </div>
 
@@ -2136,9 +2158,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <div className="invoice-cell" style={{ gridColumn: '3' }}>
               <label className="invoice-label">PACKING LIST NO. AND DATE</label>
               <div className="flex gap-1">
-                <div className="font-bold text-[10.5px] flex-1">{formData.invoiceNo || ''}</div>
+                <div className={`font-bold text-[10.5px] flex-1 ${getEditedColor('invoiceNo')}`}>{formData.invoiceNo || ''}</div>
                 <div className="flex flex-col items-end">
-                  <div className="font-bold text-[10.5px]">{formData.invoiceDate || ''}</div>
+                  <div className={`font-bold text-[10.5px] ${getEditedColor('invoiceDate')}`}>{formData.invoiceDate || ''}</div>
                   <span className="text-[9px] text-blue-500 font-bold">{formatDateToEnglish(formData.invoiceDate || '')}</span>
                 </div>
               </div>
@@ -2153,14 +2175,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 2 Middle: P/O NO */}
             <div className="invoice-cell" style={{ gridColumn: '3', gridRow: '2' }}>
               <label className="invoice-label">P/O NO. AND DATE</label>
-              <div className="font-bold text-[10.5px]">{formData.poNo || ''}</div>
+              <div className={`font-bold text-[10.5px] ${getEditedColor('poNo')}`}>{formData.poNo || ''}</div>
             </div>
 
             {/* Row 2 Right: FACTORY OUT */}
             <div className="invoice-cell" style={{ gridColumn: '4', gridRow: '2' }}>
               <label className="invoice-label text-center">DATE OF FACTORY OUT</label>
               <div className="flex flex-col items-center">
-                <div className="font-bold text-[10.5px]">{formData.factoryOutDate || ''}</div>
+                <div className={`font-bold text-[10.5px] ${getEditedColor('factoryOutDate')}`}>{formData.factoryOutDate || ''}</div>
                 <span className="text-[10px] text-blue-500 font-bold">{formatDateToEnglish(formData.factoryOutDate || '')}</span>
               </div>
             </div>
@@ -2168,9 +2190,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 3-5 Left: Consignee */}
             <div className="invoice-cell" style={{ gridColumn: '1 / span 2', gridRow: '3 / span 3' }}>
               <label className="invoice-label">CONSIGNEE</label>
-              <div className="font-black text-[18px] uppercase">{formData.consigneeName || ''}</div>
+              <div className={`font-black text-[18px] uppercase ${getEditedColor('consigneeName')}`}>{formData.consigneeName || ''}</div>
               <textarea 
-                className="invoice-textarea w-full text-[10.5px] whitespace-pre-wrap" 
+                className={`invoice-textarea w-full text-[10.5px] whitespace-pre-wrap ${getEditedColor('plConsigneeAddress')}`} 
                 style={{ minHeight: '60px' }}
                 value={formData.plConsigneeAddress || ''} 
                 onChange={(e) => setFormData(prev => ({ ...prev, plConsigneeAddress: e.target.value }))}
@@ -2179,15 +2201,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <div className="mt-1 space-y-0.5">
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 w-12">TAX ID:</span>
-                  <div className="text-[10.5px] font-bold">{formData.consigneeTaxId || ''}</div>
+                  <div className={`text-[10.5px] font-bold ${getEditedColor('consigneeTaxId')}`}>{formData.consigneeTaxId || ''}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 w-12">TEL:</span>
-                  <div className="text-[10.5px] font-bold">{formData.consigneeTel || ''}</div>
+                  <div className={`text-[10.5px] font-bold ${getEditedColor('consigneeTel')}`}>{formData.consigneeTel || ''}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className="text-[9px] font-black text-slate-400 w-12">ATTN:</span>
-                  <div className="text-[10.5px] font-black">{formData.consigneeAttn || ''}</div>
+                  <div className={`text-[10.5px] font-black ${getEditedColor('consigneeAttn')}`}>{formData.consigneeAttn || ''}</div>
                 </div>
               </div>
             </div>
@@ -2195,20 +2217,20 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 3 Right: Buyer */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2' }}>
               <label className="invoice-label">BUYER (IF OTHER THAN CONSIGNEE)</label>
-              <div className="text-[10.5px] text-center min-h-[18px] uppercase">{formData.buyer || ''}</div>
+              <div className={`text-[10.5px] text-center min-h-[18px] uppercase ${getEditedColor('buyer')}`}>{formData.buyer || ''}</div>
             </div>
 
             {/* Row 4-6 Right: Other Reference */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '4 / span 3' }}>
               <label className="invoice-label">OTHER REFERENCE</label>
-              <div className="text-[10.5px] whitespace-pre-wrap min-h-[80px]">{formData.otherRef || ''}</div>
+              <div className={`text-[10.5px] whitespace-pre-wrap min-h-[80px] ${getEditedColor('otherRef')}`}>{formData.otherRef || ''}</div>
             </div>
 
             {/* Row 6 Left: Departure Date */}
             <div className="invoice-cell" style={{ gridColumn: '1 / span 2', gridRow: '6' }}>
               <label className="invoice-label">DEPARTURE DATE</label>
               <div className="flex flex-col items-center">
-                <div className="font-black text-[10.5px]">{formData.departureDate || ''}</div>
+                <div className={`font-black text-[10.5px] ${getEditedColor('departureDate')}`}>{formData.departureDate || ''}</div>
                 <span className="text-[10px] text-blue-500 font-bold">{formatDateToEnglish(formData.departureDate || '')}</span>
               </div>
             </div>
@@ -2216,23 +2238,23 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 7 Left: Vessel & From */}
             <div className="invoice-cell" style={{ gridColumn: '1' }}>
               <label className="invoice-label">VESSEL/ FLIGHT</label>
-              <div className="text-center font-bold text-[10.5px]">{formData.vesselFlight || ''}</div>
+              <div className={`text-center font-bold text-[10.5px] ${getEditedColor('vesselFlight')}`}>{formData.vesselFlight || ''}</div>
             </div>
             <div className="invoice-cell" style={{ gridColumn: '2' }}>
               <label className="invoice-label">FROM</label>
-              <div className="text-center font-bold text-[10.5px]">{formData.from || ''}</div>
+              <div className={`text-center font-bold text-[10.5px] ${getEditedColor('from')}`}>{formData.from || ''}</div>
             </div>
 
             {/* Row 7-8 Right: Terms */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '7 / span 2' }}>
               <label className="invoice-label">TERMS OF DELIVERY AND PAYMENT</label>
-              <div className="text-[10.5px] text-center min-h-[60px] whitespace-pre-wrap">{formData.deliveryTerms || ''}</div>
+              <div className={`text-[10.5px] text-center min-h-[60px] whitespace-pre-wrap ${getEditedColor('deliveryTerms')}`}>{formData.deliveryTerms || ''}</div>
             </div>
 
             {/* Row 8 Left: To */}
             <div className="invoice-cell" style={{ gridColumn: '1 / span 2' }}>
               <label className="invoice-label">TO</label>
-              <div className="text-center font-bold text-[10.5px]">{formData.to || ''}</div>
+              <div className={`text-center font-bold text-[10.5px] ${getEditedColor('to')}`}>{formData.to || ''}</div>
             </div>
           </div>
 
@@ -2256,7 +2278,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 text-center font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
                         <div className="flex items-center min-h-[22px]">
                           <textarea 
-                            className="invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 flex items-center" 
+                            className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 flex items-center ${getEditedColor('plPkgNo', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: 'bold' }}
                             value={row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo} 
                             onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
@@ -2281,32 +2303,32 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     <>
                       <td className="border border-black border-t-2 p-1 align-middle"></td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className="invoice-table-input invoice-input text-right font-black" value={row.description || 'TOTAL'} onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('description', row.id)}`} value={row.description || 'TOTAL'} onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} />
                       </td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
                         <div className="flex items-center justify-end gap-1">
-                          <input className="invoice-table-input invoice-input text-right font-black w-16" value={formatNumber(row.quantity) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
-                          <span>{row.unit}</span>
+                          <input className={`invoice-table-input invoice-input text-right font-black w-16 ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
+                          <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
                         </div>
                       </td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
                       </td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
                       </td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
                       </td>
                       <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
                       </td>
                     </>
                   ) : (
                     <>
                       <td className="border border-black p-1 text-center text-[10.5px] align-middle">
                         <textarea 
-                          className="invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0" 
+                          className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('plPkgNo', row.id)}`} 
                           style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
                           value={row.plPkgNo !== undefined ? row.plPkgNo : ''} 
                           onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
@@ -2320,7 +2342,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </td>
                       <td className="border border-black p-1 text-[10.5px] align-middle">
                         <textarea 
-                          className="invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none p-0" 
+                          className={`invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('description', row.id)}`} 
                           style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
                           value={row.description} 
                           readOnly
@@ -2334,27 +2356,27 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.quantity) || ''} readOnly onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} /> {row.unit}
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity) || ''} readOnly onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} /> <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className="invoice-table-input invoice-input text-right" value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
                         </div>
                       </td>
                     </>
@@ -2364,19 +2386,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <tr className="bg-slate-50">
                 <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.totalQuantity) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalCtQty) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalNetWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight')}`} value={formatNumber(formData.plTotalNetWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalGrossWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight')}`} value={formatNumber(formData.plTotalGrossWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
-                  <input className="invoice-table-input invoice-input text-right font-black" value={formatNumber(formData.plTotalCbm) || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm')}`} value={formatNumber(formData.plTotalCbm) || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
                 </td>
               </tr>
             </tbody>

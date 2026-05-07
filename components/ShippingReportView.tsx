@@ -59,7 +59,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
         size: '',
         remarks: '',
         boxInfo: '',
-        boxQty: ''
+        boxQty: '',
+        memo: ''
       }))
     };
     setFormData(newItem);
@@ -186,7 +187,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                     size: '',
                     remarks: '',
                     boxInfo: '',
-                    boxQty: ''
+                    boxQty: '',
+                    memo: ''
                 });
             }
 
@@ -250,7 +252,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             size: '',
             remarks: '',
             boxInfo: '',
-            boxQty: ''
+            boxQty: '',
+            memo: ''
         });
         return { ...prev, rows: newRows.map((r, i) => ({ ...r, no: String(i + 1) })) };
     });
@@ -353,7 +356,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   };
 
   const handleKeyDown = (e: React.KeyboardEvent, rowId: string, rowIdx: number, field: keyof ShippingReportRow) => {
-    const fields: (keyof ShippingReportRow)[] = ['hsCode', 'itemNo', 'itemName', 'qty', 'size', 'remarks', 'boxInfo', 'boxQty'];
+    const fields: (keyof ShippingReportRow)[] = ['hsCode', 'itemNo', 'itemName', 'qty', 'size', 'remarks', 'boxInfo', 'boxQty', 'memo'];
     const fieldIdx = fields.indexOf(field);
 
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
@@ -550,6 +553,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                 <th className="w-[250px] border border-black">참고사항/Ghi chú</th>
                 <th className="w-[250px] border border-black">상자크기, 무게/kích thước thùng, cân nặng</th>
                 <th className="w-[80px] border border-black">상자 수/Số thùng</th>
+                <th className="w-[150px] border border-black no-print">Memo (Screen Only)</th>
               </tr>
             </thead>
             <tbody>
@@ -589,7 +593,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                   <td className={`border-r border-black relative ${focusedCell?.rowId === row.id && focusedCell?.field === 'boxInfo' ? 'bg-sky-100' : ''}`}>
                     <textarea id={`input-${row.id}-boxInfo`} className="w-full h-full p-1 pl-4 resize-none focus:outline-none text-xs text-left overflow-hidden bg-transparent" rows={1} value={row.boxInfo} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxInfo'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxInfo')} onPaste={(e) => handlePaste(e, row.id, 'boxInfo')} onChange={(e) => handleRowChange(row.id, 'boxInfo', e.target.value)} />
                   </td>
-                  <td className={`${focusedCell?.rowId === row.id && focusedCell?.field === 'boxQty' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-boxQty`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.boxQty} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxQty'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxQty')} onPaste={(e) => handlePaste(e, row.id, 'boxQty')} onChange={(e) => handleRowChange(row.id, 'boxQty', e.target.value)} /></td>
+                  <td className={`border-r border-black ${focusedCell?.rowId === row.id && focusedCell?.field === 'boxQty' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-boxQty`} className="w-full h-full p-1 resize-none focus:outline-none text-center overflow-hidden bg-transparent" rows={1} value={row.boxQty} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'boxQty'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'boxQty')} onPaste={(e) => handlePaste(e, row.id, 'boxQty')} onChange={(e) => handleRowChange(row.id, 'boxQty', e.target.value)} /></td>
+                  <td className={`no-print ${focusedCell?.rowId === row.id && focusedCell?.field === 'memo' ? 'bg-sky-100' : ''}`}><textarea id={`input-${row.id}-memo`} className="w-full h-full p-1 resize-none focus:outline-none text-left text-xs overflow-hidden bg-transparent" rows={1} value={row.memo} onFocus={(e) => { setFocusedCell({rowId: row.id, field: 'memo'}); autoResize(null, e.target); }} onBlur={() => setFocusedCell(null)} onInput={(e) => autoResize(null, e.target as HTMLTextAreaElement)} onKeyDown={(e) => handleKeyDown(e, row.id, idx, 'memo')} onPaste={(e) => handlePaste(e, row.id, 'memo')} onChange={(e) => handleRowChange(row.id, 'memo', e.target.value)} /></td>
                 </tr>
               ))}
               <tr className="bg-yellow-200">
@@ -598,6 +603,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                     {formData.rows.reduce((acc, r) => acc + (parseFloat(r.qty.replace(/,/g, '')) || 0), 0).toLocaleString()}
                 </td>
                 <td colSpan={5} className="border border-black"></td>
+                <td className="border border-black no-print"></td>
               </tr>
             </tbody>
           </table>

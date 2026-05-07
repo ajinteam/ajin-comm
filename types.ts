@@ -396,6 +396,7 @@ export interface NationalInvoiceItem {
   completedAt?: string;
   modifiedByInitials?: string;
   modifiedAt?: string;
+  originalData?: any;
 }
 
 export interface NationalEntity {
@@ -421,6 +422,7 @@ export interface ShippingReportRow {
   remarks: string;
   boxInfo: string;
   boxQty: string;
+  memo?: string;
 }
 
 export interface ShippingReportItem {
