@@ -1,5 +1,8 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
+import { saveAs } from 'file-saver';
 import { 
   NationalInvoiceSubCategory, 
   UserAccount, 
@@ -1266,6 +1269,274 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     }
   }, [formData, formatNumber]);
 
+  const handleExportExcel = useCallback(async () => {
+    const workbook = new ExcelJS.Workbook();
+    
+    const createSheet = (isPL: boolean) => {
+      const sheet = workbook.addWorksheet(isPL ? "PACKING LIST" : "INVOICE");
+      
+      // Page setup for A4 Portrait
+      sheet.pageSetup = {
+        paperSize: 9, // A4
+        orientation: 'portrait',
+        fitToPage: true,
+        fitToWidth: 1,
+        fitToHeight: 0,
+        margins: { left: 0.4, right: 0.2, top: 0.5, bottom: 0.5, header: 0, footer: 0 }
+      };
+
+      sheet.views = [{ showGridLines: false }];
+
+      // Total width for A4 portrait: approx 75-80 units
+      sheet.columns = [
+        { width: 12 }, // A: SHIPPING MARK
+        { width: 32 }, // B: DESCRIPTION
+        { width: 9 },  // C: QUANTITY
+        { width: 8 },  // D: PROC
+        { width: 9 },  // E: PROC AMT
+        { width: 8 },  // F: PRICE
+        { width: 10 }, // G: AMOUNT
+      ];
+
+      const borderThin = {
+        top: { style: 'thin' as ExcelJS.BorderStyle },
+        left: { style: 'thin' as ExcelJS.BorderStyle },
+        bottom: { style: 'thin' as ExcelJS.BorderStyle },
+        right: { style: 'thin' as ExcelJS.BorderStyle }
+      };
+
+      const applyStyle = (cell: ExcelJS.Cell, opts: { bold?: boolean, size?: number, align?: string, border?: boolean, wrap?: boolean, topAlign?: boolean } = {}) => {
+        if (opts.border !== false) cell.border = borderThin;
+        cell.font = { name: 'Arial', size: opts.size || 9, bold: opts.bold || false };
+        cell.alignment = { 
+          vertical: opts.topAlign ? 'top' : 'middle', 
+          horizontal: (opts.align || 'left') as ExcelJS.Alignment['horizontal'], 
+          wrapText: opts.wrap !== false 
+        };
+      };
+
+      // 1. Title
+      sheet.getRow(1).height = 45;
+      sheet.mergeCells('A1:G1');
+      const titleCell = sheet.getCell('A1');
+      titleCell.value = (isPL ? "PACKING LIST" : `${formData.invoiceType} INVOICE`).toUpperCase();
+      applyStyle(titleCell, { bold: true, size: 24, align: 'center', border: false });
+      titleCell.font.underline = true;
+
+      // 2. Info Boxes
+      // Row 3-8: Shipper/Invoice Area
+      // Shipper Seller Box
+      sheet.mergeCells('A3:D8');
+      const cShipper = sheet.getCell('A3');
+      const sAddr = isPL ? (formData.plShipperAddress || formData.shipperAddress || "") : (formData.shipperAddress || "");
+      cShipper.value = `SHIPPER/ SELLER\nEXPORTER, IMPORTER & MANUFACTURER\n\n${(formData.shipperName || "").toUpperCase()}\n${sAddr}`;
+      applyStyle(cShipper, { topAlign: true, size: 8 });
+
+      // ID CODE
+      sheet.mergeCells('E3:E4');
+      const cIdCode = sheet.getCell('E3');
+      cIdCode.value = `ID CODE\n${formData.idCode || ""}`;
+      applyStyle(cIdCode, { topAlign: true, size: 8 });
+
+      // Invoice No & Date
+      sheet.mergeCells('F3:F4');
+      const cInvNo = sheet.getCell('F3');
+      const iDate = formatDateToEnglish(formData.invoiceDate);
+      cInvNo.value = (isPL ? "PACKING LIST NO\n" : "INVOICE NO\n") + `${formData.invoiceNo || ""}\n${iDate}`;
+      applyStyle(cInvNo, { topAlign: true, size: 8 });
+
+      // Page
+      sheet.mergeCells('G3:G4');
+      const cPage = sheet.getCell('G3');
+      cPage.value = "PAGE\nPAGE # 1 OF 1";
+      applyStyle(cPage, { topAlign: true, align: 'center', size: 8 });
+
+      // PO No and Date (Repeating middle section)
+      sheet.mergeCells('E5:F6');
+      const cPo = sheet.getCell('E5');
+      cPo.value = `P/O NO. AND DATE\n${formData.poNo || ""}`;
+      applyStyle(cPo, { topAlign: true, size: 8 });
+
+      // Date of Factory Out
+      sheet.mergeCells('G5:G6');
+      const cFacOut = sheet.getCell('G5');
+      cFacOut.value = `DATE OF FACTORY OUT\n${formatDateToEnglish(formData.factoryOutDate)}`;
+      applyStyle(cFacOut, { topAlign: true, align: 'center', size: 8 });
+
+      // Rows 9-14: Consignee Area
+      sheet.mergeCells('A9:D14');
+      const cConsignee = sheet.getCell('A9');
+      const cAddr = isPL ? (formData.plConsigneeAddress || formData.consigneeAddress || "") : (formData.consigneeAddress || "");
+      cConsignee.value = `CONSIGNEE\n\n${(formData.consigneeName || "").toUpperCase()}\n${cAddr}\nTAX ID: ${formData.consigneeTaxId || ''}\nTEL: ${formData.consigneeTel || ''}  ATTN: ${formData.consigneeAttn || ''}`;
+      applyStyle(cConsignee, { topAlign: true, size: 8 });
+
+      // Buyer area
+      sheet.mergeCells('E9:G9');
+      const cBuyerLabel = sheet.getCell('E9');
+      cBuyerLabel.value = "BUYER (IF OTHER THAN CONSIGNEE)";
+      applyStyle(cBuyerLabel, { bold: true, size: 8 });
+
+      sheet.mergeCells('E10:G10');
+      const cBuyerVal = sheet.getCell('E10');
+      cBuyerVal.value = formData.buyer || "SAME AS CONSIGNEE";
+      applyStyle(cBuyerVal, { align: 'center' });
+
+      // Other Reference
+      sheet.mergeCells('E11:G14');
+      const cOtherRef = sheet.getCell('E11');
+      cOtherRef.value = "OTHER REFERENCE\n\n" + (formData.otherRef || "");
+      applyStyle(cOtherRef, { topAlign: true, size: 8 });
+
+      // Rows 15-20: Departure Area
+      sheet.mergeCells('A15:D16');
+      const cDeparture = sheet.getCell('A15');
+      cDeparture.value = "DEPARTURE DATE\n\n" + formatDateToEnglish(formData.departureDate);
+      applyStyle(cDeparture, { topAlign: true, size: 8 });
+
+      sheet.mergeCells('E15:G17');
+      const cDelivery = sheet.getCell('E15');
+      cDelivery.value = "TERMS OF DELIVERY AND PAYMENT\n\n" + (formData.deliveryTerms || "");
+      applyStyle(cDelivery, { topAlign: true, align: 'center', size: 8 });
+
+      sheet.mergeCells('A17:B18');
+      const cVessel = sheet.getCell('A17');
+      cVessel.value = "VESSEL/ FLIGHT\n\n" + (formData.vesselFlight || "");
+      applyStyle(cVessel, { topAlign: true, size: 8 });
+
+      sheet.mergeCells('C17:D18');
+      const cFrom = sheet.getCell('C17');
+      cFrom.value = "FROM\n\n" + (formData.from || "");
+      applyStyle(cFrom, { topAlign: true, size: 8 });
+
+      sheet.mergeCells('A19:G20');
+      const cTo = sheet.getCell('A19');
+      cTo.value = "TO\n" + (formData.to || "");
+      applyStyle(cTo, { topAlign: true, size: 8 });
+
+      // 3. Table Header
+      const hRowIdx = 22;
+      sheet.getRow(hRowIdx).height = 35;
+      const headers = isPL 
+        ? ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", "C/T Q'TY", "NET WEI (kg)", "GROSS WEI (kg)", "CBM (M3)"]
+        : ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", `PROC (${formData.currencySymbol})`, `PROC AMT (${formData.currencySymbol})`, `PRICE (${formData.currencySymbol})`, `AMOUNT (${formData.currencySymbol})`];
+
+      headers.forEach((h, i) => {
+        const cell = sheet.getRow(hRowIdx).getCell(i + 1);
+        cell.value = h;
+        applyStyle(cell, { bold: true, size: 8, align: 'center' });
+      });
+
+      // 4. Data Rows
+      let currentRowIdx = hRowIdx + 1;
+      (formData.rows || []).forEach(row => {
+        const r = sheet.getRow(currentRowIdx);
+        r.height = 20;
+        
+        if (row.type === 'HEADER') {
+          const pkg = isPL ? (row.plPkgNo || row.pkgNo || '') : (row.pkgNo || '');
+          r.getCell(1).value = pkg;
+          r.getCell(2).value = row.headerLeft || '';
+          r.getCell(2).font = { bold: true, underline: true, size: 9 };
+          r.getCell(7).value = row.headerRight || '';
+          r.getCell(7).font = { bold: true, underline: true, size: 9 };
+        } else if (row.type === 'TOTAL') {
+          r.getCell(2).value = row.description || 'TOTAL';
+          r.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
+          r.getCell(2).font = { bold: true, size: 9 };
+          r.getCell(3).value = row.unit ? `${formatNumber(row.quantity)} ${row.unit}` : '';
+          r.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
+          
+          if (isPL) {
+            r.getCell(4).value = formatNumber(row.plProc);
+            r.getCell(5).value = formatNumber(row.plProcAmount);
+            r.getCell(6).value = formatNumber(row.plPrice);
+            r.getCell(7).value = formatNumber(row.plAmount);
+          } else {
+            r.getCell(7).value = row.unit ? formatNumber(row.amount) : '';
+          }
+          [4,5,6,7].forEach(c => r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' });
+          for(let i=1; i<=7; i++) r.getCell(i).border = { top: { style: 'thin' } };
+        } else {
+          // Normal Item - NO vertical borders for descriptions usually in these forms
+          const vList = isPL ? 
+            [row.plPkgNo || '', row.description || '', `${formatNumber(row.quantity)} ${row.unit || ''}`, row.plProc, row.plProcAmount, row.plPrice, row.plAmount] :
+            [row.pkgNo || '', row.description || '', row.unit ? `${formatNumber(row.quantity)} ${row.unit || ''}` : '', row.proc, row.procAmount, row.price, row.amount];
+          
+          vList.forEach((v, i) => {
+            const cell = r.getCell(i + 1);
+            cell.value = (i >= 3 && typeof v === 'number') ? formatNumber(v) : v;
+            cell.font = { name: 'Arial', size: 9 };
+            cell.alignment = { 
+              horizontal: (i >= 2 ? 'right' : 'left'), 
+              vertical: 'middle', 
+              wrapText: true 
+            };
+            // Vertical borders only for the outer edges? 
+            // In the PDF there are no middle lines.
+            if (i === 0) cell.border = { left: { style: 'thin' } };
+            if (i === 6) cell.border = { right: { style: 'thin' } };
+          });
+        }
+        currentRowIdx++;
+      });
+
+      // 5. Grand Total
+      currentRowIdx++;
+      const gtRow = sheet.getRow(currentRowIdx);
+      gtRow.height = 30;
+      gtRow.getCell(2).value = "GRAND TOTAL";
+      applyStyle(gtRow.getCell(2), { bold: true, size: 10, align: 'right', border: false });
+      
+      gtRow.getCell(3).value = formatNumber(formData.totalQuantity);
+      applyStyle(gtRow.getCell(3), { bold: true, align: 'right', border: false });
+      
+      if (isPL) {
+        [4,5,6,7].forEach((cNum, i) => {
+          const val = [formData.plTotalCtQty, formData.plTotalNetWeight, formData.plTotalGrossWeight, formData.plTotalCbm][i];
+          gtRow.getCell(cNum).value = formatNumber(val);
+          applyStyle(gtRow.getCell(cNum), { bold: true, align: 'right', border: false });
+        });
+      } else {
+        gtRow.getCell(7).value = `${formData.currencySymbol}${formatNumber(formData.totalAmount)}`;
+        applyStyle(gtRow.getCell(7), { bold: true, align: 'right', border: false });
+      }
+      // Top line for total
+      for(let i=1; i<=7; i++) gtRow.getCell(i).border = { top: { style: 'thin' } };
+      
+      // 6. Footer
+      currentRowIdx += 5;
+      sheet.mergeCells(`A${currentRowIdx}:G${currentRowIdx}`);
+      sheet.getCell(`A${currentRowIdx}`).border = { top: { style: 'medium' } };
+
+      currentRowIdx++;
+      sheet.getRow(currentRowIdx).height = 20;
+      sheet.getCell(`A${currentRowIdx}`).value = "TELEPHONE NO.: " + (formData.footerTel || '');
+      applyStyle(sheet.getCell(`A${currentRowIdx}`), { size: 8, border: false });
+
+      sheet.mergeCells(`E${currentRowIdx}:G${currentRowIdx}`);
+      const sig1 = sheet.getCell(`E${currentRowIdx}`);
+      sig1.value = "SIGNED BY " + (formData.signedBy || '').toUpperCase();
+      applyStyle(sig1, { bold: true, size: 11, align: 'center', border: false });
+      sig1.border = { left: { style: 'thin' } };
+
+      currentRowIdx++;
+      sheet.getCell(`A${currentRowIdx}`).value = "FACIMILE NO.: " + (formData.footer_fax || formData.footerFax || '');
+      applyStyle(sheet.getCell(`A${currentRowIdx}`), { size: 8, border: false });
+
+      sheet.mergeCells(`E${currentRowIdx}:G${currentRowIdx}`);
+      const sig2 = sheet.getCell(`E${currentRowIdx}`);
+      sig2.value = (formData.signedTitle || '') + "  " + (formData.signatureName || '');
+      applyStyle(sig2, { size: 9, align: 'center', border: false });
+      sig2.border = { left: { style: 'thin' } };
+    };
+
+    createSheet(false);
+    createSheet(true);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    saveAs(new Blob([buffer]), `${formData.invoiceNo || 'INV'}_${formData.consigneeName || 'EXPORT'}.xlsx`);
+  }, [formData, formatNumber]);
+
   const renderListView = () => {
     const filtered = items.filter(item => {
       if (item.status !== sub) return false;
@@ -1549,6 +1820,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           <button onClick={handlePrint} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             인쇄 / PDF
+          </button>
+          <button onClick={handleExportExcel} className="px-4 py-2 bg-white border border-slate-200 text-emerald-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            엑셀 내보내기
           </button>
           <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
           {formData.status !== NationalInvoiceSubCategory.COMPLETED && (
