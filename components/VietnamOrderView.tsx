@@ -29,11 +29,17 @@ const AutoExpandingTextarea = React.memo(({
 }: any) => {
   const ref = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
+  const adjustHeight = () => {
     if (ref.current) {
       ref.current.style.height = 'auto';
-      ref.current.style.height = ref.current.scrollHeight + 'px';
+      ref.current.style.height = `${ref.current.scrollHeight}px`;
     }
-  }, [value]);
+  };
+
+  // 브라우저 렌더링 프레임에 맞춰 실행
+  const handle = requestAnimationFrame(adjustHeight);
+  return () => cancelAnimationFrame(handle);
+}, [value]);
   return (
     <textarea
       ref={ref}
