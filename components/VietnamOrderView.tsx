@@ -1090,12 +1090,12 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           <div className="flex justify-between items-start mb-2 font-bold w-full">
             <div className="flex flex-col flex-1 mt-0">
               <h2 className="text-xl font-black tracking-tight uppercase m-0 leading-tight">CÔNG TY TNHH AJIN TRAIN VINA</h2>
-              {isMetalDoc && <p className="text-[11px] font-bold text-black">Cty Toàn Thắng Lô 2 KCN Bình xuyên -TT Hương Canh - Bình Xuyên, Vĩnh Phúc - <br /> TEL: 070-4121-6200 / E-MAIL : phungthekhanh10011982@gmail.com </p>}
-              <div className="mt-2">
+              {isMetalDoc && <p className="text-[11px] font-bold text-black leading-tight mt-0.5">Cty Toàn Thắng Lô 2 KCN Bình xuyên -TT Hương Canh - Bình Xuyên, Vĩnh Phúc - <br /> TEL: 070-4121-6200 / E-MAIL : phungthekhanh10011982@gmail.com </p>}
+              <div className="mt-2 min-h-[40px] flex items-end">
                 {isReadOnly ? (
-                    <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4">{isMetalDoc ? 'PURCHASE ORDER' : dTitle}</h1>
+                    <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4 leading-none">{isMetalDoc ? 'PURCHASE ORDER' : dTitle}</h1>
                 ) : (
-                    <input value={isMetalDoc ? 'PURCHASE ORDER' : vTitle} onChange={e => !isMetalDoc && setVTitle(e.target.value)} disabled={isMetalDoc} className="text-2xl font-black outline-none hover:bg-slate-50 focus:bg-slate-50 transition-all uppercase w-full max-w-lg" />
+                    <input value={isMetalDoc ? 'PURCHASE ORDER' : vTitle} onChange={e => !isMetalDoc && setVTitle(e.target.value)} disabled={isMetalDoc} className="text-2xl font-black outline-none hover:bg-slate-50 focus:bg-slate-50 transition-all uppercase w-full max-w-lg leading-none" />
                 )}
               </div>
             </div>
@@ -1155,16 +1155,16 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           </div>
 
           <div className="space-y-0 mb-2 text-[12px] font-bold w-full">
-            <div className="flex items-center border-b border-slate-100 info-row w-full">
+            <div className="flex items-center border-b border-slate-100 info-row w-full min-h-[28px] py-0.5">
                 <div className="flex w-1/2 items-center">
-                    <span className="w-52 font-bold-print">Ngày (날짜):</span>
-                    {isReadOnly ? <span className="font-normal-print">{dDate}</span> : <input type="text" value={vDate} onChange={e => setVDate(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2"/>}
+                    <span className="w-52 font-bold-print shrink-0">Ngày (날짜):</span>
+                    {isReadOnly ? <span className="font-normal-print">{dDate}</span> : <input type="text" value={vDate} onChange={e => setVDate(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 h-6"/>}
                 </div>
             </div>
-            <div className="flex items-center border-b border-slate-100 info-row w-full">
+            <div className="flex items-center border-b border-slate-100 info-row w-full min-h-[28px] py-0.5">
                 <div className="flex w-full items-center">
                     <span className="w-52 font-bold-print shrink-0">Khách hàng/Tên (수신):</span>
-                    {isReadOnly ? <span className="flex-1 font-normal-print">{dClient}</span> : (
+                    {isReadOnly ? <span className="flex-1 font-normal-print leading-tight">{dClient}</span> : (
                       <div className="flex flex-1 gap-2 items-center min-w-0">
                         <select 
                           value={vnVendors.find(v => v.name === vClientName) ? vClientName : ""} 
@@ -1174,52 +1174,52 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                           <option value="">직접입력</option>
                           {vnVendors.map(v => <option key={v.name} value={v.name}>{v.name}</option>)}
                         </select>
-                        <input value={vClientName} onChange={e => { takeSnapshot(); setVClientName(e.target.value); }} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 min-w-0" placeholder="수신처 상호명"/>
+                        <input value={vClientName} onChange={e => { takeSnapshot(); setVClientName(e.target.value); }} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 min-w-0 h-6" placeholder="수신처 상호명"/>
                       </div>
                     )}
                 </div>
             </div>
-            <div className="flex items-center border-b border-slate-100 info-row w-full">
+            <div className="flex items-center border-b border-slate-100 info-row w-full min-h-[28px] py-0.5">
                 <div className="flex w-full items-center">
-                    <span className="w-52 font-bold-print">Địa chỉ (수신 주소):</span>
-                    {isReadOnly ? <span className="font-normal-print">{dAddress}</span> : <input value={vClientAddress} onChange={e => setVClientAddress(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2" placeholder="수신처 주소"/>}
+                    <span className="w-52 font-bold-print shrink-0">Địa chỉ (수신 주소):</span>
+                    {isReadOnly ? <span className="font-normal-print leading-tight">{dAddress}</span> : <input value={vClientAddress} onChange={e => setVClientAddress(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 h-6" placeholder="수신처 주소"/>}
                 </div>
             </div>
             {isMetalDoc ? (
               <>
-                <div className="flex border-b border-slate-100 info-row w-full">
+                <div className="flex border-b border-slate-100 info-row w-full min-h-[28px] py-0.5">
                   <div className="flex w-1/2 items-center">
-                    <span className="w-52 font-bold-print">TEL:</span>
-                    {isReadOnly ? <span className="font-normal-print">{dClientTel}</span> : <input value={vClientTel} onChange={e => setVClientTel(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2" placeholder="수신처 연락처"/>}
+                    <span className="w-52 font-bold-print shrink-0">TEL:</span>
+                    {isReadOnly ? <span className="font-normal-print">{dClientTel}</span> : <input value={vClientTel} onChange={e => setVClientTel(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 h-6" placeholder="수신처 연락처"/>}
                   </div>
                   <div className="flex w-1/2 items-center ml-2 pl-2">
-                    <span className="w-40 font-bold-print">Mã số thuế (사업자번호):</span>
-                    {isReadOnly ? <span className="font-mono font-normal-print">{dTaxId}</span> : <input value={vTaxId} onChange={e => setVTaxId(e.target.value)} className="flex-1 outline-none font-mono font-normal-print bg-slate-50/20 px-2" placeholder="Tax ID"/>}
+                    <span className="w-40 font-bold-print shrink-0">Mã số thuế (사업자번호):</span>
+                    {isReadOnly ? <span className="font-mono font-normal-print">{dTaxId}</span> : <input value={vTaxId} onChange={e => setVTaxId(e.target.value)} className="flex-1 outline-none font-mono font-normal-print bg-slate-50/20 px-2 h-6" placeholder="Tax ID"/>}
                   </div>
                 </div>
-                <div className="w-full border-t border-black mt-1 mb-3"></div>
-                <div className="flex border-b border-slate-100 info-row w-full">
+                <div className="w-full border-t border-black mt-0.5 mb-1"></div>
+                <div className="flex border-b border-slate-100 info-row w-full min-h-[32px] py-0.5">
                   <div className="flex w-1/2 items-center">
-                    <span className="w-52 font-bold-print text-[15px]">MODEL (기종):</span>
-                    {isReadOnly ? <span className="text-[15px] font-bold-print">{dModelName}</span> : <input value={vModelName} onChange={e => setVModelName(e.target.value)} className="flex-1 outline-none font-bold-print bg-slate-50/20 print:bg-transparent px-2 text-[15px]" placeholder="기종 입력 (필수)"/>}
+                    <span className="w-52 font-bold-print text-[15px] shrink-0">MODEL (기종):</span>
+                    {isReadOnly ? <span className="text-[15px] font-bold-print leading-none">{dModelName}</span> : <input value={vModelName} onChange={e => setVModelName(e.target.value)} className="flex-1 outline-none font-bold-print bg-slate-50/20 print:bg-transparent px-2 text-[15px] h-7" placeholder="기종 입력 (필수)"/>}
                   </div>
                   <div className="flex w-1/2 items-center ml-2 pl-2">
-                    <span className="w-40 font-normal-print">Người lập (작성자):</span>
-                    {isReadOnly ? <span className="font-normal-print">{dWriterName}</span> : <input value={vWriterName} onChange={e => setVWriterName(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2" placeholder="작성자 성명"/>}
+                    <span className="w-40 font-normal-print shrink-0">Người lập (작성자):</span>
+                    {isReadOnly ? <span className="font-normal-print leading-tight">{dWriterName}</span> : <input value={vWriterName} onChange={e => setVWriterName(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 h-6" placeholder="작성자 성명"/>}
                   </div>
                 </div>
               </>
             ) : (
               <>
-                <div className="flex items-center border-b border-slate-100 info-row w-full">
+                <div className="flex items-center border-b border-slate-100 info-row w-full min-h-[28px] py-0.5">
                     <div className="flex w-full items-center">
-                        <span className="w-52 font-bold-print">Mã số thuế (사업자번호):</span>
-                        {isReadOnly ? <span className="font-mono font-normal-print">{dTaxId}</span> : <input value={vTaxId} onChange={e => setVTaxId(e.target.value)} className="flex-1 outline-none font-mono font-normal-print bg-slate-50/20 px-2" placeholder="Tax ID"/>}
+                        <span className="w-52 font-bold-print shrink-0">Mã số thuế (사업자번호):</span>
+                        {isReadOnly ? <span className="font-mono font-normal-print">{dTaxId}</span> : <input value={vTaxId} onChange={e => setVTaxId(e.target.value)} className="flex-1 outline-none font-mono font-normal-print bg-slate-50/20 px-2 h-6" placeholder="Tax ID"/>}
                     </div>
                 </div>
-                <div className="flex items-start w-full">
+                <div className="flex items-start w-full py-0.5">
                     <span className="w-52 font-bold-print shrink-0">Địa chỉ nhận hàng (배송지):</span>
-                    {isReadOnly ? <span className="flex-1 whitespace-pre-wrap font-normal-print">{dDelivery}</span> : <AutoExpandingTextarea value={vDeliveryAddress} onChange={(e: any) => setVDeliveryAddress(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 py-0 min-h-0" placeholder="배송 주소"/>}
+                    {isReadOnly ? <span className="flex-1 whitespace-pre-wrap font-normal-print leading-tight">{dDelivery}</span> : <AutoExpandingTextarea value={vDeliveryAddress} onChange={(e: any) => setVDeliveryAddress(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2 py-0 min-h-0" placeholder="배송 주소"/>}
                 </div>
               </>
             )}
@@ -1227,9 +1227,9 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
           <div className="w-full flex justify-center">
             <table className="w-full border-collapse border border-black text-[12px] font-bold vietnam-order-table">
-                <thead className="bg-slate-100 print:bg-white font-black text-center">
+                <thead className="bg-slate-100 print:bg-white font-black text-center leading-tight">
                     <tr>
-                        <th className={`border border-black w-8 ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'}`}>STT</th>
+                        <th className={`border border-black w-8 ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'} leading-tight`}>STT</th>
                         {isMetalDoc && (
                           <th className="border border-black w-16 text-black">
                             <div className="flex flex-col items-center leading-tight py-0.5">
@@ -1300,8 +1300,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                         </tr>
                     )}
                     {dRows.map((row, rIdx) => (
-                        <tr key={row.id}>
-                            <td className="border border-black text-center font-normal">{rIdx + 1}</td>
+                        <tr key={row.id} className="min-h-[24px]">
+                            <td className="border border-black text-center font-normal py-0.5 leading-tight align-middle text-[11px]">{rIdx + 1}</td>
                             {[
                                 ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }, { f: 'itemName', c: 1 }, { f: 'specification', c: 2 }] : [
                                     { f: 'itemName', c: 1 },
@@ -1345,7 +1345,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                         ) : (
                                             isReadOnly ? (
                                                 <div 
-                                                  className={`p-0.5 w-full font-normal-print relative group/fileicon cursor-pointer flex items-center min-h-[24px] ${align === 'left' ? 'justify-start pl-1' : align === 'right' ? 'justify-end pr-1' : 'justify-center'} ${isPayDoc ? 'text-[11px]' : ''}`} 
+                                                  className={`p-0.5 w-full font-normal-print relative group/fileicon cursor-pointer flex items-center min-h-[22px] leading-tight ${align === 'left' ? 'justify-start pl-1' : align === 'right' ? 'justify-end pr-1' : 'justify-center'} ${isPayDoc ? 'text-[11px]' : ''}`} 
                                                   style={{ textAlign: align as any }}
                                                   onClick={(e) => {
                                                     // Request: Alt + Click to open file storage link even in read-only mode
@@ -1381,7 +1381,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                                         {formatNumber(calculateAmount(row))}
                                                     </div>
                                                 ) : (
-                                                    <div className={`relative group/fileicon flex items-center min-h-[24px] ${align === 'left' ? 'justify-start' : align === 'right' ? 'justify-end' : 'justify-center'}`}>
+                                                    <div className={`relative group/fileicon flex items-center min-h-[22px] leading-tight ${align === 'left' ? 'justify-start' : align === 'right' ? 'justify-end' : 'justify-center'}`}>
                                                       <AutoExpandingTextarea 
                                                           value={(cell.f === 'qty' || cell.f === 'unitPrice') ? formatNumber(row[cell.f as keyof VietnamOrderRow]) : row[cell.f as keyof VietnamOrderRow]} dataRow={rIdx} dataCol={cell.c}
                                                           onChange={(e: any) => {
@@ -1405,7 +1405,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                                             }
                                                           }}
                                                           style={{ textAlign: align, fontWeight: '400' }}
-                                                          className={`${cell.f === 'qty' || cell.f === 'unitPrice' ? 'font-mono' : ''} ${isPayDoc ? 'p-0 text-[11px]' : 'p-1'} font-normal-print ${cell.f === 'itemName' ? 'pr-6' : ''}`}
+                                                          className={`${cell.f === 'qty' || cell.f === 'unitPrice' ? 'font-mono' : ''} ${isPayDoc ? 'p-0 text-[11px]' : 'p-0.5'} font-normal-print leading-tight ${cell.f === 'itemName' ? 'pr-6' : ''}`}
                                                       />
                                                       {cell.f === 'itemName' && row.fileUrl && (
                                                         <button 
