@@ -16,18 +16,19 @@
         .font-bold-print { font-weight: 700 !important; }
         .font-normal-print { font-weight: 400 !important; }
         
-        .info-row {
-            min-height: 28px;
-            display: flex;
-            align-items: center;
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.2; }
         }
-        
+        .animate-blink {
+            animation: blink 1s ease-in-out infinite;
+        }
+
         @media print {
             body { background: white; }
             aside, header, button { display: none !important; }
             main { padding: 0 !important; margin: 0 !important; }
             .bg-white { box-shadow: none !important; border: none !important; }
-            .no-print { display: none !important; }
         }
 
         /* Landscape optimization for mobile */
