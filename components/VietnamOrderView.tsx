@@ -1201,7 +1201,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                 <div className="flex border-b border-slate-100 info-row w-full">
                   <div className="flex w-1/2 items-center">
                     <span className="w-52 font-bold-print text-[15px]">MODEL (기종):</span>
-                    {isReadOnly ? <span className="text-[15px] font-bold-print">{dModelName}</span> : <input value={vModelName} onChange={e => setVModelName(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 print:bg-transparent px-2 text-[15px]" placeholder="기종 입력 (필수)"/>}
+                    {isReadOnly ? <span className="text-[15px] font-bold-print">{dModelName}</span> : <input value={vModelName} onChange={e => setVModelName(e.target.value)} className="flex-1 outline-none font-bold-print bg-slate-50/20 print:bg-transparent px-2 text-[15px]" placeholder="기종 입력 (필수)"/>}
                   </div>
                   <div className="flex w-1/2 items-center ml-2 pl-2">
                     <span className="w-40 font-normal-print">Người lập (작성자):</span>
