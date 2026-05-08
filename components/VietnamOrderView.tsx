@@ -841,7 +841,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const isPay = item.type === 'PAYMENT';
     const isMetal = item.type === 'METAL';
     const isOrder = item.type === 'ORDER';
-    const isFullApproved = (isMetal || isOrder) ? (updatedStamps.head && updatedStamps.ceo) : !!updatedStamps.head;
+    const isFullApproved = !!updatedStamps.head;
 
     let updatedDoc: VietnamOrderItem | undefined;
     const updated = items.map(it => {
@@ -858,11 +858,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     if (isFullApproved) {
         // 최종 승인 완료 시 작성자에게 알림
         sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId, item.date);
-    } else {
-        // 법인장 승인 후, 대표(DAVID)에게 결재 요청 (METAL 및 ORDER 발주서 해당)
-        if (type === 'head' && (isMetal || isOrder)) {
-            sendJandiNotification('VN', 'REQUEST', item.title, 'DAVID', item.date);
-        }
     }
 
     alert(`${type === 'head' ? '법인장' : '대표'} 결재가 완료되었습니다.`);
@@ -1115,12 +1110,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                             <span className="text-[9px] font-bold opacity-80">(법인장)</span>
                           </div>
                         </td>
-                        {(isMetalDoc || isOrderDoc) && <td className="border border-black w-20 py-1">
-                          <div className="flex flex-col items-center leading-tight">
-                            <span>Giám đốc</span>
-                            <span className="text-[9px] font-bold opacity-80">(대표)</span>
-                          </div>
-                        </td>}
                     </tr>
                     <tr className="h-15">
                         <td className="border border-black p-1 align-middle">
@@ -1139,16 +1128,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                             </div>
                           ) : (isReadOnly && sub === VietnamSubCategory.PENDING ? <span className="text-[10px] text-slate-300">승인</span> : null)}
                         </td>
-                        {(isMetalDoc || isOrderDoc) && (
-                          <td className={`border border-black p-1 align-middle ${!isReadOnly ? '' : (sub === VietnamSubCategory.PENDING && data.stamps.head && !data.stamps.ceo ? 'cursor-pointer hover:bg-amber-50' : '')}`} onClick={() => isReadOnly && sub === VietnamSubCategory.PENDING && data.stamps.head && !data.stamps.ceo && handleStampAction(data, 'ceo')}>
-                            {data.stamps.ceo ? (
-                              <div className="flex flex-col items-center">
-                                  <span className="font-black text-red-700 text-xs">{data.stamps.ceo.userId}</span>
-                                  <span className="text-[8px] opacity-60 mt-1">{formatCompletionDate(data.stamps.ceo.timestamp, true)}</span>
-                              </div>
-                            ) : (isReadOnly && sub === VietnamSubCategory.PENDING && data.stamps.head ? <span className="text-[10px] text-slate-300">승인</span> : null)}
-                          </td>
-                        )}
                     </tr>
                 </tbody>
             </table>
@@ -1769,7 +1748,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                 <div className="flex gap-2 mt-4">
                                     <div className={`w-4 h-4 rounded-full ${item.stamps.writer ? 'bg-indigo-500' : 'bg-slate-200'}`} title="작성"></div>
                                     <div className={`w-4 h-4 rounded-full ${item.stamps.head ? 'bg-indigo-500' : 'bg-slate-200'}`} title="법인장"></div>
-                                    {(item.type === 'METAL' || item.type === 'ORDER') && <div className={`w-4 h-4 rounded-full ${item.stamps.ceo ? 'bg-red-500' : 'bg-slate-200'}`} title="대표"></div>}
                                     <div className={`w-4 h-4 rounded-full ${item.stamps.final ? 'bg-emerald-500' : 'bg-slate-200'}`} title="확인"></div>
                                 </div>
 
