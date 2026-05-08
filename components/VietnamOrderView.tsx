@@ -48,7 +48,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap brake-all font-gulim ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-words font-gulim ${className}`}
       rows={1}
     />
   );
@@ -615,19 +615,63 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   }, [handleMerge, selection, sub, editingId]);
 
   const handlePrint = () => {
-    const content = document.querySelector('.vietnam-order-print')?.innerHTML;
-    const tableElement = document.querySelector('.vietnam-order-print table');
+    const printEl = document.querySelector('.vietnam-order-print')?.cloneNode(true) as HTMLElement;
+    if (!printEl) return;
+    
+    // Strictly remove no-print elements from the content
+    printEl.querySelectorAll('.no-print').forEach(el => el.remove());
+    
+    // Remove selection highlights and blue background for print
+    printEl.querySelectorAll('.bg-blue-50, .ring-1, .ring-blue-300, .z-10, [class*="ring-blue"]').forEach(el => {
+        el.classList.remove('bg-blue-50', 'ring-1', 'ring-blue-300', 'z-10');
+        // If it was a TD or DIV with blue background, force transparent
+        if (el instanceof HTMLElement) {
+            el.style.backgroundColor = 'transparent';
+            el.style.boxShadow = 'none';
+        }
+    });
+    
+    // Convert all textareas to divs for printing to ensure vertical alignment works correctly
+    // Textareas don't support vertical-align: middle or flex centering of their internal text in many print engines
+    printEl.querySelectorAll('textarea').forEach(ta => {
+        const div = document.createElement('div');
+        div.textContent = ta.value;
+        // Copy relevant styles and classes
+        // Remove text-breaking classes to allow natural wrapping
+        div.className = ta.className
+            .replace('resize-none', '')
+            .replace('block', '')
+            .replace('w-full', '')
+            .replace('brake-all', '')
+            .replace('break-all', '');
+            
+        div.style.cssText = ta.style.cssText;
+        div.style.whiteSpace = 'pre-wrap';
+        div.style.wordBreak = 'normal'; // Changed from break-all to normal for sentence-based wrap
+        div.style.overflowWrap = 'break-word';
+        div.style.display = 'block';
+        div.style.width = '100%';
+        div.style.textAlign = 'inherit';
+        ta.parentNode?.replaceChild(div, ta);
+    });
+    
+    const content = printEl.innerHTML;
+    const tableElement = document.querySelector('.vietnam-order-print table.vietnam-order-table');
     if (!content || !tableElement) return;
 
     // Capture widths of th elements to maintain proportions in print
-    const ths = tableElement.querySelectorAll('thead th');
-    const colgroup = Array.from(ths).map(th => {
-      const width = (th as HTMLElement).getBoundingClientRect().width;
-      return `<col style="width: ${width}px">`;
-    }).join('');
+    // CRITICAL: Exclude .no-print elements from width calculations to avoid ghost columns
+    const ths = tableElement.querySelectorAll('thead th:not(.no-print)');
+    const widths = Array.from(ths).map(th => {
+        const rect = (th as HTMLElement).getBoundingClientRect();
+        return rect.width || 0;
+    });
+    
+    const totalWidth = widths.reduce((a, b) => a + b, 0);
+    const colgroup = widths.map(width => `<col style="width: ${(width / totalWidth) * 100}%">`).join('');
 
     // Inject colgroup into the table content for print
-    const contentWithColgroup = content.replace(/<table([^>]*)>/, `<table$1>${colgroup}`);
+    const contentWithColgroup = content.replace(/(<table[^>]*class="[^"]*vietnam-order-table[^"]*"[^>]*>)/, `$1${colgroup}`);
 
     let printTitle = '';
     if (activeItem) {
@@ -650,30 +694,49 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
         <style>
           @page { size: A4 portrait; margin: 0; }
-          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; color: black !important; }
+          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; }
           .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
-          * { color: black !important; border-color: black !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-          .font-bold-print { font-weight: 700 !important; color: black !important; }
-          .font-normal-print { font-weight: 400 !important; color: black !important; }
+          * { color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
+          .font-bold-print { font-weight: 700 !important; }
+          .font-normal-print { font-weight: 400 !important; }
           .no-print { display: none !important; }
-          table { border-collapse: collapse; width: 100%; table-layout: fixed; border-color: black !important; }
+          table { border-collapse: collapse; width: 100%; table-layout: fixed; }
           th { 
-            border: 1px solid black; 
+            border: 1px solid black !important; 
             padding: 2px 4px; 
-            vertical-align: middle !important; 
+            vertical-align: middle; 
             font-size: 11px;
-            color: black !important;
+            text-align: center !important;
           }
+
           td { 
-            border: 1px solid black; 
-            padding: 2px 4px; 
+            border: 1px solid black !important; 
+            padding: 0 !important; /* Move padding to div for perfect vertical centering */
             vertical-align: middle !important; 
-            word-break: break-all; 
+            word-break: normal !important; 
+            overflow-wrap: break-word !important;
             overflow: hidden; 
             font-size: 10px;
-            color: black !important;
+            height: 1px; /* Force cell to wrap content tightly */
           }
-          .document-wrapper { padding: 25mm 10mm 10mm 10mm; color: black !important; }
+          
+          /* Ensure the flex container inside td centers content vertically */
+          td div {
+            display: flex !important;
+            align-items: center !important;
+            min-height: 12px; /* Reduced from 18px */
+            width: 100%;
+            padding: 0.5px 2px !important; /* Reduced to absolute minimum */
+            box-sizing: border-box !important;
+            line-height: 1.0 !important; /* Tight line height */
+          }
+          
+          /* Horizontal alignment rules for print */
+          td.text-center div { justify-content: center !important; text-align: center !important; }
+          td.text-left div { justify-content: flex-start !important; text-align: left !important; padding-left: 4px !important; }
+          td.text-right div { justify-content: flex-end !important; text-align: right !important; padding-right: 4px !important; }
+          
+          .document-wrapper { padding: 25mm 10mm 10mm 10mm;}
           .info-row { border-bottom: none !important; }
         </style>
         </head><body onload="window.print(); window.close();">
@@ -1138,10 +1201,10 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                 <div className="flex border-b border-slate-100 info-row w-full">
                   <div className="flex w-1/2 items-center">
                     <span className="w-52 font-bold-print text-[15px]">MODEL (기종):</span>
-                    {isReadOnly ? <span className="text-[15px] font-normal-print">{dModelName}</span> : <input value={vModelName} onChange={e => setVModelName(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 print:bg-transparent px-2 text-[15px]" placeholder="기종 입력 (필수)"/>}
+                    {isReadOnly ? <span className="text-[15px] font-bold-print">{dModelName}</span> : <input value={vModelName} onChange={e => setVModelName(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 print:bg-transparent px-2 text-[15px]" placeholder="기종 입력 (필수)"/>}
                   </div>
                   <div className="flex w-1/2 items-center ml-2 pl-2">
-                    <span className="w-40 font-bold-print">Người lập (작성자):</span>
+                    <span className="w-40 font-normal-print">Người lập (작성자):</span>
                     {isReadOnly ? <span className="font-normal-print">{dWriterName}</span> : <input value={vWriterName} onChange={e => setVWriterName(e.target.value)} className="flex-1 outline-none font-normal-print bg-slate-50/20 px-2" placeholder="작성자 성명"/>}
                   </div>
                 </div>
@@ -1163,69 +1226,69 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           </div>
 
           <div className="w-full flex justify-center">
-            <table className="w-full border-collapse border border-black text-[12px] font-bold">
+            <table className="w-full border-collapse border border-black text-[12px] font-bold vietnam-order-table">
                 <thead className="bg-slate-100 print:bg-white font-black text-center">
                     <tr>
-                        <th className={`border border-black w-8 align-middle ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'}`}>STT</th>
+                        <th className={`border border-black w-8 ${isPayDoc || isMetalDoc ? 'py-1' : 'py-2'}`}>STT</th>
                         {isMetalDoc && (
-                          <th className="border border-black w-16 text-black align-middle">
+                          <th className="border border-black w-16 text-black">
                             <div className="flex flex-col items-center leading-tight py-0.5">
                               <span>số bản vẽ</span>
                               <span className="text-[10px] font-bold opacity-80">(도번)</span>
                             </div>
                           </th>
                         )}
-                        <th className={`border border-black align-middle ${isMetalDoc ? 'min-w-[280px]' : 'w-[35%] min-w-[180px]'}`}>
+                        <th className={`border border-black ${isMetalDoc ? 'min-w-[280px]' : 'w-[35%] min-w-[180px]'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>TÊN VẬT TƯ</span>
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '품목' : '구매품목'})</span>
                           </div>
                         </th>
-                        {!isPayDoc && !isMetalDoc && <th className="border border-black w-28 align-middle">
+                        {!isPayDoc && !isMetalDoc && <th className="border border-black w-28">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>HÌNH ẢNH</span>
                             <span className="text-[10px] font-bold opacity-80">(사진)</span>
                           </div>
                         </th>}
-                        <th className={`border border-black align-middle ${isMetalDoc ? 'w-26' : 'w-16'}`}>
+                        <th className={`border border-black ${isMetalDoc ? 'w-25' : 'w-16'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>{isMetalDoc ? 'QUY CÁCH' : 'ĐVT'}</span>
                             <span className="text-[10px] font-bold opacity-80">({isMetalDoc ? '규격' : '단위'})</span>
                           </div>
                         </th>
                         {isMetalDoc && (
-                          <th className="border border-black w-10 align-middle">
+                          <th className="border border-black w-11">
                             <div className="flex flex-col items-center leading-tight py-0.5">
                               <span>ĐVT</span>
                               <span className="text-[10px] font-bold opacity-80">(단위)</span>
                             </div>
                           </th>
                         )}
-                        <th className="border border-black w-16 align-middle">
+                        <th className="border border-black w-16">
                           <div className="flex flex-col items-center leading-tight py-0.5 text-[10px]">
                             <span>SỐ LƯỢNG</span>
                             <span className="text-[9px] font-bold opacity-80">(수량)</span>
                           </div>
                         </th>
-                        <th className={`border border-black align-middle ${isMetalDoc ? 'w-16' : 'w-24'}`}>
+                        <th className={`border border-black ${isMetalDoc ? 'w-16' : 'w-24'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Đơn giá</span>
                             <span className="text-[10px] font-bold opacity-80">(단가)</span>
                           </div>
                         </th>
-                        <th className={`border border-black align-middle ${isMetalDoc ? 'w-24' : 'w-24'}`}>
+                        <th className={`border border-black ${isMetalDoc ? 'w-24' : 'w-24'}`}>
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Thành tiền</span>
                             <span className="text-[10px] font-bold opacity-80">(금액)</span>
                           </div>
                         </th>
-                        <th className="border border-black w-24 align-middle">
+                        <th className="border border-black w-24">
                           <div className="flex flex-col items-center leading-tight py-0.5">
                             <span>Ghi chú</span>
                             <span className="text-[10px] font-bold opacity-80">(비고)</span>
                           </div>
                         </th>
-                        {!isReadOnly && <th className="border border-black w-14 no-print align-middle">Manage</th>}
+                        {!isReadOnly && <th className="border border-black w-14 no-print">Manage</th>}
                     </tr>
                 </thead>
                 <tbody>
@@ -1238,7 +1301,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                     )}
                     {dRows.map((row, rIdx) => (
                         <tr key={row.id}>
-                            <td className="border border-black text-center font-normal align-middle">{rIdx + 1}</td>
+                            <td className="border border-black text-center font-normal">{rIdx + 1}</td>
                             {[
                                 ...(isMetalDoc ? [{ f: 'drawingNo', c: 0 }, { f: 'itemName', c: 1 }, { f: 'specification', c: 2 }] : [
                                     { f: 'itemName', c: 1 },
@@ -1254,7 +1317,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                 if (isSkipped) return null;
 
                                 const isSelected = selection && rIdx >= Math.min(selection.sR, selection.eR) && rIdx <= Math.max(selection.sR, selection.eR) && cell.c >= Math.min(selection.sC, selection.eC) && cell.c <= Math.max(selection.sC, selection.eC);
-                                const align = dAligns[`${rIdx}-${cell.c}`] || (cell.f === 'itemName' ? 'left' : 'center');
+                                const align = dAligns[`${rIdx}-${cell.c}`] || (['itemName', 'remarks'].includes(cell.f) ? 'left' : 'center');
                                 const borderS = getCellBorderStyle(rIdx, cell.c, dBorders);
 
                                 return (
@@ -1263,7 +1326,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                         onMouseDown={() => !isReadOnly && handleCellMouseDown(rIdx, cell.c)}
                                         onMouseEnter={() => !isReadOnly && handleCellMouseEnter(rIdx, cell.c)}
                                         style={{ ...borderS }}
-                                        className={`border border-black p-0 relative align-middle ${isSelected ? 'bg-blue-50 ring-1 ring-blue-300 z-10' : ''}`}
+                                        className={`border border-black p-0 relative ${align === 'left' ? 'text-left' : align === 'right' ? 'text-right' : 'text-center'} ${isSelected ? 'bg-blue-50 ring-1 ring-blue-300 z-10' : ''}`}
                                     >
                                         {cell.f === 'image' ? (
                                             <div 
@@ -1282,7 +1345,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                         ) : (
                                             isReadOnly ? (
                                                 <div 
-                                                  className={`p-0.5 w-full font-normal-print relative group/fileicon cursor-pointer ${isPayDoc ? 'text-[11px]' : ''}`} 
+                                                  className={`p-0.5 w-full font-normal-print relative group/fileicon cursor-pointer flex items-center min-h-[24px] ${align === 'left' ? 'justify-start pl-1' : align === 'right' ? 'justify-end pr-1' : 'justify-center'} ${isPayDoc ? 'text-[11px]' : ''}`} 
                                                   style={{ textAlign: align as any }}
                                                   onClick={(e) => {
                                                     // Request: Alt + Click to open file storage link even in read-only mode
@@ -1311,14 +1374,14 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                             ) : (
                                                 cell.f === 'amount' ? (
                                                     <div 
-                                                        className={`w-full text-right px-1 font-mono font-normal py-0.5 ${isPayDoc ? 'text-[11px]' : ''}`}
+                                                        className={`w-full text-right px-1 font-mono font-normal py-0.5 flex items-center justify-end min-h-[24px] ${isPayDoc ? 'text-[11px]' : ''}`}
                                                         data-row={rIdx} data-col={cell.c} tabIndex={0}
                                                         onFocus={() => setSelection({ sR: rIdx, sC: cell.c, eR: rIdx, eC: cell.c })}
                                                     >
                                                         {formatNumber(calculateAmount(row))}
                                                     </div>
                                                 ) : (
-                                                    <div className="relative group/fileicon">
+                                                    <div className={`relative group/fileicon flex items-center min-h-[24px] ${align === 'left' ? 'justify-start' : align === 'right' ? 'justify-end' : 'justify-center'}`}>
                                                       <AutoExpandingTextarea 
                                                           value={(cell.f === 'qty' || cell.f === 'unitPrice') ? formatNumber(row[cell.f as keyof VietnamOrderRow]) : row[cell.f as keyof VietnamOrderRow]} dataRow={rIdx} dataCol={cell.c}
                                                           onChange={(e: any) => {
