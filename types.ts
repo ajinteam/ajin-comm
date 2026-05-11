@@ -322,6 +322,7 @@ export interface NationalInvoiceRow {
   headerRight?: string;
   fontSize?: number;
   isBold?: boolean;
+  unitBreakdown?: string;
 
   // Independent fields for Packing List
   plPkgNo?: string;
@@ -368,7 +369,9 @@ export interface NationalInvoiceItem {
   // Table
   rows: NationalInvoiceRow[];
   totalQuantity: string;
+  totalQuantityBreakdown?: string;
   totalAmount: string;
+  totalProcAmount?: string;
   
   // Packing List Totals
   plTotalCtQty?: string;
@@ -392,6 +395,7 @@ export interface NationalInvoiceItem {
   showRemarks?: boolean;
   showPlRemarks?: boolean;
   showPlExtraRemarks?: boolean;
+  shippingMarkType?: string;
   completedByInitials?: string;
   completedAt?: string;
   modifiedByInitials?: string;

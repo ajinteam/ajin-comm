@@ -73,6 +73,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     deliveryTerms: 'TOY TRAIN PARTS SAMPLE\nCOMMERCIAL VALUE',
     totalQuantity: '0',
     totalAmount: '0',
+    totalProcAmount: '0',
     plTotalCtQty: '0',
     plTotalNetWeight: '0',
     plTotalGrossWeight: '0',
@@ -85,7 +86,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     showTrackingNo: true,
     showRemarks: true,
     showPlRemarks: true,
-    showPlExtraRemarks: true
+    showPlExtraRemarks: true,
+    shippingMarkType: ''
   });
 
   const [formData, setFormData] = useState<Partial<NationalInvoiceItem>>(getInitialFormData());
@@ -299,6 +301,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       let runningProc = 0;
       let runningProcAmt = 0;
       let runningPrice = 0;
+      let runningUnits: { [unit: string]: number } = {};
 
       let plRunningAmt = 0;
       let plRunningProc = 0;
@@ -312,11 +315,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
       newRows = newRows.map((r, idx) => {
         if (r.type === 'ITEM') {
+          const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
           runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
-          runningQty += parseFloat(parseNumber(r.quantity || '0')) || 0;
+          runningQty += q;
           runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
           runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
           runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
+
+          const u = (r.unit || 'PCS').toUpperCase();
+          runningUnits[u] = (runningUnits[u] || 0) + q;
 
           plRunningAmt += parseFloat(parseNumber(r.plAmount || '0')) || 0;
           const currentPlProc = extractLastNumber(r.plProc || '0');
@@ -333,10 +340,25 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
           return r;
         } else if (r.type === 'TOTAL') {
+          const unitEntries = Object.entries(runningUnits).filter(([_, val]) => val > 0);
+          let finalUnit = 'UNIT';
+          let unitBreakdown = '';
+          
+          // Always calculate breakdown to include units
+          if (unitEntries.length > 0) {
+            unitBreakdown = unitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+          }
+          
+          if (unitEntries.length === 1) {
+            finalUnit = unitEntries[0][0];
+          }
+
           const updated = { 
             ...r, 
             amount: runningAmt.toFixed(2), 
             quantity: runningQty.toString(),
+            unit: finalUnit,
+            unitBreakdown: unitBreakdown,
             proc: runningProc.toString(),
             procAmount: runningProcAmt.toFixed(2),
             price: runningPrice.toFixed(2),
@@ -361,6 +383,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           runningProc = 0;
           runningProcAmt = 0;
           runningPrice = 0;
+          runningUnits = {};
 
           plRunningAmt = 0;
           plRunningProc = 0;
@@ -378,6 +401,20 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
       const grandTotalAmt = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
       const grandTotalQty = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
+      const grandTotalProcAmt = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.procAmount || '0')) || 0), 0);
+      
+      const totalUnits: { [unit: string]: number } = {};
+      newRows.filter(r => r.type === 'ITEM').forEach(r => {
+        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+        const u = (r.unit || 'PCS').toUpperCase();
+        totalUnits[u] = (totalUnits[u] || 0) + q;
+      });
+
+      const totalUnitEntries = Object.entries(totalUnits).filter(([_, val]) => val > 0);
+      let totalQuantityBreakdown = '';
+      if (totalUnitEntries.length > 0) {
+        totalQuantityBreakdown = totalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+      }
       
       let plTotalCtQty = prev.plTotalCtQty;
       let plTotalNetWeight = prev.plTotalNetWeight;
@@ -431,6 +468,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         rows: newRows, 
         totalAmount: grandTotalAmt.toFixed(2), 
         totalQuantity: grandTotalQty.toString(),
+        totalProcAmount: grandTotalProcAmt.toFixed(2),
+        totalQuantityBreakdown,
         plTotalCtQty,
         plTotalNetWeight,
         plTotalGrossWeight,
@@ -508,20 +547,41 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       let runningProc = 0;
       let runningProcAmt = 0;
       let runningPrice = 0;
+      let runningUnits: { [unit: string]: number } = {};
 
       const updatedRows = rows.map((r) => {
         if (r.type === 'ITEM') {
+          const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
           runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
-          runningQty += parseFloat(parseNumber(r.quantity || '0')) || 0;
+          runningQty += q;
           runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
           runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
           runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
+
+          const u = (r.unit || 'PCS').toUpperCase();
+          runningUnits[u] = (runningUnits[u] || 0) + q;
+
           return r;
         } else if (r.type === 'TOTAL') {
+          const unitEntries = Object.entries(runningUnits).filter(([_, val]) => val > 0);
+          let finalUnit = 'UNIT';
+          let unitBreakdown = '';
+          
+          // Always calculate breakdown to include units
+          if (unitEntries.length > 0) {
+            unitBreakdown = unitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+          }
+          
+          if (unitEntries.length === 1) {
+            finalUnit = unitEntries[0][0];
+          }
+
           const updated = { 
             ...r, 
             amount: runningAmt.toFixed(2), 
             quantity: runningQty.toString(),
+            unit: finalUnit,
+            unitBreakdown: unitBreakdown,
             proc: runningProc.toString(),
             procAmount: runningProcAmt.toFixed(2),
             price: runningPrice.toFixed(2)
@@ -531,6 +591,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           runningProc = 0;
           runningProcAmt = 0;
           runningPrice = 0;
+          runningUnits = {};
           return updated;
         }
         return r;
@@ -538,8 +599,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
       const grandTotalAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
       const grandTotalQty = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
+      const grandTotalProcAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.procAmount || '0')) || 0), 0);
 
-      return { ...prev, rows: updatedRows, totalAmount: grandTotalAmt.toFixed(2), totalQuantity: grandTotalQty.toString() };
+      const totalUnits: { [unit: string]: number } = {};
+      updatedRows.filter(r => r.type === 'ITEM').forEach(r => {
+        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+        const u = (r.unit || 'PCS').toUpperCase();
+        totalUnits[u] = (totalUnits[u] || 0) + q;
+      });
+
+      const totalUnitEntries = Object.entries(totalUnits).filter(([_, val]) => val > 0);
+      let totalQuantityBreakdown = '';
+      if (totalUnitEntries.length > 0) {
+        totalQuantityBreakdown = totalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+      }
+
+      return { ...prev, rows: updatedRows, totalAmount: grandTotalAmt.toFixed(2), totalQuantity: grandTotalQty.toString(), totalProcAmount: grandTotalProcAmt.toFixed(2), totalQuantityBreakdown };
     });
   };
 
@@ -749,17 +824,87 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     }
   }, [formData.remarks]);
 
+  const renderShippingMark = (row: NationalInvoiceRow, rowIdx: number, isPL: boolean = false) => {
+    const valKey = isPL ? 'plPkgNo' : 'pkgNo';
+    const currentVal = row[valKey] !== undefined ? row[valKey] : row.pkgNo;
+    const isFirstRow = rowIdx === 0;
+    
+    if (isFirstRow && formData.shippingMarkType) {
+      const markText = formData.shippingMarkType === 'TOMY' ? 'TOMY' : 'LEMKE';
+      return (
+        <div className="flex flex-col items-center py-2 justify-center h-full">
+          <svg width="100" height="50" viewBox="0 0 100 50" className="drop-shadow-sm">
+            <polygon points="50,2 98,25 50,48 2,25" fill="none" stroke="black" strokeWidth="2" />
+            <text x="50" y="32" fontSize="16" fontWeight="900" textAnchor="middle" fill="black" style={{ fontFamily: 'Arial, sans-serif' }}>{markText}</text>
+          </svg>
+        </div>
+      );
+    }
+
+    return (
+      <div className="flex items-center min-h-[22px]">
+        {isPL ? (
+          <textarea 
+            className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 flex items-center ${getEditedColor('plPkgNo', row.id)}`} 
+            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
+            value={currentVal || ''} 
+            onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
+            onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
+            onFocus={() => setSelectedRowId(row.id)}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${target.scrollHeight}px`;
+            }}
+          />
+        ) : (
+          <textarea 
+            className={`invoice-table-input invoice-textarea text-center font-black focus:bg-sky-100 overflow-hidden resize-none p-0 flex items-center ${getEditedColor('pkgNo', row.id)}`} 
+            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
+            value={currentVal || ''} 
+            onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
+            onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
+            onFocus={() => setSelectedRowId(row.id)}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${target.scrollHeight}px`;
+            }}
+          />
+        )}
+      </div>
+    );
+  };
+
   const handlePrint = useCallback(() => {
     const win = window.open('', '_blank');
     if (win) {
-      const rowsHtml = (formData.rows || []).map(row => {
+      const getShippingMarkHtml = (type: string) => {
+        const markText = type === 'TOMY' ? 'TOMY' : 'LEMKE';
+        return `
+          <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 5px;">
+            <svg width="80" height="40" viewBox="0 0 100 50">
+              <polygon points="50,2 98,25 50,48 2,25" fill="none" stroke="black" stroke-width="2" />
+              <text x="50" y="32" font-size="16" font-weight="900" text-anchor="middle" fill="black" style="font-family: Arial, sans-serif;">${markText}</text>
+            </svg>
+          </div>
+        `;
+      };
+
+      const rowsHtml = (formData.rows || []).map((row, idx) => {
         const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
         const borderStyle = `none;`; 
+        
+        const hasMark = !!formData.shippingMarkType;
+        const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
+        const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
+        const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
+        const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 8px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
         
         if (row.type === 'HEADER') {
           return `
             <tr style="${rowStyle}">
-              <td style="${borderStyle} padding: 4px 8px; text-align: center; text-decoration: underline; vertical-align: middle;">${row.pkgNo || ''}</td>
+              ${shippingMarkCell}
               <td style="${borderStyle} padding: 4px 8px; text-decoration: underline; vertical-align: middle;">
                 ${row.headerLeft || ''}
               </td>
@@ -771,21 +916,33 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           `;
         } else if (row.type === 'TOTAL') {
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
+          const amountVal = parseFloat(parseNumber(row.amount || '0'));
+          const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : '0.00';
+          
+          const procAmtSum = parseFloat(parseNumber(row.procAmount || '0'));
+          const formattedProcAmt = procAmtSum !== 0 ? `${formData.currencySymbol}${formatNumber(row.procAmount)}` : '';
+          
+          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity) || '0'} ${row.unit || 'UNIT'}`;
+
           return `
             <tr style="${rowStyle}">
+              <td colspan="3" style="${totalBorderStyle} padding: 4px 8px; text-align: left; vertical-align: middle; font-weight: 900;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                  <span>${row.description || 'TOTAL'}</span>
+                  <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
+                </div>
+              </td>
               <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.description || 'TOTAL'}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedProcAmt}</td>
               <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedAmount}</td>
             </tr>
           `;
         }
+        
         return `
           <tr style="${rowStyle}">
-            <td style="${borderStyle} padding: 4px 8px; text-align: center; vertical-align: middle;">${row.pkgNo || ''}</td>
+            ${shippingMarkCell}
             <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : ''}</td>
@@ -796,14 +953,21 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         `;
       }).join('');
 
-      const packingRowsHtml = (formData.rows || []).map(row => {
+      const packingRowsHtml = (formData.rows || []).map((row, idx) => {
         const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
         const borderStyle = `none;`; 
         
+        const hasMark = !!formData.shippingMarkType;
+        const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
+        const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
+        const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
+        const plPkgNo = row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo;
+        const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 1px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
+
         if (row.type === 'HEADER') {
           return `
             <tr style="${rowStyle}">
-              <td style="${borderStyle} padding: 4px 8px; text-align: center; text-decoration: underline; vertical-align: middle;">${row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo}</td>
+              ${shippingMarkCell}
               <td style="${borderStyle} padding: 4px 8px; text-decoration: underline; vertical-align: middle;">
                 ${row.headerLeft || ''}
               </td>
@@ -815,11 +979,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           `;
         } else if (row.type === 'TOTAL') {
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
+          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity) || '0'} ${row.unit || 'UNIT'}`;
+
           return `
             <tr style="${rowStyle}">
-              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.description || 'TOTAL'}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+              <td colspan="3" style="${totalBorderStyle} padding: 4px 8px; text-align: left; vertical-align: middle; font-weight: 900;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                  <span>${row.description || 'TOTAL'}</span>
+                  <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
+                </div>
+              </td>
               <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || ''}</td>
               <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || ''}</td>
               <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || ''}</td>
@@ -829,7 +998,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
         return `
           <tr style="${rowStyle}">
-            <td style="${borderStyle} padding: 4px 8px; text-align: center; vertical-align: middle;">${row.plPkgNo !== undefined ? row.plPkgNo : ''}</td>
+            ${shippingMarkCell}
             <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || ''}</td>
@@ -1029,7 +1198,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
                 <div class="cell" style="grid-column: 3; grid-row: 2;">
                   <span class="label">P/O NO. AND DATE</span>
-                  <div class="content-medium">${formData.poNo || ''}</div>
+                  <div class="content-medium" style="white-space: pre-wrap;">${formData.poNo || ''}</div>
                 </div>
 
                 <div class="cell" style="grid-column: 4; grid-row: 2;">
@@ -1098,10 +1267,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <tbody>
                   ${rowsHtml}
                   <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                    <td colspan="2" style="padding: 11px 8px; text-align: right;">GRAND TOTAL</td>
-                    <td style="padding: 11px 8px; text-align: right;">${formatNumber(formData.totalQuantity) || ''}</td>
+                    <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span>GRAND TOTAL</span>
+                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity) || ''}`}</span>
+                      </div>
+                    </td>
                     <td style="padding: 11px 8px;"></td>
-                    <td style="padding: 11px 8px;"></td>
+                    <td style="padding: 11px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
                     <td style="padding: 11px 8px;"></td>
                     <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
                   </tr>
@@ -1161,7 +1334,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
                 <div class="cell" style="grid-column: 3; grid-row: 2;">
                   <span class="label">P/O NO. AND DATE</span>
-                  <div class="content-medium">${formData.poNo || ''}</div>
+                  <div class="content-medium" style="white-space: pre-wrap;">${formData.poNo || ''}</div>
                 </div>
                 <div class="cell" style="grid-column: 4; grid-row: 2;">
                   <span class="label">DATE OF FACTORY OUT</span>
@@ -1229,8 +1402,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <tbody>
                   ${packingRowsHtml}
                   <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                    <td colspan="2" style="padding: 11px 8px; text-align: right; vertical-align: middle;">GRAND TOTAL</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.totalQuantity) || ''}</td>
+                    <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
+                      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                        <span>GRAND TOTAL</span>
+                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity) || ''}`}</span>
+                      </div>
+                    </td>
                     <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty) || ''}</td>
                     <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight) || ''}</td>
                     <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight) || ''}</td>
@@ -1291,7 +1468,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       sheet.columns = [
         { width: 12 }, // A: SHIPPING MARK
         { width: 32 }, // B: DESCRIPTION
-        { width: 9 },  // C: QUANTITY
+        { width: 12 }, // C: QUANTITY
         { width: 8 },  // D: PROC
         { width: 9 },  // E: PROC AMT
         { width: 8 },  // F: PRICE
@@ -1441,10 +1618,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           r.getCell(7).font = { bold: true, underline: true, size: 9 };
         } else if (row.type === 'TOTAL') {
           r.getCell(2).value = row.description || 'TOTAL';
-          r.getCell(2).alignment = { horizontal: 'right', vertical: 'middle' };
+          r.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
           r.getCell(2).font = { bold: true, size: 9 };
-          r.getCell(3).value = row.unit ? `${formatNumber(row.quantity)} ${row.unit}` : '';
-          r.getCell(3).alignment = { horizontal: 'right', vertical: 'middle' };
+          r.getCell(3).value = row.unitBreakdown || (row.unit ? `${formatNumber(row.quantity)} ${row.unit}` : '');
+          r.getCell(3).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
           
           if (isPL) {
             r.getCell(4).value = formatNumber(row.plProc);
@@ -1452,7 +1629,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             r.getCell(6).value = formatNumber(row.plPrice);
             r.getCell(7).value = formatNumber(row.plAmount);
           } else {
-            r.getCell(7).value = row.unit ? formatNumber(row.amount) : '';
+            const amountVal = parseFloat(parseNumber(row.amount || '0'));
+            r.getCell(5).value = formatNumber(row.procAmount);
+            r.getCell(7).value = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : '0.00';
           }
           [4,5,6,7].forEach(c => r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' });
           for(let i=1; i<=7; i++) r.getCell(i).border = { top: { style: 'thin' } };
@@ -1485,10 +1664,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const gtRow = sheet.getRow(currentRowIdx);
       gtRow.height = 30;
       gtRow.getCell(2).value = "GRAND TOTAL";
-      applyStyle(gtRow.getCell(2), { bold: true, size: 10, align: 'right', border: false });
+      applyStyle(gtRow.getCell(2), { bold: true, size: 10, align: 'left', border: false });
       
-      gtRow.getCell(3).value = formatNumber(formData.totalQuantity);
-      applyStyle(gtRow.getCell(3), { bold: true, align: 'right', border: false });
+      gtRow.getCell(3).value = formData.totalQuantityBreakdown || formatNumber(formData.totalQuantity);
+      gtRow.getCell(3).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
+      gtRow.getCell(3).font = { bold: true };
       
       if (isPL) {
         [4,5,6,7].forEach((cNum, i) => {
@@ -1497,6 +1677,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           applyStyle(gtRow.getCell(cNum), { bold: true, align: 'right', border: false });
         });
       } else {
+        gtRow.getCell(5).value = formatNumber(formData.totalProcAmount);
+        applyStyle(gtRow.getCell(5), { bold: true, align: 'right', border: false });
         gtRow.getCell(7).value = `${formData.currencySymbol}${formatNumber(formData.totalAmount)}`;
         applyStyle(gtRow.getCell(7), { bold: true, align: 'right', border: false });
       }
@@ -1760,19 +1942,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   if (sub !== NationalInvoiceSubCategory.CREATE) return renderListView();
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-20 animate-in fade-in duration-500">
+    <div className="max-w-[1600px] mx-auto space-y-8 pb-20 animate-in fade-in duration-500 px-4 font-sans">
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&display=swap');
         .signature-font { font-family: 'Brush Script Std', cursive; }
         .invoice-grid { display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; border: 1px solid #000; }
-        .invoice-cell { border: 1px solid #000; padding: 8px; font-size: 11px; }
-        .invoice-label { font-size: 10px; font-weight: 900; text-transform: uppercase; margin-bottom: 4px; display: block; }
-        .invoice-input { width: 100%; border: none; outline: none; background: transparent; font-weight: 600; font-size: 10.5px; }
-        .invoice-input-bold { width: 100%; border: none; outline: none; background: transparent; font-size: 18px; font-weight: 900; text-transform: uppercase; }
-        .invoice-input-large { width: 100%; border: none; outline: none; background: transparent; font-size: 24px; font-weight: 900; text-align: center; }
-        .invoice-textarea { width: 100%; border: none; outline: none; background: transparent; font-weight: 400; resize: none; min-height: 40px; font-size: 10.5px; }
-        .invoice-textarea-bold { width: 100%; border: none; outline: none; background: transparent; font-size: 18px; font-weight: 900; text-transform: uppercase; resize: none; min-height: 80px; }
-        .invoice-table-input { font-size: 10.5px !important; }
+        .invoice-cell { border: 1px solid #000; padding: 10px; font-size: 13px; }
+        .invoice-label { font-size: 11px; font-weight: 900; text-transform: uppercase; margin-bottom: 6px; display: block; }
+        .invoice-input { width: 100%; border: none; outline: none; background: transparent; font-weight: 700; font-size: 13px; }
+        .invoice-input-bold { width: 100%; border: none; outline: none; background: transparent; font-size: 22px; font-weight: 900; text-transform: uppercase; }
+        .invoice-input-large { width: 100%; border: none; outline: none; background: transparent; font-size: 28px; font-weight: 900; text-align: center; }
+        .invoice-textarea { width: 100%; border: none; outline: none; background: transparent; font-weight: 400; resize: none; min-height: 40px; font-size: 13px; }
+        .invoice-textarea-bold { width: 100%; border: none; outline: none; background: transparent; font-size: 22px; font-weight: 900; text-transform: uppercase; resize: none; min-height: 80px; }
+        .invoice-table-input { font-size: 13px !important; }
       `}</style>
 
       <div className="flex justify-between items-center no-print">
@@ -1833,10 +2015,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         </div>
       </div>
 
-      <div className="bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-200 p-10 flex flex-col space-y-12 min-h-[2500px]">
+      <div className="bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-200 p-6 md:p-8 lg:p-12 flex flex-col space-y-12 min-h-[2500px]">
         <div className="national-invoice-print flex flex-col min-h-[1123px]">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black underline tracking-widest">{formData.invoiceType} INVOICE</h2>
+            <h2 className="text-5xl font-black underline tracking-widest">{formData.invoiceType} INVOICE</h2>
           </div>
 
           <div className="invoice-grid">
@@ -1913,7 +2095,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 {/* Row 2 Middle: P/O NO (INVOICE NO 아래인 3번 위치로 이동) */}
 <div className="invoice-cell" style={{ gridColumn: '3', gridRow: '2' }}>
   <label className="invoice-label">P/O NO. AND DATE</label>
-  <input className={`invoice-input ${getEditedColor('poNo')}`} value={formData.poNo || ''} onChange={(e) => setFormData(prev => ({ ...prev, poNo: e.target.value }))} />
+  <textarea 
+    className={`invoice-textarea w-full overflow-hidden resize-none ${getEditedColor('poNo')}`} 
+    value={formData.poNo || ''} 
+    onChange={(e) => setFormData(prev => ({ ...prev, poNo: e.target.value }))}
+    onInput={(e) => {
+      const target = e.target as HTMLTextAreaElement;
+      target.style.height = 'auto';
+      target.style.height = `${target.scrollHeight}px`;
+    }}
+  />
 </div>
 
 {/* Row 2 Right: FACTORY OUT (PAGE 아래인 4번 위치로 고정) */}
@@ -1973,7 +2164,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 4-6 Right: Other Reference */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '4 / span 3' }}>
               <label className="invoice-label">OTHER REFERENCE</label>
-              <textarea className={`invoice-textarea min-h-[80px] ${getEditedColor('otherRef')}`} value={formData.otherRef || ''} onChange={(e) => setFormData(prev => ({ ...prev, otherRef: e.target.value }))} />
+              <textarea 
+                className={`invoice-textarea w-full overflow-hidden resize-none min-h-[80px] ${getEditedColor('otherRef')}`} 
+                value={formData.otherRef || ''} 
+                onChange={(e) => setFormData(prev => ({ ...prev, otherRef: e.target.value }))}
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`;
+                }}
+              />
             </div>
 
             {/* Row 6 Left: Departure Date */}
@@ -1985,12 +2185,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               </div>
             </div>
 
-            {/* Row 7 Left: Vessel & From */}
             <div className="invoice-cell" style={{ gridColumn: '1' }}>
-              <label className="invoice-label">VESSEL/ FLIGHT</label>
-              <div className="flex gap-1">
-                <input className={`invoice-input text-center ${getEditedColor('vesselFlight')}`} value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))} placeholder="FEDEX" />
-                <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))}>
+              <div className="flex justify-between items-center mb-1">
+                <label className="invoice-label mb-0">VESSEL/FLIGHT</label>
+                <select className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="FEDEX">FEDEX</option>
                   <option value="DHL">DHL</option>
@@ -1999,12 +2197,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <option value="BY AIR">BY AIR</option>
                 </select>
               </div>
+              <input className={`invoice-input text-center ${getEditedColor('vesselFlight')}`} value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))} placeholder="FEDEX" />
             </div>
             <div className="invoice-cell" style={{ gridColumn: '2' }}>
-              <label className="invoice-label">FROM</label>
-              <div className="flex gap-1">
-                <input className={`invoice-input text-center ${getEditedColor('from')}`} value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))} />
-                <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))}>
+              <div className="flex justify-between items-center mb-1">
+                <label className="invoice-label mb-0">FROM</label>
+                <select className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="SEOUL, KOREA">SEOUL, KOREA</option>
                   <option value="HANOI, VIETNAM">HANOI, VIETNAM</option>
@@ -2012,22 +2210,45 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <option value="BORYEONG, KOREA">BORYEONG, KOREA</option>
                 </select>
               </div>
+              <input className={`invoice-input text-center ${getEditedColor('from')}`} value={formData.from || ''} onChange={(e) => setFormData(prev => ({ ...prev, from: e.target.value }))} />
             </div>
 
             {/* Row 7-8 Right: Terms */}
             <div className="invoice-cell" style={{ gridColumn: '3 / span 2', gridRow: '7 / span 2' }}>
-              <label className="invoice-label">TERMS OF DELIVERY AND PAYMENT</label>
-              <textarea className={`invoice-textarea min-h-[60px] text-center ${getEditedColor('deliveryTerms')}`} value={formData.deliveryTerms || ''} onChange={(e) => setFormData(prev => ({ ...prev, deliveryTerms: e.target.value }))} />
+              <div className="flex justify-between items-center mb-1">
+                <label className="invoice-label mb-0">TERMS OF DELIVERY AND PAYMENT</label>
+                <select 
+                  className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print max-w-[120px]" 
+                  value="" 
+                  onChange={(e) => setFormData(prev => ({ ...prev, deliveryTerms: e.target.value }))}
+                >
+                  <option value="">옵션 선택</option>
+                  <option value={"PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE"}>1. PROCESSING TOY TRAIN PARTS (CIF HANOI...)</option>
+                  <option value={"EX. FACTORY & T/T BASE\nWITHIN 2 WEEKS AFTER RECEIT OF B/L DATE"}>2. EX. FACTORY & T/T BASE (WITHIN 2 WEEKS...)</option>
+                  <option value="EX. FACTORY & T/T BASE">3. EX. FACTORY & T/T BASE</option>
+                  <option value={"TOY TRAIN SAMPLE\nNO COMMERCIAL VALUE"}>4. TOY TRAIN SAMPLE (NO COMMERCIAL...)</option>
+                </select>
+              </div>
+              <textarea 
+                className={`invoice-textarea w-full text-center whitespace-pre-wrap ${getEditedColor('deliveryTerms')}`} 
+                value={formData.deliveryTerms || ''} 
+                onChange={(e) => setFormData(prev => ({ ...prev, deliveryTerms: e.target.value }))} 
+                onInput={(e) => {
+                  const target = e.target as HTMLTextAreaElement;
+                  target.style.height = 'auto';
+                  target.style.height = `${target.scrollHeight}px`;
+                }}
+              />
             </div>
 
             {/* Row 8 Left: To */}
             <div className="invoice-cell" style={{ gridColumn: '1 / span 2' }}>
-              <label className="invoice-label">TO</label>
-              <div className="flex gap-1">
-                <input className={`invoice-input text-center ${getEditedColor('to')}`} value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))} />
-                <select className="text-[9px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))}>
+              <div className="flex justify-between items-center mb-1">
+                <label className="invoice-label mb-0">TO</label>
+                <select className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="TOKYO, JAPAN">TOKYO, JAPAN</option>
+                  <option value="OSAKA, JAPAN">OSAKA, JAPAN</option>
                   <option value="SEOUL, KOREA">SEOUL, KOREA</option>
                   <option value="HANOI, VIETNAM">HANOI, VIETNAM</option>
                   <option value="VINH PHUC, VIETNAM">VINH PHUC, VIETNAM</option>
@@ -2035,15 +2256,38 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <option value="TSURUGASHIMA-SHI, SAITAMA, JAPAN">TSURUGASHIMA-SHI, JAPAN</option>
                 </select>
               </div>
+              <input className={`invoice-input text-center ${getEditedColor('to')}`} value={formData.to || ''} onChange={(e) => setFormData(prev => ({ ...prev, to: e.target.value }))} />
             </div>
           </div>
 
           <table className="w-full border-collapse border border-black mt-4 font-['Gulim',_sans-serif]">
             <thead>
               <tr className="bg-slate-50">
-                <th className="border border-black p-2 text-[10.5px] font-black w-32">SHIPPING MARK</th>
+                <th className="border border-black p-1 text-[10.5px] font-black w-32 relative group/mark">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>SHIPPING MARK</span>
+                    <select 
+                      className="text-[8px] bg-white border border-slate-200 rounded px-1 no-print font-normal w-[90%]"
+                      value={formData.shippingMarkType || ''}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        setFormData(prev => {
+                          const newRows = [...(prev.rows || [])];
+                          if (newType && newRows[0]?.pkgNo === 'ADDRESS') {
+                            newRows[0] = { ...newRows[0], pkgNo: '' };
+                          }
+                          return { ...prev, shippingMarkType: newType, rows: newRows };
+                        });
+                      }}
+                    >
+                      <option value="">옵션 선택</option>
+                      <option value="TOMY">1. TOMY 마크</option>
+                      <option value="LEMKE">2. LEMKE 마크</option>
+                    </select>
+                  </div>
+                </th>
                 <th className="border border-black p-2 text-[10.5px] font-black">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-24">QUANTITY</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-32">QUANTITY</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">PROC ({formData.currencySymbol})</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">PROC AMT ({formData.currencySymbol})</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">PRICE ({formData.currencySymbol})</th>
@@ -2051,114 +2295,111 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               </tr>
             </thead>
             <tbody>
-              {(formData.rows || []).map((row, idx) => (
-                <tr key={row.id} className={`group/row ${selectedRowId === row.id ? 'bg-sky-50/30' : ''}`}>
-                  {row.type === 'HEADER' ? (
-                    <>
-                      <td className="border border-black p-1 align-middle">
-                        <div className="flex items-center min-h-[22px]">
-                          <input 
-                            className={`invoice-table-input invoice-input text-center font-black underline focus:bg-sky-100 ${getEditedColor('pkgNo', row.id)}`} 
-                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
-                            value={row.pkgNo || ''} 
-                            onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
-                            onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
-                            onFocus={() => setSelectedRowId(row.id)}
-                          />
-                        </div>
-                      </td>
-                      <td className="border border-black p-1 align-middle">
-                        <div className="flex items-center min-h-[22px]">
-                          <div className="flex justify-between font-black underline w-full">
+              {(formData.rows || []).map((row, idx) => {
+                const isFirstRow = idx === 0;
+                const hasMark = !!formData.shippingMarkType;
+                const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
+                
+                return (
+                  <tr key={row.id} className={`group/row ${selectedRowId === row.id ? 'bg-sky-50/30' : ''}`}>
+                    {row.type === 'HEADER' ? (
+                      <>
+                        {!shouldSkipMark && (
+                          <td 
+                            className="border border-black p-1 align-middle"
+                            rowSpan={(isFirstRow && hasMark) ? 3 : 1}
+                          >
+                            {renderShippingMark(row, idx)}
+                          </td>
+                        )}
+                        <td className="border border-black p-1 align-middle">
+                          <div className="flex items-center min-h-[22px]">
+                            <div className="flex justify-between font-black underline w-full">
+                              <input 
+                                className={`invoice-table-input invoice-input focus:bg-sky-100 ${getEditedColor('headerLeft', row.id)}`} 
+                                style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
+                                value={row.headerLeft || ''} 
+                                onChange={(e) => handleRowChange(row.id, 'headerLeft', e.target.value)} 
+                                onKeyDown={(e) => handleKeyDown(e, row.id, 'headerLeft')}
+                                onFocus={() => setSelectedRowId(row.id)}
+                                placeholder="HEADER LEFT" 
+                              />
+                            </div>
+                          </div>
+                        </td>
+                        <td className="border border-black p-1 align-middle"></td>
+                        <td colSpan={4} className="border border-black p-1 align-middle">
+                          <div className="flex items-center min-h-[22px]">
                             <input 
-                              className={`invoice-table-input invoice-input focus:bg-sky-100 ${getEditedColor('headerLeft', row.id)}`} 
+                              className={`invoice-table-input invoice-input text-left font-black underline focus:bg-sky-100 ${getEditedColor('headerRight', row.id)}`} 
                               style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                              value={row.headerLeft || ''} 
-                              onChange={(e) => handleRowChange(row.id, 'headerLeft', e.target.value)} 
-                              onKeyDown={(e) => handleKeyDown(e, row.id, 'headerLeft')}
+                              value={row.headerRight || ''} 
+                              onChange={(e) => handleRowChange(row.id, 'headerRight', e.target.value)} 
+                              onKeyDown={(e) => handleKeyDown(e, row.id, 'headerRight')}
                               onFocus={() => setSelectedRowId(row.id)}
-                              placeholder="HEADER LEFT" 
+                              placeholder="HEADER RIGHT" 
                             />
                           </div>
-                        </div>
-                      </td>
-                      <td className="border border-black p-1 align-middle"></td>
-                      <td colSpan={4} className="border border-black p-1 align-middle">
-                        <div className="flex items-center min-h-[22px]">
-                          <input 
-                            className={`invoice-table-input invoice-input text-left font-black underline focus:bg-sky-100 ${getEditedColor('headerRight', row.id)}`} 
-                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={row.headerRight || ''} 
-                            onChange={(e) => handleRowChange(row.id, 'headerRight', e.target.value)} 
-                            onKeyDown={(e) => handleKeyDown(e, row.id, 'headerRight')}
-                            onFocus={() => setSelectedRowId(row.id)}
-                            placeholder="HEADER RIGHT" 
-                          />
-                        </div>
-                      </td>
-                      <td className="relative w-0 p-0 border-none align-middle">
-                        <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
-                          <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
-                        </div>
-                      </td>
-                    </>
-                  ) : row.type === 'TOTAL' ? (
-                    <>
-                      <td className="border border-black border-t-2 p-1"></td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black">
-                        <input 
-                          className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('description', row.id)}`} 
-                          style={{ fontSize: `10.5px`, fontWeight: 'bold', minHeight: '18px' }}
-                          value={row.description || 'TOTAL'} 
-                          onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} 
-                          onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
-                          onFocus={() => setSelectedRowId(row.id)}
-                        />
-                      </td>
-                      <td className="border border-black border-t-2 p-1">
-                        <div className="flex items-center justify-end gap-1">
-                          <input 
-                            className={`invoice-table-input invoice-input text-right font-black focus:bg-sky-100 w-16 ${getEditedColor('quantity', row.id)}`} 
-                            style={{ fontSize: `10.5px`, fontWeight: 'bold' }}
-                            value={formatNumber(row.quantity) || '0'} 
-                            onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
-                            onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')}
-                            onFocus={() => setSelectedRowId(row.id)}
-                          />
-                          <span className={`text-[10.5px] font-black uppercase ${getEditedColor('unit', row.id)}`}>{row.unit || 'UNIT'}</span>
-                        </div>
-                      </td>
-                      <td className="border border-black border-t-2 p-1"></td>
-                      <td className="border border-black border-t-2 p-1"></td>
-                      <td className="border border-black border-t-2 p-1"></td>
-                      <td className="border border-black border-t-2 p-1 relative">
-                        <div className="text-right font-black" style={{ fontSize: `10.5px`, fontWeight: 'bold' }}>{formData.currencySymbol}{formatNumber(row.amount) || '0'}</div>
-                        <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
-                          <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
-                        </div>
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="border border-black p-1 align-middle">
-                        <div className="flex items-center min-h-[22px]">
-                          <textarea 
-                            className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none ${getEditedColor('pkgNo', row.id)}`} 
-                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
-                            value={row.pkgNo || ''} 
-                            onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
-                            onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
-                            onPaste={(e) => handlePaste(e, row.id, 'pkgNo')}
-                            onFocus={() => setSelectedRowId(row.id)}
-                            onInput={(e) => {
-                              const target = e.target as HTMLTextAreaElement;
-                              target.style.height = 'auto';
-                              target.style.height = `${target.scrollHeight}px`;
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="border border-black p-1 relative align-middle">
+                        </td>
+                        <td className="relative w-0 p-0 border-none align-middle">
+                          <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
+                            <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
+                          </div>
+                        </td>
+                      </>
+                    ) : row.type === 'TOTAL' ? (
+                      <>
+                        <td colSpan={3} className="border border-black border-t-2 p-1 font-black text-left align-middle">
+                          <div className="flex items-center justify-between w-full">
+                            <input 
+                              className={`invoice-table-input invoice-input focus:bg-sky-100 text-left w-32 ${getEditedColor('description', row.id)}`} 
+                              style={{ fontSize: `10.5px`, fontWeight: 'bold', minHeight: '18px' }}
+                              value={row.description || 'TOTAL'} 
+                              onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} 
+                              onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
+                              onFocus={() => setSelectedRowId(row.id)}
+                            />
+                            <div className="text-[10.5px] font-black whitespace-nowrap leading-tight text-right pr-2">
+                              {row.unitBreakdown || (row.quantity && row.quantity !== '0' ? `${formatNumber(row.quantity)} ${row.unit || 'UNIT'}` : '')}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="border border-black border-t-2 p-1"></td>
+                        <td className="border border-black border-t-2 p-1 text-right font-black" style={{ fontSize: '10.5px' }}>{formatNumber(row.procAmount) || ''}</td>
+                        <td className="border border-black border-t-2 p-1"></td>
+                        <td className="border border-black border-t-2 p-1 relative">
+                          <div className="text-right font-black" style={{ fontSize: `10.5px`, fontWeight: 'bold' }}>{formData.currencySymbol}{formatNumber(row.amount) || '0'}</div>
+                          <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
+                            <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        {!shouldSkipMark && (
+                          <td 
+                            className="border border-black p-1 align-middle"
+                            rowSpan={(isFirstRow && hasMark) ? 3 : 1}
+                          >
+                            <div className="flex items-center min-h-[22px]">
+                              <textarea 
+                                className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none ${getEditedColor('pkgNo', row.id)}`} 
+                                style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: '18px' }}
+                                value={row.pkgNo || ''} 
+                                onChange={(e) => handleRowChange(row.id, 'pkgNo', e.target.value)} 
+                                onKeyDown={(e) => handleKeyDown(e, row.id, 'pkgNo')}
+                                onPaste={(e) => handlePaste(e, row.id, 'pkgNo')}
+                                onFocus={() => setSelectedRowId(row.id)}
+                                onInput={(e) => {
+                                  const target = e.target as HTMLTextAreaElement;
+                                  target.style.height = 'auto';
+                                  target.style.height = `${target.scrollHeight}px`;
+                                }}
+                              />
+                            </div>
+                          </td>
+                        )}
+                        <td className="border border-black p-1 relative align-middle">
                         <div className="flex items-center min-h-[22px]">
                           <textarea 
                             className={`invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none ${getEditedColor('description', row.id)}`} 
@@ -2177,9 +2418,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         </div>
                       </td>
                       <td className="border border-black p-1 align-middle text-right">
-                        <div className="flex gap-1 justify-end items-center min-h-[22px]">
+                        <div className="flex gap-1 justify-end items-center min-h-[22px] w-full">
                           <input 
-                            className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('quantity', row.id)}`} 
+                            className={`invoice-table-input invoice-input text-right focus:bg-sky-100 flex-grow ${getEditedColor('quantity', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
                             value={formatNumber(row.quantity) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
@@ -2198,7 +2439,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                               placeholder="UNIT" 
                             />
                             <div className="absolute left-0 top-full hidden group-focus-within/unit:block bg-white border shadow-lg z-10 min-w-[60px] no-print">
-                              {['PCS', 'PKG', 'UNIT', 'SET', 'CTN', 'BOX', 'EA'].map(u => (
+                              {['PCS', 'PKG', 'UNIT', 'SET', 'CTN', 'BOX', 'EA', 'SHEET', 'PART'].map(u => (
                                 <button key={u} onClick={() => handleRowChange(row.id, 'unit', u)} className="block w-full text-left px-2 py-1 text-[10px] hover:bg-slate-100">{u}</button>
                               ))}
                             </div>
@@ -2255,16 +2496,18 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </>
                   )}
                 </tr>
-              ))}
+              )})}
               <tr className="bg-slate-50">
-                <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
-                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <div className="flex items-center justify-end min-h-[22px]">
-                    <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity) || '0'} onChange={(e) => setFormData(prev => ({ ...prev, totalQuantity: parseNumber(e.target.value) }))} />
+                <td colSpan={3} className="border border-black p-1 font-black text-[10.5px] align-middle text-left">
+                  <div className="flex items-center justify-between w-full">
+                    <span>GRAND TOTAL</span>
+                    <div className="whitespace-nowrap leading-tight text-right pr-2">
+                      {formData.totalQuantityBreakdown || (formData.totalQuantity && formData.totalQuantity !== '0' ? `${formatNumber(formData.totalQuantity)} UNIT` : '')}
+                    </div>
                   </div>
                 </td>
                 <td className="border border-black p-1 align-middle"></td>
-                <td className="border border-black p-1 align-middle"></td>
+                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">{formatNumber(formData.totalProcAmount) || ''}</td>
                 <td className="border border-black p-1 align-middle"></td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
                   <div className={`flex items-center justify-end min-h-[22px] ${getEditedColor('totalAmount')}`}>
@@ -2403,7 +2646,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         {/* PACKING LIST SECTION */}
         <div className="mt-20 pt-20 border-t-4 border-double border-slate-300 flex flex-col min-h-[1123px]">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-black underline tracking-widest">PACKING LIST</h2>
+            <h2 className="text-5xl font-black underline tracking-widest">PACKING LIST</h2>
           </div>
 
           <div className="invoice-grid">
@@ -2450,7 +2693,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 2 Middle: P/O NO */}
             <div className="invoice-cell" style={{ gridColumn: '3', gridRow: '2' }}>
               <label className="invoice-label">P/O NO. AND DATE</label>
-              <div className={`font-bold text-[10.5px] ${getEditedColor('poNo')}`}>{formData.poNo || ''}</div>
+              <div className={`font-bold text-[10.5px] whitespace-pre-wrap ${getEditedColor('poNo')}`}>{formData.poNo || ''}</div>
             </div>
 
             {/* Row 2 Right: FACTORY OUT */}
@@ -2536,9 +2779,31 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           <table className="w-full border-collapse border border-black mt-4 font-['Gulim',_sans-serif]">
             <thead>
               <tr className="bg-slate-50">
-                <th className="border border-black p-2 text-[10.5px] font-black w-32">SHIPPING MARK</th>
+                <th className="border border-black p-1 text-[10.5px] font-black w-32 relative group/mark">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>SHIPPING MARK</span>
+                    <select 
+                      className="text-[8px] bg-white border border-slate-200 rounded px-1 no-print font-normal w-[90%]"
+                      value={formData.shippingMarkType || ''}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        setFormData(prev => {
+                          const newRows = [...(prev.rows || [])];
+                          if (newType && newRows[0]?.pkgNo === 'ADDRESS') {
+                            newRows[0] = { ...newRows[0], pkgNo: '' };
+                          }
+                          return { ...prev, shippingMarkType: newType, rows: newRows };
+                        });
+                      }}
+                    >
+                      <option value="">옵션 선택</option>
+                      <option value="TOMY">1. TOMY 마크</option>
+                      <option value="LEMKE">2. LEMKE 마크</option>
+                    </select>
+                  </div>
+                </th>
                 <th className="border border-black p-2 text-[10.5px] font-black">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-24">QUANTITY</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-32">QUANTITY</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">C/T Q'TY</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">NET WEIGHT (kg)</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">GROSS WEIGHT (kg)</th>
@@ -2546,82 +2811,91 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               </tr>
             </thead>
             <tbody>
-              {(formData.rows || []).map((row, idx) => (
-                <tr key={`${row.id}-pk`} className={`group/row`}>
-                  {row.type === 'HEADER' ? (
-                    <>
-                      <td className="border border-black p-1 text-center font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
-                        <div className="flex items-center min-h-[22px]">
-                          <textarea 
-                            className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 flex items-center ${getEditedColor('plPkgNo', row.id)}`} 
-                            style={{ fontSize: `${row.fontSize}px`, fontWeight: 'bold' }}
-                            value={row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo} 
-                            onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
-                            onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
-                            onInput={(e) => {
-                              const target = e.target as HTMLTextAreaElement;
-                              target.style.height = 'auto';
-                              target.style.height = `${target.scrollHeight}px`;
-                            }}
-                          />
-                        </div>
-                      </td>
-                      <td className="border border-black p-1 font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
-                        <div className="flex items-center min-h-[22px]">{row.headerLeft}</div>
-                      </td>
-                      <td className="border border-black p-1 align-middle"></td>
-                      <td colSpan={4} className="border border-black p-1 text-left font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
-                        <div className="flex items-center min-h-[22px] text-left">{row.headerRight}</div>
-                      </td>
-                    </>
-                  ) : row.type === 'TOTAL' ? (
-                    <>
-                      <td className="border border-black border-t-2 p-1 align-middle"></td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('description', row.id)}`} value={row.description || 'TOTAL'} onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} />
-                      </td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <div className="flex items-center justify-end gap-1">
-                          <input className={`invoice-table-input invoice-input text-right font-black w-16 ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
-                          <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
-                        </div>
-                      </td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
-                      </td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
-                      </td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
-                      </td>
-                      <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
-                      </td>
-                    </>
-                  ) : (
-                    <>
-                      <td className="border border-black p-1 text-center text-[10.5px] align-middle">
-                        <textarea 
-                          className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('plPkgNo', row.id)}`} 
-                          style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
-                          value={row.plPkgNo !== undefined ? row.plPkgNo : ''} 
-                          onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
-                          onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
-                          onInput={(e) => {
-                            const target = e.target as HTMLTextAreaElement;
-                            target.style.height = 'auto';
-                            target.style.height = `${target.scrollHeight}px`;
-                          }}
-                        />
-                      </td>
-                      <td className="border border-black p-1 text-[10.5px] align-middle">
+              {(formData.rows || []).map((row, idx) => {
+                const isFirstRow = idx === 0;
+                const hasMark = !!formData.shippingMarkType;
+                const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
+
+                return (
+                  <tr key={`${row.id}-pk`} className={`group/row`}>
+                    {row.type === 'HEADER' ? (
+                      <>
+                        {!shouldSkipMark && (
+                          <td 
+                            className="border border-black p-1 text-center font-black underline align-middle" 
+                            style={{ fontSize: `${row.fontSize}px` }}
+                            rowSpan={(isFirstRow && hasMark) ? 3 : 1}
+                          >
+                            {renderShippingMark(row, idx, true)}
+                          </td>
+                        )}
+                        <td className="border border-black p-1 font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
+                          <div className="flex items-center min-h-[22px]">{row.headerLeft}</div>
+                        </td>
+                        <td className="border border-black p-1 font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}></td>
+                        <td colSpan={4} className="border border-black p-1 text-left font-black underline align-middle" style={{ fontSize: `${row.fontSize}px` }}>
+                          <div className="flex items-center min-h-[22px] text-left">{row.headerRight}</div>
+                        </td>
+                      </>
+                    ) : row.type === 'TOTAL' ? (
+                      <>
+                        <td colSpan={3} className={`border border-black border-t-2 p-1 font-black text-[10.5px] align-middle text-left`}>
+                          <div className="flex items-center justify-between w-full">
+                            <input className={`invoice-table-input invoice-input font-black text-left w-24 ${getEditedColor('description', row.id)}`} value={row.description || 'TOTAL'} onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} />
+                            <div className="flex items-center justify-end gap-1 flex-grow">
+                              {row.unitBreakdown ? (
+                                <div className="text-right font-black whitespace-nowrap leading-tight">{row.unitBreakdown}</div>
+                              ) : (
+                                <>
+                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
+                                  <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
+                        </td>
+                        <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
+                        </td>
+                        <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
+                        </td>
+                        <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        {!shouldSkipMark && (
+                          <td 
+                            className="border border-black p-1 text-center text-[10.5px] align-middle"
+                            rowSpan={(isFirstRow && hasMark) ? 3 : 1}
+                          >
+                            <textarea 
+                              className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('plPkgNo', row.id)}`} 
+                              style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
+                              value={row.plPkgNo !== undefined ? row.plPkgNo : ''} 
+                              onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
+                              onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
+                              onInput={(e) => {
+                                const target = e.target as HTMLTextAreaElement;
+                                target.style.height = 'auto';
+                                target.style.height = `${target.scrollHeight}px`;
+                              }}
+                            />
+                          </td>
+                        )}
+                        <td className="border border-black p-1 text-[10.5px] align-middle">
                         <textarea 
                           className={`invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('description', row.id)}`} 
                           style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
                           value={row.description} 
-                          readOnly
+                          onChange={(e) => handleRowChange(row.id, 'description', e.target.value)}
                           onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
+                          onFocus={() => setSelectedRowId(row.id)}
                           onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
                             target.style.height = 'auto';
@@ -2630,8 +2904,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         />
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
-                        <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity) || ''} readOnly onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} /> <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
+                        <div className="flex items-center justify-end min-h-[22px] w-full">
+                          <input 
+                            className={`invoice-table-input invoice-input text-right flex-grow ${getEditedColor('quantity', row.id)}`} 
+                            value={formatNumber(row.quantity) || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)}
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} 
+                            onFocus={() => setSelectedRowId(row.id)}
+                          /> <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
@@ -2657,11 +2937,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </>
                   )}
                 </tr>
-              ))}
+              )})}
               <tr className="bg-slate-50">
-                <td colSpan={2} className="border border-black p-1 text-right font-black text-[10.5px] align-middle">GRAND TOTAL</td>
-                <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
+                <td colSpan={3} className={`border border-black p-1 font-black text-[10.5px] align-middle text-left`}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>GRAND TOTAL</span>
+                    {formData.totalQuantityBreakdown ? (
+                      <div className="text-right font-black whitespace-nowrap leading-tight">{formData.totalQuantityBreakdown}</div>
+                    ) : (
+                      <div className="flex items-center justify-end min-h-[22px]">
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
+                      </div>
+                    )}
+                  </div>
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
                   <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
@@ -2678,6 +2966,26 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               </tr>
             </tbody>
           </table>
+          <div className="flex gap-4 mt-2 no-print">
+            <button onClick={() => handleAddRow('ITEM')} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+              품목 추가
+            </button>
+            <button onClick={() => handleAddRow('HEADER')} className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+              구분(Header) 추가
+            </button>
+            <button onClick={() => handleAddRow('TOTAL')} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
+              소계(Total) 추가
+            </button>
+            {selectedRowId && (
+              <button onClick={() => handleRemoveRow(selectedRowId)} className="text-xs font-bold text-rose-600 hover:underline flex items-center gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" /></svg>
+                행 삭제 (-)
+              </button>
+            )}
+          </div>
 
           <div className="mt-8 space-y-4">
             {formData.showPlExtraRemarks !== false ? (
