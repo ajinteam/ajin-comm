@@ -1730,7 +1730,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const matchItems = (item.rows || []).some(row => (row.description || '').toLowerCase().includes(term));
       
       return matchConsignee || matchInvoiceNo || matchItems;
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    }).sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
 
     const totalPages = Math.ceil(filtered.length / itemsPerPage);
     const paginatedItems = filtered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
