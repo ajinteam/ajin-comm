@@ -334,7 +334,6 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       const filtered = allItems.filter((i: any) => i.id !== itemToSave.id);
       const newList = [itemToSave, ...filtered];
       localStorage.setItem('ajin_shipping_reports', JSON.stringify(newList));
-      setItems(newList.filter(i => i.status === sub));
       
       // Save to Supabase (Requirement 6)
       await saveSingleDoc('na_invoice_image', itemToSave);
@@ -645,18 +644,10 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     );
   }
 
-  const filteredItems = useMemo(() => {
-    return items
-      .filter(i => 
-        i.model.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        i.authorId.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      });
-  }, [items, searchTerm]);
+  const filteredItems = items.filter(i => 
+    i.model.toLowerCase().includes(searchTerm.toLowerCase()) || 
+    i.authorId.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <div className="p-6 space-y-8 animate-in fade-in duration-500">
