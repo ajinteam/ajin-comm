@@ -268,6 +268,37 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     });
   };
 
+  const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = base64Str;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width *= maxHeight / height;
+            height = maxHeight;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); 
+      };
+      img.onerror = () => resolve(base64Str);
+    });
+  };
+
   const handleImagePaste = (rowId: string, e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
     for (let i = 0; i < items.length; i++) {
@@ -275,9 +306,10 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             const blob = items[i].getAsFile();
             if (blob) {
                 const reader = new FileReader();
-                reader.onload = (event) => {
+                reader.onload = async (event) => {
                     const base64 = event.target?.result as string;
-                    handleRowChange(rowId, 'image', base64);
+                    const compressed = await compressImage(base64);
+                    handleRowChange(rowId, 'image', compressed);
                 };
                 reader.readAsDataURL(blob);
             }
