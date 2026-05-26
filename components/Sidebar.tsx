@@ -33,8 +33,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (isMaster) return true;
     if (!user.allowedMenus) return false; // 권한 정보가 없으면 기본적으로 숨김
     
-    // 1. 직접적으로 메뉴명이 등록되어 있는 경우
-    if (user.allowedMenus.includes(menuName)) return true;
+    // 1. 직접적으로 메뉴명이 등록되어 있는 경우 (인보이스 -> INVOICE 호환 처리)
+    const normMenu = menuName.replace(/인보이스/g, 'INVOICE');
+    const hasDirectAccess = user.allowedMenus.some(m => m.replace(/인보이스/g, 'INVOICE') === normMenu);
+    if (hasDirectAccess) return true;
 
     const orderSubs = Object.values(OrderSubCategory) as string[];
     const invoiceSubs = Object.values(InvoiceSubCategory) as string[];
@@ -49,7 +51,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     if (invoiceSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.INVOICE)) return true;
     if (purchaseSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.PURCHASE)) return true;
     if (vietnamSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.VIETNAM)) return true;
-    if (nationalSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.NATIONAL_INVOICE)) return true;
+    if (nationalSubs.includes(menuName) && user.allowedMenus.some(m => m.replace(/인보이스/g, 'INVOICE') === MainCategory.NATIONAL_INVOICE.replace(/인보이스/g, 'INVOICE'))) return true;
     if (shippingSubs.includes(menuName) && user.allowedMenus.includes(MainCategory.SHIPPING_REPORT)) return true;
     
     // 3. 사출발주서(INJECTION) 관련 수정 (강제 true 삭제)
@@ -240,7 +242,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">국제인보이스</h2>
+                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">NATIONAL INVOICE</h2>
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}

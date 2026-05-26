@@ -327,7 +327,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
           plRunningAmt += parseFloat(parseNumber(r.plAmount || '0')) || 0;
           const currentPlProc = extractLastNumber(r.plProc || '0');
-          if (currentPlProc > 0) {
+          if (currentPlProc > plRunningProc) {
             plRunningProc = currentPlProc;
           }
           plRunningProcAmt += parseFloat(parseNumber(r.plProcAmount || '0')) || 0;
@@ -428,9 +428,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
       // Grand totals per column
       if (hasPlProc) {
-        plTotalCtQty = newRows.filter(r => r.type === 'ITEM').reduce((last, r) => {
+        plTotalCtQty = newRows.filter(r => r.type === 'ITEM').reduce((maxVal, r) => {
           const val = extractLastNumber(r.plProc || '0');
-          return val > 0 ? val : last;
+          return val > maxVal ? val : maxVal;
         }, 0).toString();
       } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
         plTotalCtQty = '';
