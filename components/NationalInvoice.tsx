@@ -13,6 +13,22 @@ import {
 } from '../types';
 import { saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 
+const normalizeSub = (s: string): string => {
+  if (s === '인보이스임시' || s === 'invoice_draft') return 'invoice_draft';
+  if (s === '인보이스완료' || s === 'invoice_complete') return 'invoice_complete';
+  if (s === '인보이스작성' || s === 'invoice_create') return 'invoice_create';
+  return s;
+};
+
+const NATIONAL_INVOICE_LABELS: Record<string, string> = {
+  'invoice_create': 'Create Invoice',
+  'invoice_draft': 'Draft Invoices',
+  'invoice_complete': 'Completed Invoices',
+  '인보이스작성': 'Create Invoice',
+  '인보이스임시': 'Draft Invoices',
+  '인보이스완료': 'Completed Invoices'
+};
+
 interface NationalInvoiceProps {
   sub: NationalInvoiceSubCategory;
   editId?: string;
@@ -691,7 +707,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
   const isEdited = (field: string, rowId?: string) => {
     const trackingData = formData.originalData || originalData;
-    if (formData.status !== NationalInvoiceSubCategory.COMPLETED || !trackingData) return false;
+    if (normalizeSub(formData.status || '') !== normalizeSub(NationalInvoiceSubCategory.COMPLETED) || !trackingData) return false;
     if (rowId) {
       const currentRow = (formData.rows || []).find(r => r.id === rowId);
       const originalRow = (trackingData.rows || []).find(r => r.id === rowId);
@@ -713,7 +729,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const handleSave = async (status: NationalInvoiceSubCategory) => {
     const isUpdate = !!formData.id;
     const isCompleting = status === NationalInvoiceSubCategory.COMPLETED;
-    const wasAlreadyCompleted = formData.status === NationalInvoiceSubCategory.COMPLETED;
+    const wasAlreadyCompleted = normalizeSub(formData.status || '') === normalizeSub(NationalInvoiceSubCategory.COMPLETED);
     
     const newItem: NationalInvoiceItem = {
       ...(formData as NationalInvoiceItem),
@@ -1721,7 +1737,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
   const renderListView = () => {
     const filtered = items.filter(item => {
-      if (item.status !== sub) return false;
+      if (normalizeSub(item.status || '') !== normalizeSub(sub)) return false;
       if (!searchTerm) return true;
       
       const term = searchTerm.toLowerCase();
@@ -1743,7 +1759,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       <div className="space-y-6 text-left pb-12">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
           <div>
-            <h2 className="text-3xl font-black text-slate-900">{sub}</h2>
+            <h2 className="text-3xl font-black text-slate-900">{NATIONAL_INVOICE_LABELS[sub] || sub}</h2>
             <div className="flex items-center gap-4 mt-2">
               <p className="text-slate-500 text-sm">총 {filtered.length}건</p>
               <div className="h-4 w-[1px] bg-slate-300"></div>
@@ -1964,7 +1980,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       <div className="flex justify-between items-center no-print">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => setView({ type: 'NATIONAL_INVOICE', sub: formData.status || NationalInvoiceSubCategory.TEMPORARY })}
+            onClick={() => setView({ type: 'NATIONAL_INVOICE', sub: normalizeSub(formData.status || NationalInvoiceSubCategory.TEMPORARY) as NationalInvoiceSubCategory })}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
           >
             
@@ -2012,7 +2028,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             엑셀 내보내기
           </button>
           <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
-          {formData.status !== NationalInvoiceSubCategory.COMPLETED && (
+          {normalizeSub(formData.status || '') !== normalizeSub(NationalInvoiceSubCategory.COMPLETED) && (
             <button onClick={() => handleSave(NationalInvoiceSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-amber-500/20">임시저장</button>
           )}
           <button onClick={() => handleSave(NationalInvoiceSubCategory.COMPLETED)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">작성완료</button>

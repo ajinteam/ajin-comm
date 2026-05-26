@@ -21,6 +21,31 @@ interface SidebarProps {
   onClose: () => void;
 }
 
+const BACKWARD_COMPAT_MENU_MAP: Record<string, string[]> = {
+  'invoice_create': ['invoice_create', '인보이스작성'],
+  'invoice_draft': ['invoice_draft', '인보이스임시'],
+  'invoice_complete': ['invoice_complete', '인보이스완료'],
+  '인보이스작성': ['invoice_create', '인보이스작성'],
+  '인보이스임시': ['invoice_draft', '인보이스임시'],
+  '인보이스완료': ['invoice_complete', '인보이스완료']
+};
+
+const GLOBAL_SUB_LABELS: Record<string, string> = {
+  'invoice_create': 'Create Invoice',
+  'invoice_draft': 'Draft Invoices',
+  'invoice_complete': 'Completed Invoices',
+  '인보이스작성': 'Create Invoice',
+  '인보이스임시': 'Draft Invoices',
+  '인보이스완료': 'Completed Invoices'
+};
+
+const normalizeSub = (s: string): string => {
+  if (s === '인보이스임시' || s === 'invoice_draft') return 'invoice_draft';
+  if (s === '인보이스완료' || s === 'invoice_complete') return 'invoice_complete';
+  if (s === '인보이스작성' || s === 'invoice_create') return 'invoice_create';
+  return s;
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, onClose }) => {
   const isMaster = user.loginId === 'AJ5200';
   const [isPOWritingExpanded, setIsPOWritingExpanded] = useState(false);
@@ -35,6 +60,10 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
     
     // 1. 직접적으로 메뉴명이 등록되어 있는 경우
     if (user.allowedMenus.includes(menuName)) return true;
+
+    // 1-1. 구버전 / 신버전 권한 호환 처리
+    const aliasList = BACKWARD_COMPAT_MENU_MAP[menuName];
+    if (aliasList && aliasList.some(alias => user.allowedMenus?.includes(alias))) return true;
 
     const orderSubs = Object.values(OrderSubCategory) as string[];
     const invoiceSubs = Object.values(InvoiceSubCategory) as string[];
@@ -65,7 +94,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
   const renderSubMenu = (sub: string, type: 'ORDER' | 'INVOICE' | 'PURCHASE' | 'VIETNAM' | 'NATIONAL_INVOICE' | 'SHIPPING_REPORT' | 'INJECTION_ORDER_MAIN', isNested: boolean = false) => {
     if (!isVisible(sub)) return null;
 
-    const isActive = (currentView.type === type && (currentView as any).sub === sub);
+    const isActive = (currentView.type === type && normalizeSub((currentView as any).sub || '') === normalizeSub(sub));
     
     let activeBg = 'bg-blue-600';
     if (type === 'INVOICE') activeBg = 'bg-emerald-600';
@@ -106,7 +135,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
       >
         <div className="flex items-center">
           {isNested && <span className="mr-2 opacity-30">└</span>}
-          {sub}
+          {GLOBAL_SUB_LABELS[sub] || sub}
         </div>
         {isExpandable && (
           <svg 
@@ -240,7 +269,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">국제인보이스</h2>
+                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">INTERNATIONAL INVOICE</h2>
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}
