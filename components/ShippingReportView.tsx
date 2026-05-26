@@ -11,6 +11,13 @@ const normalizeSub = (s: string): string => {
   return s;
 };
 
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'sr-row-' + Date.now() + '-' + Math.random().toString(36).substring(2, 11);
+};
+
 const GLOBAL_SUB_LABELS: Record<string, string> = {
   'shipment_create': 'Create Shipment',
   'shipment_draft': 'Draft Shipments',
@@ -49,10 +56,14 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   const [focusedCell, setFocusedCell] = useState<{rowId: string, field: string} | null>(null);
 
   useEffect(() => {
-    const saved = localStorage.getItem('ajin_shipping_reports');
-    if (saved) {
-      const allItems: ShippingReportItem[] = JSON.parse(saved);
-      setItems(allItems.filter(i => normalizeSub(i.status || '') === normalizeSub(sub)));
+    try {
+      const saved = localStorage.getItem('ajin_shipping_reports');
+      if (saved) {
+        const allItems: ShippingReportItem[] = JSON.parse(saved) || [];
+        setItems(allItems.filter(i => normalizeSub(i.status || '') === normalizeSub(sub)));
+      }
+    } catch (e) {
+      console.error('Error loading shipping reports', e);
     }
   }, [sub, dataVersion]);
 
@@ -65,7 +76,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       dataDate: new Date().toLocaleDateString('en-GB'),
       model: '',
       rows: Array.from({ length: 10 }, (_, i) => ({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         no: String(i + 1),
         hsCode: '',
         itemNo: '',
@@ -85,7 +96,11 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   };
 
   const handleEdit = (item: ShippingReportItem) => {
-    setFormData(JSON.parse(JSON.stringify(item)));
+    const sanitizedItem = JSON.parse(JSON.stringify(item));
+    if (!sanitizedItem.rows) {
+      sanitizedItem.rows = [];
+    }
+    setFormData(sanitizedItem);
     setActiveItem(item);
     setHistory([]);
   };
@@ -126,7 +141,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             const val = finalValue.trim();
             // Search in Shipping Reports (COMPLETED)
             const shippingReports = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
-            const completedReports = shippingReports.filter((r: any) => r.status === ShippingReportSubCategory.COMPLETED);
+            const completedReports = shippingReports.filter((r: any) => normalizeSub(r.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED));
             
             let found = false;
             for (const doc of completedReports) {
@@ -185,7 +200,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     setFormData(prev => {
         const newRows = [...prev.rows];
         const shippingReports = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
-        const completedReports = shippingReports.filter((r: any) => r.status === ShippingReportSubCategory.COMPLETED);
+        const completedReports = shippingReports.filter((r: any) => normalizeSub(r.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED));
         const masterData = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
 
         data.forEach((rowData, rOffset) => {
@@ -193,7 +208,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             
             if (!newRows[targetRowIdx]) {
                 newRows.push({
-                    id: crypto.randomUUID(),
+                    id: generateUUID(),
                     no: String(newRows.length + 1),
                     hsCode: '',
                     itemNo: '',
@@ -258,7 +273,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     setFormData(prev => {
         const newRows = [...prev.rows];
         newRows.splice(idx + 1, 0, {
-            id: crypto.randomUUID(),
+            id: generateUUID(),
             no: '',
             hsCode: '',
             itemNo: '',
@@ -533,6 +548,19 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
 
   const isCompleted = normalizeSub(formData.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED);
 
+  const filteredItems = useMemo(() => {
+    return items
+      .filter(i => 
+        i.model.toLowerCase().includes(searchTerm.toLowerCase()) || 
+        i.authorId.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateB - dateA;
+      });
+  }, [items, searchTerm]);
+
   if (activeItem) {
     return (
       <div className="bg-white min-h-screen p-4 md:p-8 space-y-6">
@@ -660,19 +688,6 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       </div>
     );
   }
-
-  const filteredItems = useMemo(() => {
-    return items
-      .filter(i => 
-        i.model.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        i.authorId.toLowerCase().includes(searchTerm.toLowerCase())
-      )
-      .sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateB - dateA;
-      });
-  }, [items, searchTerm]);
 
   return (
     <div className="p-6 space-y-8 animate-in fade-in duration-500">
