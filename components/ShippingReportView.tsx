@@ -4,6 +4,22 @@ import { FileText, Search, X, Loader2, Save, Printer, ArrowLeft, Plus, Trash2, I
 import { ShippingReportSubCategory, ShippingReportItem, ShippingReportRow, ViewState, UserAccount } from '../types';
 import { saveSingleDoc, pushStateToCloud, deleteSingleDoc } from '../supabase';
 
+const normalizeSub = (s: string): string => {
+  if (s === '출하보고서작성' || s === 'shipment_create') return 'shipment_create';
+  if (s === '출하보고서 임시' || s === 'shipment_draft') return 'shipment_draft';
+  if (s === '출하보고서 완료' || s === 'shipment_complete') return 'shipment_complete';
+  return s;
+};
+
+const GLOBAL_SUB_LABELS: Record<string, string> = {
+  'shipment_create': 'Create Shipment',
+  'shipment_draft': 'Draft Shipments',
+  'shipment_complete': 'Completed Shipments',
+  '출하보고서작성': 'Create Shipment',
+  '출하보고서 임시': 'Draft Shipments',
+  '출하보고서 완료': 'Completed Shipments'
+};
+
 interface ShippingReportViewProps {
   sub: ShippingReportSubCategory;
   currentUser: UserAccount;
@@ -36,7 +52,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     const saved = localStorage.getItem('ajin_shipping_reports');
     if (saved) {
       const allItems: ShippingReportItem[] = JSON.parse(saved);
-      setItems(allItems.filter(i => i.status === sub));
+      setItems(allItems.filter(i => normalizeSub(i.status || '') === normalizeSub(sub)));
     }
   }, [sub, dataVersion]);
 
@@ -334,7 +350,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       const filtered = allItems.filter((i: any) => i.id !== itemToSave.id);
       const newList = [itemToSave, ...filtered];
       localStorage.setItem('ajin_shipping_reports', JSON.stringify(newList));
-      setItems(newList.filter(i => i.status === sub));
+      setItems(newList.filter(i => normalizeSub(i.status || '') === normalizeSub(sub)));
       
       // Save to Supabase (Requirement 6)
       await saveSingleDoc('na_invoice_image', itemToSave);
@@ -354,7 +370,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       const allItems = JSON.parse(localStorage.getItem('ajin_shipping_reports') || '[]');
       const itemToDelete = allItems.find((i: any) => i.id === id);
       
-      if (itemToDelete && itemToDelete.status === ShippingReportSubCategory.COMPLETED) {
+      if (itemToDelete && normalizeSub(itemToDelete.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED)) {
         if (currentUser.initials.toUpperCase() !== 'MASTER') {
           alert('완료된 문서는 마스터만 삭제할 수 있습니다.');
           return;
@@ -366,7 +382,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       const updated = allItems.filter((i: any) => i.id !== id);
       localStorage.setItem('ajin_shipping_reports', JSON.stringify(updated));
       await deleteSingleDoc('na_invoice_image', id);
-      setItems(updated.filter(i => i.status === sub));
+      setItems(updated.filter(i => normalizeSub(i.status || '') === normalizeSub(sub)));
       pushStateToCloud();
     } catch (e) {
       console.error(e);
@@ -515,7 +531,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     win.document.close();
   };
 
-  const isCompleted = formData.status === ShippingReportSubCategory.COMPLETED;
+  const isCompleted = normalizeSub(formData.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED);
 
   if (activeItem) {
     return (
@@ -663,12 +679,12 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div className="space-y-1">
           <h1 className="text-3xl font-black text-slate-800 tracking-tight">
-            {sub === ShippingReportSubCategory.CREATE ? '출하보고서 작성' : sub}
+            {normalizeSub(sub) === normalizeSub(ShippingReportSubCategory.CREATE) ? 'Create Shipment' : (GLOBAL_SUB_LABELS[sub] || sub)}
           </h1>
           <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Shipping Report Management</p>
         </div>
         
-        {sub === ShippingReportSubCategory.CREATE && (
+        {normalizeSub(sub) === normalizeSub(ShippingReportSubCategory.CREATE) && (
           <button 
             onClick={handleCreateNew}
             className="px-8 py-3 bg-slate-900 text-white rounded-2xl font-black text-sm hover:bg-blue-600 transition-all flex items-center gap-2 shadow-lg shadow-slate-900/10"

@@ -292,9 +292,9 @@ export enum NationalInvoiceSubCategory {
 }
 
 export enum ShippingReportSubCategory {
-  CREATE = '출하보고서작성',
-  TEMPORARY = '출하보고서 임시',
-  COMPLETED = '출하보고서 완료'
+  CREATE = 'shipment_create',
+  TEMPORARY = 'shipment_draft',
+  COMPLETED = 'shipment_complete'
 }
 
 export enum InjectionOrderSubCategory {

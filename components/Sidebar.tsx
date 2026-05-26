@@ -27,7 +27,13 @@ const BACKWARD_COMPAT_MENU_MAP: Record<string, string[]> = {
   'invoice_complete': ['invoice_complete', '인보이스완료'],
   '인보이스작성': ['invoice_create', '인보이스작성'],
   '인보이스임시': ['invoice_draft', '인보이스임시'],
-  '인보이스완료': ['invoice_complete', '인보이스완료']
+  '인보이스완료': ['invoice_complete', '인보이스완료'],
+  'shipment_create': ['shipment_create', '출하보고서작성'],
+  'shipment_draft': ['shipment_draft', '출하보고서 임시'],
+  'shipment_complete': ['shipment_complete', '출하보고서 완료'],
+  '출하보고서작성': ['shipment_create', '출하보고서작성'],
+  '출하보고서 임시': ['shipment_draft', '출하보고서 임시'],
+  '출하보고서 완료': ['shipment_complete', '출하보고서 완료']
 };
 
 const GLOBAL_SUB_LABELS: Record<string, string> = {
@@ -36,13 +42,22 @@ const GLOBAL_SUB_LABELS: Record<string, string> = {
   'invoice_complete': 'Completed Invoices',
   '인보이스작성': 'Create Invoice',
   '인보이스임시': 'Draft Invoices',
-  '인보이스완료': 'Completed Invoices'
+  '인보이스완료': 'Completed Invoices',
+  'shipment_create': 'Create Shipment',
+  'shipment_draft': 'Draft Shipments',
+  'shipment_complete': 'Completed Shipments',
+  '출하보고서작성': 'Create Shipment',
+  '출하보고서 임시': 'Draft Shipments',
+  '출하보고서 완료': 'Completed Shipments'
 };
 
 const normalizeSub = (s: string): string => {
   if (s === '인보이스임시' || s === 'invoice_draft') return 'invoice_draft';
   if (s === '인보이스완료' || s === 'invoice_complete') return 'invoice_complete';
   if (s === '인보이스작성' || s === 'invoice_create') return 'invoice_create';
+  if (s === '출하보고서작성' || s === 'shipment_create') return 'shipment_create';
+  if (s === '출하보고서 임시' || s === 'shipment_draft') return 'shipment_draft';
+  if (s === '출하보고서 완료' || s === 'shipment_complete') return 'shipment_complete';
   return s;
 };
 
@@ -285,7 +300,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">출하보고서</h2>
+                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">SHIPMENT REPORT</h2>
               </div>
               <div className="space-y-0.5 ml-2 border-l border-slate-800">
                 {renderSubMenu(ShippingReportSubCategory.CREATE, 'SHIPPING_REPORT')}
