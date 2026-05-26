@@ -286,9 +286,9 @@ export interface InvoiceItem {
 }
 
 export enum NationalInvoiceSubCategory {
-  CREATE = 'INVOICE작성',
-  TEMPORARY = 'INVOICE임시',
-  COMPLETED = 'INVOICE완료'
+  CREATE = '인보이스작성',
+  TEMPORARY = '인보이스임시',
+  COMPLETED = '인보이스완료'
 }
 
 export enum ShippingReportSubCategory {
