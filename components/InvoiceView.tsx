@@ -154,6 +154,17 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   const [formRows, setFormRows] = useState<InvoiceRow[]>(createInitialRows(10));
 
   useEffect(() => {
+    if (activeInvoice) {
+      localStorage.setItem('ajin_editing_invoice_id', activeInvoice.id);
+    } else {
+      localStorage.removeItem('ajin_editing_invoice_id');
+    }
+    return () => {
+      localStorage.removeItem('ajin_editing_invoice_id');
+    };
+  }, [activeInvoice]);
+
+  useEffect(() => {
     const saved = localStorage.getItem('ajin_invoices');
     if (saved) {
       const parsedInvoices = JSON.parse(saved);

@@ -202,9 +202,33 @@ export const pullStateFromCloud = async () => {
       remarks: item.remark
     }));
 
+    const cloudInvoices = getCloudData(invoices);
+    const editingInvoiceId = typeof window !== 'undefined' ? localStorage.getItem('ajin_editing_invoice_id') : null;
+    let finalInvoices = cloudInvoices;
+    if (editingInvoiceId) {
+      const localInvoicesRaw = typeof window !== 'undefined' ? localStorage.getItem('ajin_invoices') : null;
+      if (localInvoicesRaw) {
+        try {
+          const localInvoices = JSON.parse(localInvoicesRaw);
+          const localEditingInvoice = localInvoices.find((inv: any) => String(inv.id) === String(editingInvoiceId));
+          if (localEditingInvoice) {
+            console.log(`[Cloud Sync] Preserving active editing invoice ${editingInvoiceId}`);
+            finalInvoices = cloudInvoices.map((inv: any) => 
+              String(inv.id) === String(editingInvoiceId) ? localEditingInvoice : inv
+            );
+            if (!finalInvoices.some((inv: any) => String(inv.id) === String(editingInvoiceId))) {
+              finalInvoices.unshift(localEditingInvoice);
+            }
+          }
+        } catch (e) {
+          console.error('[Cloud Sync] Failed to merge active editing invoice', e);
+        }
+      }
+    }
+
     const finalData = {
       orders: getCloudData(orders),
-      invoices: getCloudData(invoices),
+      invoices: finalInvoices,
       purchase_orders: getCloudData(pOrders),
       vietnam_orders: getCloudData(vnOrders),
       national_invoices: getCloudData(nationalInvoices),
@@ -266,9 +290,14 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
               const status = (newRecord as any).status;
               if (doc) {
                 const updatedDoc = { ...doc, status: status || doc.status };
-                const index = list.findIndex((item: any) => item.id === doc.id);
-                if (index > -1) list[index] = updatedDoc;
-                else list.unshift(updatedDoc);
+                const editingInvoiceId = localStorage.getItem('ajin_editing_invoice_id');
+                if (storageKey === 'ajin_invoices' && editingInvoiceId && String(doc.id) === String(editingInvoiceId)) {
+                  console.log(`[Realtime Sync] Skipping overwrite for active editing invoice ${doc.id}`);
+                } else {
+                  const index = list.findIndex((item: any) => item.id === doc.id);
+                  if (index > -1) list[index] = updatedDoc;
+                  else list.unshift(updatedDoc);
+                }
               }
             } else if (eventType === 'DELETE') {
               const id = (oldRecord as any).id;
