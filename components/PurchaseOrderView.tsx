@@ -449,6 +449,17 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
   // 주문서(OrderView) 로직과 동일하게 Row 필드 변경 감지
   const updatePo2RowField = useCallback((rowId: string, field: keyof OrderRow, value: string) => {
+    const formatNumberWithCommas = (valStr: string) => {
+      const clean = valStr.replace(/,/g, '');
+      if (!clean) return '';
+      if (isNaN(Number(clean))) return valStr;
+      const parts = clean.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return parts.join('.');
+    };
+
+    const finalValue = (field === 'price' || field === 'orderQty') ? formatNumberWithCommas(value) : value;
+
     setPo2Rows(prev => prev.map(row => {
       if (row.id === rowId) {
         let updatedFields = row.changedFields ? [...row.changedFields] : [];
@@ -456,7 +467,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         if (originalRejectedItem && originalRejectedItem.status === PurchaseOrderSubCategory.REJECTED) {
           const oriRow = originalRejectedItem.rows.find(r => r.id === rowId);
           const oriValue = oriRow ? (oriRow[field] || '') : '';
-          if (String(value).trim() !== String(oriValue).trim()) {
+          if (String(finalValue).trim() !== String(oriValue).trim()) {
             if (!updatedFields.includes(field)) updatedFields.push(field);
           } else {
             updatedFields = updatedFields.filter(f => f !== field);
@@ -465,7 +476,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           // 신규 작성이나 임시 저장 문서 수정 시에는 강조 이력을 남기지 않음
           updatedFields = [];
         }
-        return { ...row, [field]: value, changedFields: updatedFields };
+        return { ...row, [field]: finalValue, changedFields: updatedFields };
       }
       return row;
     }));
@@ -663,12 +674,18 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       const prevRowIdx = rowIdx - 1;
       if (prevRowIdx >= 0) (document.querySelector(`[data-row="${prevRowIdx}"][data-col="${colIdx}"]`) as HTMLTextAreaElement)?.focus();
     } else if (e.key === 'ArrowRight') {
+      const target = e.target as HTMLTextAreaElement | HTMLInputElement;
+      const isAtEnd = target && typeof target.selectionStart === 'number' && target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
+      if (!isAtEnd) return;
       e.preventDefault();
       if (currentIndex < validCols.length - 1) {
         const nextCol = validCols[currentIndex + 1];
         (document.querySelector(`[data-row="${rowIdx}"][data-col="${nextCol}"]`) as HTMLTextAreaElement)?.focus();
       }
     } else if (e.key === 'ArrowLeft') {
+      const target = e.target as HTMLTextAreaElement | HTMLInputElement;
+      const isAtStart = target && typeof target.selectionStart === 'number' && target.selectionStart === 0 && target.selectionEnd === 0;
+      if (!isAtStart) return;
       e.preventDefault();
       if (currentIndex > 0) {
         const prevCol = validCols[currentIndex - 1];
@@ -2211,7 +2228,21 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       })
     : items.filter(item => (item.status as any) === sub && !item.stamps.final);
   const sorted = [...filtered].sort((a, b) => { const timeA = new Date(a.createdAt).getTime(); const timeB = new Date(b.createdAt).getTime(); return sortOrder === 'DESC' ? timeB - timeA : timeA - timeB; });
-  const searchFiltered = sorted.filter(item => (item.title || '').toLowerCase().includes(searchTerm.toLowerCase()) || (item.recipient && item.recipient.toLowerCase().includes(searchTerm.toLowerCase())));
+  const searchFiltered = sorted.filter(item => {
+    const term = searchTerm.toLowerCase().trim();
+    if (!term) return true;
+    const matchesTitle = (item.title || '').toLowerCase().includes(term);
+    const matchesRecipient = (item.recipient || '').toLowerCase().includes(term);
+    if (matchesTitle || matchesRecipient) return true;
+    if (item.rows && Array.isArray(item.rows)) {
+      return item.rows.some((row: any) => {
+        const matchesDwgNo = (row.dept || '').toLowerCase().includes(term) || (row.model || '').toLowerCase().includes(term);
+        const matchesItemName = (row.itemName || '').toLowerCase().includes(term);
+        return matchesDwgNo || matchesItemName;
+      });
+    }
+    return false;
+  });
   const totalPages = Math.ceil(searchFiltered.length / itemsPerPage);
   const paginated = searchFiltered.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
   const renderApprovalSteps = (item: PurchaseOrderItem) => {
@@ -2231,7 +2262,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     <div className="space-y-6 text-left pb-12 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="flex items-center gap-4">{isArchiveView && selectedArchiveVendor && (<button onClick={() => setSelectedArchiveVendor(null)} className="p-2 bg-white border border-slate-200 rounded-xl shadow-sm hover:bg-slate-50 text-slate-600 transition-all"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button>)}<div><h2 className="text-2xl md:text-3xl font-black text-black">{isArchiveView ? (selectedArchiveVendor ? `${selectedArchiveVendor} 보관함` : sub) : sub}</h2><div className="flex items-center gap-4 mt-1"><p className="text-slate-500 text-sm">총 {searchFiltered.length}건의 항목</p><div className="h-4 w-[1px] bg-slate-200" /><div className="flex bg-slate-100 p-1 rounded-lg no-print"><button onClick={() => setViewMode('ICON')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>아이콘</button><button onClick={() => setViewMode('LIST')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${viewMode === 'LIST' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>리스트</button></div><div className="flex bg-slate-100 p-1 rounded-lg no-print"><button onClick={() => setSortOrder('DESC')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${sortOrder === 'DESC' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>최신순</button><button onClick={() => setSortOrder('ASC')} className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${sortOrder === 'ASC' ? 'bg-white text-black shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>과거순</button></div></div></div></div>
-        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto"><div className="relative flex-1 sm:w-64"><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={`${isPO2 ? '제목' : '기종'} 또는 수신처 검색...`} className="w-full px-5 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-amber-500 outline-none text-sm font-medium bg-white shadow-sm"/></div></div>
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto"><div className="relative flex-1 sm:w-64"><input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder={isArchiveView ? "기종/수신처/도번/품명 검색..." : `${isPO2 ? '제목' : '기종'} 또는 수신처 검색...`} className="w-full px-5 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-amber-500 outline-none text-sm font-medium bg-white shadow-sm"/></div></div>
       </div>
       {viewMode === 'ICON' ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
