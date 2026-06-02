@@ -12,6 +12,15 @@ interface Recipient {
   remarks: string;
 }
 
+const formatNumberWithCommas = (valStr: string) => {
+  const clean = valStr.replace(/,/g, '');
+  if (!clean) return '';
+  if (isNaN(Number(clean))) return valStr;
+  const parts = clean.split('.');
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
 interface InjectionTakeProps {
   currentUser: UserAccount;
   setView: (v: ViewState) => void;
@@ -117,7 +126,11 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
   const updateCellValue = (rowIndex: number, field: string, value: any) => {
     const newRows = [...loadedRows];
-    newRows[rowIndex] = { ...newRows[rowIndex], [field]: value };
+    let finalValue = value;
+    if (['qty', 'orderQty', 'unitPrice', 'price', 'extraAmount'].includes(field)) {
+      finalValue = formatNumberWithCommas(String(value));
+    }
+    newRows[rowIndex] = { ...newRows[rowIndex], [field]: finalValue };
     setLoadedRows(newRows);
     pushToHistory(newRows);
   };
@@ -261,18 +274,44 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         sourceHeaderRows = info.map((row: any[]) => row.join(' '));
       }
 
-      doc.rows.forEach((row, rIdx) => {
+      // Find all unique depts (molds) that contain a matching vendor
+      const matchingDepts = new Set<string>();
+      doc.rows.forEach(row => {
         const rowVendor = (row.injectionVendor || row.vendor || '').toLowerCase();
         if (rowVendor.includes(vendorNormalized)) {
+          const deptVal = (row.dept || '').trim();
+          if (deptVal) {
+            matchingDepts.add(deptVal.toLowerCase());
+          }
+        }
+      });
+
+      doc.rows.forEach((row, rIdx) => {
+        const rowVendor = (row.injectionVendor || row.vendor || '').toLowerCase();
+        const rowDept = (row.dept || '').trim().toLowerCase();
+        const matchesVendor = rowVendor.includes(vendorNormalized);
+        const matchesMold = rowDept && matchingDepts.has(rowDept);
+
+        if (matchesVendor || matchesMold) {
           const newRowId = `load-${Date.now()}-${Math.random()}`;
           const currentRowIdx = finalRows.length;
           
+          const qtyVal = row.qty ? formatNumberWithCommas(String(row.qty)) : '';
+          const orderQtyVal = row.orderQty ? formatNumberWithCommas(String(row.orderQty)) : '';
+          const unitPriceVal = row.unitPrice ? formatNumberWithCommas(String(row.unitPrice)) : '';
+          const priceVal = row.price ? formatNumberWithCommas(String(row.price)) : '';
+          const extraAmountVal = row.extraAmount ? formatNumberWithCommas(String(row.extraAmount)) : '';
+
           // Ensure all fields are explicitly mapped to avoid missing data
           finalRows.push({ 
             ...row, 
             id: newRowId,
+            qty: qtyVal,
+            orderQty: orderQtyVal,
+            unitPrice: unitPriceVal,
+            price: priceVal,
             extra: row.extra || '',
-            extraAmount: row.extraAmount || '',
+            extraAmount: extraAmountVal,
             remarks: row.remarks || '',
             remarksRSP: row.remarksRSP || ''
           });
