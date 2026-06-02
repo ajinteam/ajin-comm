@@ -274,66 +274,87 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
         sourceHeaderRows = info.map((row: any[]) => row.join(' '));
       }
 
-      // Find all unique depts (molds) that contain a matching vendor
-      const matchingDepts = new Set<string>();
-      doc.rows.forEach(row => {
-        const rowVendor = (row.injectionVendor || row.vendor || '').toLowerCase();
-        if (rowVendor.includes(vendorNormalized)) {
-          const deptVal = (row.dept || '').trim();
-          if (deptVal) {
-            matchingDepts.add(deptVal.toLowerCase());
-          }
-        }
-      });
+      // Group rows into sequential blocks based on MOLD (stored in row.model)
+      interface RowWrapper {
+        row: any;
+        originalIndex: number;
+      }
+      
+      const blocks: { model: string; rows: RowWrapper[] }[] = [];
+      let currentBlockRows: RowWrapper[] = [];
+      let currentModel = '';
 
       doc.rows.forEach((row, rIdx) => {
-        const rowVendor = (row.injectionVendor || row.vendor || '').toLowerCase();
-        const rowDept = (row.dept || '').trim().toLowerCase();
-        const matchesVendor = rowVendor.includes(vendorNormalized);
-        const matchesMold = rowDept && matchingDepts.has(rowDept);
+        const rowModel = (row.model || '').trim();
+        if (rowModel !== '') {
+          if (currentBlockRows.length > 0) {
+            blocks.push({ model: currentModel, rows: currentBlockRows });
+          }
+          currentModel = rowModel;
+          currentBlockRows = [{ row, originalIndex: rIdx }];
+        } else {
+          currentBlockRows.push({ row, originalIndex: rIdx });
+        }
+      });
+      if (currentBlockRows.length > 0) {
+        blocks.push({ model: currentModel, rows: currentBlockRows });
+      }
 
-        if (matchesVendor || matchesMold) {
-          const newRowId = `load-${Date.now()}-${Math.random()}`;
-          const currentRowIdx = finalRows.length;
-          
-          const qtyVal = row.qty ? formatNumberWithCommas(String(row.qty)) : '';
-          const orderQtyVal = row.orderQty ? formatNumberWithCommas(String(row.orderQty)) : '';
-          const unitPriceVal = row.unitPrice ? formatNumberWithCommas(String(row.unitPrice)) : '';
-          const priceVal = row.price ? formatNumberWithCommas(String(row.price)) : '';
-          const extraAmountVal = row.extraAmount ? formatNumberWithCommas(String(row.extraAmount)) : '';
+      // Check which blocks contain a row with the matching vendor
+      blocks.forEach(block => {
+        const hasMatchingVendor = block.rows.some(wrapper => {
+          const rowVendor = (wrapper.row.injectionVendor || wrapper.row.vendor || '').toLowerCase();
+          return rowVendor.includes(vendorNormalized);
+        });
 
-          // Ensure all fields are explicitly mapped to avoid missing data
-          finalRows.push({ 
-            ...row, 
-            id: newRowId,
-            qty: qtyVal,
-            orderQty: orderQtyVal,
-            unitPrice: unitPriceVal,
-            price: priceVal,
-            extra: row.extra || '',
-            extraAmount: extraAmountVal,
-            remarks: row.remarks || '',
-            remarksRSP: row.remarksRSP || ''
+        // If the block belongs to a matching vendor, load ALL rows in this block!
+        if (hasMatchingVendor) {
+          block.rows.forEach(wrapper => {
+            const row = wrapper.row;
+            const rIdx = wrapper.originalIndex;
+            
+            const newRowId = `load-${Date.now()}-${Math.random()}`;
+            const currentRowIdx = finalRows.length;
+            
+            const qtyVal = row.qty ? formatNumberWithCommas(String(row.qty)) : '';
+            const orderQtyVal = row.orderQty ? formatNumberWithCommas(String(row.orderQty)) : '';
+            const unitPriceVal = row.unitPrice ? formatNumberWithCommas(String(row.unitPrice)) : '';
+            const priceVal = row.price ? formatNumberWithCommas(String(row.price)) : '';
+            const extraAmountVal = row.extraAmount ? formatNumberWithCommas(String(row.extraAmount)) : '';
+
+            // Ensure all fields are explicitly mapped to avoid missing data
+            finalRows.push({ 
+              ...row, 
+              id: newRowId,
+              qty: qtyVal,
+              orderQty: orderQtyVal,
+              unitPrice: unitPriceVal,
+              price: priceVal,
+              extra: row.extra || '',
+              extraAmount: extraAmountVal,
+              remarks: row.remarks || '',
+              remarksRSP: row.remarksRSP || ''
+            });
+
+            if (doc.merges) {
+              Object.entries(doc.merges).forEach(([key, m]) => {
+                const [mr, mc] = key.split('-').map(Number);
+                if (mr === rIdx) foundMerges[`${currentRowIdx}-${mc}`] = m;
+              });
+            }
+            if (doc.aligns) {
+              Object.entries(doc.aligns).forEach(([key, a]) => {
+                const [ar, ac] = key.split('-').map(Number);
+                if (ar === rIdx) foundAligns[`${currentRowIdx}-${ac}`] = a;
+              });
+            }
+            if (doc.weights) {
+              Object.entries(doc.weights).forEach(([key, w]) => {
+                const [wr, wc] = key.split('-').map(Number);
+                if (wr === rIdx) foundWeights[`${currentRowIdx}-${wc}`] = w;
+              });
+            }
           });
-
-          if (doc.merges) {
-            Object.entries(doc.merges).forEach(([key, m]) => {
-              const [mr, mc] = key.split('-').map(Number);
-              if (mr === rIdx) foundMerges[`${currentRowIdx}-${mc}`] = m;
-            });
-          }
-          if (doc.aligns) {
-            Object.entries(doc.aligns).forEach(([key, a]) => {
-              const [ar, ac] = key.split('-').map(Number);
-              if (ar === rIdx) foundAligns[`${currentRowIdx}-${ac}`] = a;
-            });
-          }
-          if (doc.weights) {
-            Object.entries(doc.weights).forEach(([key, w]) => {
-              const [wr, wc] = key.split('-').map(Number);
-              if (wr === rIdx) foundWeights[`${currentRowIdx}-${wc}`] = w;
-            });
-          }
         }
       });
     });
