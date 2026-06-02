@@ -559,6 +559,8 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             table { border-collapse: collapse; width: 100%; }
             th, td { border: 1px solid black; padding: 4px; font-size: 10px; }
             .no-border { border: none !important; }
+            .mold-continuation td { border-top: none !important; }
+            tr:not(.mold-end) td { border-bottom: none !important; }
           </style>
         </head>
         <body onload="window.print(); window.close();">
@@ -649,24 +651,28 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     </tr>
                   </thead>
                   <tbody>
-                    ${loadedRows.map(row => `
-                      <tr>
-                        <td>${row.model || ''}</td>
-                        <td>${row.dept || ''}</td>
-                        <td class="text-center">${row.s || ''}</td>
-                        <td>${row.itemName || ''}</td>
-                        <td class="text-center">${row.cty || ''}</td>
-                        <td class="text-center">${row.qty || ''}</td>
-                        <td>${row.material || ''}</td>
-                        <td class="text-center">${row.injectionVendor || ''}</td>
-                        <td class="text-center">${row.orderQty || ''}</td>
-                        <td class="text-right">${row.unitPrice || ''}</td>
-                        <td class="text-right">${row.price || ''}</td>
-                        <td class="text-center">${row.extra || ''}</td>
-                        <td class="text-right">${row.extraAmount || ''}</td>
-                        <td class="italic">${row.remarksRSP || ''}</td>
-                      </tr>
-                    `).join('')}
+                    ${loadedRows.map((row, idx) => {
+                      const isCont = idx > 0 && (!row.model || row.model.trim() === '');
+                      const isEnd = idx === loadedRows.length - 1 || !!(loadedRows[idx + 1]?.model && loadedRows[idx + 1].model.trim() !== '');
+                      return `
+                        <tr class="${isCont ? 'mold-continuation' : ''} ${isEnd ? 'mold-end' : ''}">
+                          <td>${row.model || ''}</td>
+                          <td>${row.dept || ''}</td>
+                          <td class="text-center">${row.s || ''}</td>
+                          <td>${row.itemName || ''}</td>
+                          <td class="text-center">${row.cty || ''}</td>
+                          <td class="text-center">${row.qty || ''}</td>
+                          <td>${row.material || ''}</td>
+                          <td class="text-center">${row.injectionVendor || ''}</td>
+                          <td class="text-center">${row.orderQty || ''}</td>
+                          <td class="text-right">${row.unitPrice || ''}</td>
+                          <td class="text-right">${row.price || ''}</td>
+                          <td class="text-center">${row.extra || ''}</td>
+                          <td class="text-right">${row.extraAmount || ''}</td>
+                          <td class="italic">${row.remarksRSP || ''}</td>
+                        </tr>
+                      `;
+                    }).join('')}
                     <!-- Summary Rows -->
                     <tr class="border-t-2 border-black">
                       <td colspan="10" class="text-right font-bold px-2">합계 (Subtotal)</td>
@@ -1053,6 +1059,14 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
               </div>
 
               <div className="overflow-x-auto">
+                <style>{`
+                  .mold-continuation td {
+                    border-top: none !important;
+                  }
+                  tr:not(.mold-end) td {
+                    border-bottom: none !important;
+                  }
+                `}</style>
                 <table className="w-full text-[11px] border-collapse border-black border-[1px]">
                   <thead>
                     <tr className="bg-slate-100">
@@ -1075,9 +1089,16 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                     </tr>
                   </thead>
                   <tbody>
-                    {loadedRows.map((row, idx) => (
-                      <tr key={row.id || idx}>
-                        <td className="border border-black p-1 text-center whitespace-nowrap">
+                    {loadedRows.map((row, idx) => {
+                      const isContinuation = idx > 0 && (!row.model || row.model.trim() === '');
+                      const isEndOfMold = idx === loadedRows.length - 1 || !!(loadedRows[idx + 1]?.model && loadedRows[idx + 1].model.trim() !== '');
+
+                      return (
+                        <tr 
+                          key={row.id || idx}
+                          className={`${isContinuation ? 'mold-continuation' : ''} ${isEndOfMold ? 'mold-end' : ''}`}
+                        >
+                          <td className="border border-black p-1 text-center whitespace-nowrap">
                           <div className="flex items-center justify-center gap-1">
                             <button 
                               onClick={() => addRowBelow(idx)} 
@@ -1351,7 +1372,8 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
                           )}
                         </td>
                       </tr>
-                    ))}
+                    );
+                    })}
                     {/* Summary Rows */}
                     <tr className="bg-slate-50 font-bold">
                       <td colSpan={11} className="border border-black p-2 text-right text-xs uppercase tracking-tighter">합계 (Subtotal)</td>
