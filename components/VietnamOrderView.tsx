@@ -470,6 +470,79 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   };
 
   const handlePaste = (e: React.ClipboardEvent, rowId: string, field: keyof VietnamOrderRow, isMetal: boolean) => {
+    const clipboardItems = e.clipboardData.items;
+    let hasImage = false;
+    if (clipboardItems) {
+      for (let i = 0; i < clipboardItems.length; i++) {
+        if (clipboardItems[i].type.indexOf('image') !== -1) {
+          const file = clipboardItems[i].getAsFile();
+          if (file) {
+            hasImage = true;
+            e.preventDefault();
+            takeSnapshot();
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+              const img = new Image();
+              img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Max width/height to limit file size for optimization
+                const MAX_WIDTH = 1000;
+                const MAX_HEIGHT = 1000;
+
+                if (width > height) {
+                  if (width > MAX_WIDTH) {
+                    height = Math.round((height * MAX_WIDTH) / width);
+                    width = MAX_WIDTH;
+                  }
+                } else {
+                  if (height > MAX_HEIGHT) {
+                    width = Math.round((width * MAX_HEIGHT) / height);
+                    height = MAX_HEIGHT;
+                  }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                  ctx.drawImage(img, 0, 0, width, height);
+                  // Compress image as jpeg with 0.7 quality to optimize size
+                  const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                  
+                  // Update vRows
+                  setVRows(prev => prev.map(row => 
+                    row.id === rowId ? { ...row, image: compressedBase64 } : row
+                  ));
+
+                  // Also update activeItem to auto-save in edit/view mode
+                  if (activeItem) {
+                    const updatedRows = activeItem.rows.map(row => 
+                      row.id === rowId ? { ...row, image: compressedBase64 } : row
+                    );
+                    const updatedItem = { ...activeItem, rows: updatedRows };
+                    setActiveItem(updatedItem);
+                    
+                    const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
+                    saveVietnamItems(updatedItems, updatedItem);
+                  }
+                }
+              };
+              img.src = event.target?.result as string;
+            };
+            reader.readAsDataURL(file);
+          }
+          break;
+        }
+      }
+    }
+
+    if (hasImage) return;
+
     const text = e.clipboardData.getData('text');
     
     if (text && (text.includes('\t') || text.includes('\n') || text.includes('\r'))) {
