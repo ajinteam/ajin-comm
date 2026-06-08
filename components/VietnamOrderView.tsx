@@ -120,7 +120,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   const [vClientName, setVClientName] = useState('');
   const [vClientAddress, setVClientAddress] = useState('');
   const [vTaxId, setVTaxId] = useState('');
-  const [vDeliveryAddress, setVDeliveryAddress] = useState('Cty Toàn Thắng Lô 2 KCN Bình xuyên -TT Hương Canh - Bình Xuyên, Vĩnh Phúc -');
+  const [vDeliveryAddress, setVDeliveryAddress] = useState('LÔ 2 KCN BÌNH XUYÊN - XÃ BÌNH NGUYÊN - TỈNH PHÚ THỌ');
   const [vRows, setVRows] = useState<VietnamOrderRow[]>([]);
   const [vClientTel, setVClientTel] = useState('');
   const [vWriterName, setVWriterName] = useState('Khanh 000-0000-0000');
@@ -1164,7 +1164,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           <div className="flex justify-between items-start mb-2 font-bold w-full">
             <div className="flex flex-col flex-1 mt-0">
               <h2 className="text-xl font-black tracking-tight uppercase m-0 leading-tight">CÔNG TY TNHH AJIN TRAIN VINA</h2>
-              {isMetalDoc && <p className="text-[11px] font-bold text-black">Cty Toàn Thắng Lô 2 KCN Bình xuyên -TT Hương Canh - Bình Xuyên, Vĩnh Phúc - <br /> TEL: 070-4121-6200 / E-MAIL : phungthekhanh10011982@gmail.com </p>}
+              {isMetalDoc && <p className="text-[11px] font-bold text-black">LÔ 2 KCN BÌNH XUYÊN - XÃ BÌNH NGUYÊN - TỈNH PHÚ THỌ <br /> TEL: 070-4121-6200 / E-MAIL : phungthekhanh10011982@gmail.com </p>}
               <div className="mt-2">
                 {isReadOnly ? (
                     <h1 className="text-2xl font-black uppercase underline decoration-2 underline-offset-4">{isMetalDoc ? 'PURCHASE ORDER' : dTitle}</h1>
@@ -1576,8 +1576,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
           {!isReadOnly && (
               <div className="mt-8 flex justify-center gap-4 no-print pb-8">
-                  <button onClick={() => handleSubmit(true)} className="px-10 py-4 bg-slate-400 text-white rounded-2xl font-black text-xl shadow-xl hover:bg-slate-500 active:scale-95 transition-all">임시 저장</button>
-                  <button onClick={() => handleSubmit(false)} className="px-16 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">VN {isPayDoc ? '지불요청' : (isMetalDoc ? 'METAL 발주' : '주문서')} 작성완료</button>
+                  <button onClick={() => handleSubmit(true)} className="px-10 py-4 bg-slate-400 text-white rounded-2xl font-black text-xl shadow-xl hover:bg-slate-500 active:scale-95 transition-all">임시 저장 (Lưu tạm)</button>
+                  <button onClick={() => handleSubmit(false)} className="px-16 py-4 bg-indigo-600 text-white rounded-2xl font-black text-xl shadow-xl hover:bg-indigo-700 active:scale-95 transition-all">VN {isPayDoc ? '지불요청' : (isMetalDoc ? 'METAL 발주' : '주문서')} 작성완료 (Hoàn tất)</button>
               </div>
           )}
 
@@ -1610,18 +1610,28 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       <div className="space-y-6">
         <div className="flex justify-between items-center max-w-5xl mx-auto no-print px-4">
           <div className="flex gap-2 items-center">
-            {editingId && (
+            {(editingId || sub === VietnamSubCategory.ORDER || sub === VietnamSubCategory.PAYMENT || sub === VietnamSubCategory.METAL_ORDER) && (
                 <button onClick={() => { 
-                    setEditingId(null); 
-                    setVRows([]); 
-                    setVTitle(''); 
-                    setMerges({}); 
-                    setAligns({}); 
-                    setBorders({}); 
-                    setUndoStack([]); 
-                    const prevStatus = items.find(it => it.id === editingId)?.status || VietnamSubCategory.ORDER;
-                    setView({ type: 'VIETNAM', sub: prevStatus }); 
-                }} className="px-5 py-2.5 bg-white border rounded-xl font-bold text-sm shadow-sm">← 닫기</button>
+                    if (editingId) {
+                        setEditingId(null); 
+                        setVRows([]); 
+                        setVTitle(''); 
+                        setMerges({}); 
+                        setAligns({}); 
+                        setBorders({}); 
+                        setUndoStack([]); 
+                        const prevStatus = items.find(it => it.id === editingId)?.status || VietnamSubCategory.ORDER;
+                        setView({ type: 'VIETNAM', sub: prevStatus }); 
+                    } else {
+                        setVRows([]); 
+                        setVTitle(''); 
+                        setMerges({}); 
+                        setAligns({}); 
+                        setBorders({}); 
+                        setUndoStack([]); 
+                        setView({ type: 'VIETNAM', sub: VietnamSubCategory.CREATE_ROOT }); 
+                    }
+                }} className="px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 rounded-xl font-black text-sm shadow-sm transition-all flex items-center gap-1">← CLOSE</button>
             )}
             <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs shadow-xl transition-all ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-black' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Undo ({undoStack.length})</button>
             {editingId && (
@@ -1934,7 +1944,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] p-4 md:p-8 overflow-y-auto">
                 <div className="max-w-[1000px] mx-auto">
                     <div className="flex justify-between mb-4 no-print">
-                        <button onClick={() => setActiveItem(null)} className="px-6 py-2 bg-white rounded-xl font-bold shadow-lg">← 닫기</button>
+                        <button onClick={() => setActiveItem(null)} className="px-6 py-2 bg-white rounded-xl font-bold shadow-lg">← CLOSE</button>
                         <div className="flex gap-2">
                             {activeItem.status === VietnamSubCategory.PENDING && (
                                 <button onClick={() => { setRejectingItem(activeItem); setRejectReasonText(''); }} className="px-6 py-2 bg-red-100 text-red-600 rounded-xl font-bold shadow-lg hover:bg-red-600 hover:text-white transition-all">반송</button>
