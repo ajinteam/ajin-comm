@@ -340,8 +340,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                 reader.onload = async (event) => {
                     const base64 = event.target?.result as string;
                     const compressed = await compressImage(base64);
-                    const imageUrl = await uploadImageToStorage('shipment', compressed);
-                    handleRowChange(rowId, 'image', imageUrl);
+                    handleRowChange(rowId, 'image', compressed);
                 };
                 reader.readAsDataURL(blob);
             }
@@ -355,8 +354,25 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       return;
     }
 
+    // 저장 시점에 등록된 실사용 이미지들만 Supabase Storage로 업로드
+    const processedRows = [...(formData.rows || [])];
+    for (let i = 0; i < processedRows.length; i++) {
+      const row = processedRows[i];
+      if (row.image && row.image.startsWith('data:image/')) {
+        try {
+          const publicUrl = await uploadImageToStorage('shipment', row.image);
+          if (publicUrl) {
+            processedRows[i] = { ...row, image: publicUrl };
+          }
+        } catch (e) {
+          console.error('[Upload image error in Saving ShippingReport]', e);
+        }
+      }
+    }
+
     const itemToSave = {
       ...formData,
+      rows: processedRows,
       status: status,
       createdAt: new Date().toISOString()
     };

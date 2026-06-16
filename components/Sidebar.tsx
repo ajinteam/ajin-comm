@@ -69,6 +69,26 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
   const [isOrderApprovedExpanded, setIsOrderApprovedExpanded] = useState(false);
   const [isInvoiceCompletedExpanded, setIsInvoiceCompletedExpanded] = useState(false);
 
+  // 대분류 접고 펴기 상태 (Requirement 2)
+  const [isInjectionExpanded, setIsInjectionExpanded] = useState(true);
+  const [isOrderExpanded, setIsOrderExpanded] = useState(true);
+  const [isInvoiceExpanded, setIsInvoiceExpanded] = useState(true);
+  const [isNationalExpanded, setIsNationalExpanded] = useState(true);
+  const [isShippingExpanded, setIsShippingExpanded] = useState(true);
+  const [isPurchaseExpanded, setIsPurchaseExpanded] = useState(true);
+  const [isVietnamExpanded, setIsVietnamExpanded] = useState(true);
+
+  // 현재 활성화된 뷰에 따라 해당 대분류를 자동으로 펼치기
+  React.useEffect(() => {
+    if (currentView.type === 'INJECTION_ORDER_MAIN') setIsInjectionExpanded(true);
+    else if (currentView.type === 'ORDER') setIsOrderExpanded(true);
+    else if (currentView.type === 'INVOICE') setIsInvoiceExpanded(true);
+    else if (currentView.type === 'NATIONAL_INVOICE') setIsNationalExpanded(true);
+    else if (currentView.type === 'SHIPPING_REPORT') setIsShippingExpanded(true);
+    else if (currentView.type === 'PURCHASE') setIsPurchaseExpanded(true);
+    else if (currentView.type === 'VIETNAM') setIsVietnamExpanded(true);
+  }, [currentView.type]);
+
   const isVisible = (menuName: string) => {
     if (isMaster) return true;
     if (!user.allowedMenus) return false; // 권한 정보가 없으면 기본적으로 숨김
@@ -209,166 +229,236 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
         <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto pb-8 custom-scrollbar">
           {(isVisible(MainCategory.INJECTION_ORDER_MAIN) || isVisible(InjectionOrderSubCategory.INBOX)) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              <div 
+                onClick={() => setIsInjectionExpanded(!isInjectionExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">사출발주서</h2>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isInjectionExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">사출발주서</h2>
               </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(InjectionOrderSubCategory.CREATE, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.TEMPORARY, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.PENDING, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.REJECTED, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.APPROVED, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.DESTINATION, 'INJECTION_ORDER_MAIN')}
-                {renderSubMenu(InjectionOrderSubCategory.INBOX, 'INJECTION_ORDER_MAIN')}
-              </div>
+              {isInjectionExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(InjectionOrderSubCategory.CREATE, 'INJECTION_ORDER_MAIN')}
+                  {renderSubMenu(InjectionOrderSubCategory.TEMPORARY, 'INJECTION_ORDER_MAIN')}
+                  {renderSubMenu(InjectionOrderSubCategory.PENDING, 'INJECTION_ORDER_MAIN')}
+                  {renderSubMenu(InjectionOrderSubCategory.REJECTED, 'INJECTION_ORDER_MAIN')}
+                  {renderSubMenu(InjectionOrderSubCategory.APPROVED, 'INJECTION_ORDER_MAIN')}
+                  {renderSubMenu(InjectionOrderSubCategory.DESTINATION, 'INJECTION_ORDER_MAIN')}
+                  {renderSubMenu(InjectionOrderSubCategory.INBOX, 'INJECTION_ORDER_MAIN')}
+                </div>
+              )}
             </div>
           )}
 
           {isVisible(MainCategory.ORDER) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">주문서</h2>
-              </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(OrderSubCategory.CREATE, 'ORDER')}
-                {renderSubMenu(OrderSubCategory.PENDING, 'ORDER')}
-                <div className="transition-opacity">
-                  {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
-                  {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
-                  {isOrderApprovedExpanded && (
-                    <div className="mt-2 pl-4 border-l border-slate-800/50 space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                      {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
-                      {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
-                      {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
-                    </div>
-                  )}
+              <div 
+                onClick={() => setIsOrderExpanded(!isOrderExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">주문서</h2>
                 </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isOrderExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </div>
+              {isOrderExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(OrderSubCategory.CREATE, 'ORDER')}
+                  {renderSubMenu(OrderSubCategory.PENDING, 'ORDER')}
+                  <div className="transition-opacity">
+                    {renderSubMenu(OrderSubCategory.REJECTED, 'ORDER')}
+                    {renderSubMenu(OrderSubCategory.APPROVED, 'ORDER')}
+                    {isOrderApprovedExpanded && (
+                      <div className="mt-2 pl-4 border-l border-slate-800/50 space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                        {renderSubMenu(OrderSubCategory.APPROVED_SEOUL, 'ORDER', true)}
+                        {renderSubMenu(OrderSubCategory.APPROVED_DAECHEON, 'ORDER', true)}
+                        {renderSubMenu(OrderSubCategory.APPROVED_VIETNAM, 'ORDER', true)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {isVisible(MainCategory.INVOICE) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">송장</h2>
-              </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(InvoiceSubCategory.CREATE, 'INVOICE')}
-                {renderSubMenu(InvoiceSubCategory.TEMPORARY, 'INVOICE')}
-                <div className="transition-opacity">
-                  {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
-                  {isInvoiceCompletedExpanded && (
-                    <div className="mt-2 pl-4 border-l border-slate-800/50 space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                      {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
-                      {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
-                      {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
-                    </div>
-                  )}
+              <div 
+                onClick={() => setIsInvoiceExpanded(!isInvoiceExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">송장</h2>
                 </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isInvoiceExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
               </div>
+              {isInvoiceExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(InvoiceSubCategory.CREATE, 'INVOICE')}
+                  {renderSubMenu(InvoiceSubCategory.TEMPORARY, 'INVOICE')}
+                  <div className="transition-opacity">
+                    {renderSubMenu(InvoiceSubCategory.COMPLETED, 'INVOICE')}
+                    {isInvoiceCompletedExpanded && (
+                      <div className="mt-2 pl-4 border-l border-slate-800/50 space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                        {renderSubMenu(InvoiceSubCategory.SEOUL, 'INVOICE', true)}
+                        {renderSubMenu(InvoiceSubCategory.DAECHEON, 'INVOICE', true)}
+                        {renderSubMenu(InvoiceSubCategory.VIETNAM, 'INVOICE', true)}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
           {isVisible(MainCategory.NATIONAL_INVOICE) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <div 
+                onClick={() => setIsNationalExpanded(!isNationalExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-cyan-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">INTERNATIONAL INVOICE</h2>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isNationalExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">INTERNATIONAL INVOICE</h2>
               </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}
-                {renderSubMenu(NationalInvoiceSubCategory.TEMPORARY, 'NATIONAL_INVOICE')}
-                {renderSubMenu(NationalInvoiceSubCategory.COMPLETED, 'NATIONAL_INVOICE')}
-              </div>
+              {isNationalExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}
+                  {renderSubMenu(NationalInvoiceSubCategory.TEMPORARY, 'NATIONAL_INVOICE')}
+                  {renderSubMenu(NationalInvoiceSubCategory.COMPLETED, 'NATIONAL_INVOICE')}
+                </div>
+              )}
             </div>
           )}
 
           {isVisible(MainCategory.SHIPPING_REPORT) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              <div 
+                onClick={() => setIsShippingExpanded(!isShippingExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-rose-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">SHIPMENT REPORT</h2>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isShippingExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">SHIPMENT REPORT</h2>
               </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(ShippingReportSubCategory.CREATE, 'SHIPPING_REPORT')}
-                {renderSubMenu(ShippingReportSubCategory.TEMPORARY, 'SHIPPING_REPORT')}
-                {renderSubMenu(ShippingReportSubCategory.COMPLETED, 'SHIPPING_REPORT')}
-              </div>
+              {isShippingExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(ShippingReportSubCategory.CREATE, 'SHIPPING_REPORT')}
+                  {renderSubMenu(ShippingReportSubCategory.TEMPORARY, 'SHIPPING_REPORT')}
+                  {renderSubMenu(ShippingReportSubCategory.COMPLETED, 'SHIPPING_REPORT')}
+                </div>
+              )}
             </div>
           )}
 
           {isVisible(MainCategory.PURCHASE) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              <div 
+                onClick={() => setIsPurchaseExpanded(!isPurchaseExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">발주서</h2>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isPurchaseExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">발주서</h2>
               </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
-                {isPOWritingExpanded && (
-                  <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                  {/* PO1 관련 메뉴를 화면에서 숨김 */}
-                    {/* {renderSubMenu(PurchaseOrderSubCategory.PO1, 'PURCHASE', true)} */}
-                    {/* {renderSubMenu(PurchaseOrderSubCategory.PO1_TEMP, 'PURCHASE', true)} */}
-                    
-                    {renderSubMenu(PurchaseOrderSubCategory.PO2, 'PURCHASE', true)}
-                    {renderSubMenu(PurchaseOrderSubCategory.PO2_TEMP, 'PURCHASE', true)}
-                    {renderSubMenu(PurchaseOrderSubCategory.PO3, 'PURCHASE', true)}
-                    {renderSubMenu(PurchaseOrderSubCategory.PO3_TEMP, 'PURCHASE', true)}
-                  </div>
-                )}
-                {renderSubMenu(PurchaseOrderSubCategory.PENDING, 'PURCHASE')}
-                {renderSubMenu(PurchaseOrderSubCategory.REJECTED, 'PURCHASE')}
-                {renderSubMenu(PurchaseOrderSubCategory.APPROVED, 'PURCHASE')}
-                {renderSubMenu(PurchaseOrderSubCategory.ARCHIVE, 'PURCHASE')}
-              </div>
+              {isPurchaseExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(PurchaseOrderSubCategory.CREATE, 'PURCHASE')}
+                  {isPOWritingExpanded && (
+                    <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                    {/* PO1 관련 메뉴를 화면에서 숨김 */}
+                      {/* {renderSubMenu(PurchaseOrderSubCategory.PO1, 'PURCHASE', true)} */}
+                      {/* {renderSubMenu(PurchaseOrderSubCategory.PO1_TEMP, 'PURCHASE', true)} */}
+                      
+                      {renderSubMenu(PurchaseOrderSubCategory.PO2, 'PURCHASE', true)}
+                      {renderSubMenu(PurchaseOrderSubCategory.PO2_TEMP, 'PURCHASE', true)}
+                      {renderSubMenu(PurchaseOrderSubCategory.PO3, 'PURCHASE', true)}
+                      {renderSubMenu(PurchaseOrderSubCategory.PO3_TEMP, 'PURCHASE', true)}
+                    </div>
+                  )}
+                  {renderSubMenu(PurchaseOrderSubCategory.PENDING, 'PURCHASE')}
+                  {renderSubMenu(PurchaseOrderSubCategory.REJECTED, 'PURCHASE')}
+                  {renderSubMenu(PurchaseOrderSubCategory.APPROVED, 'PURCHASE')}
+                  {renderSubMenu(PurchaseOrderSubCategory.ARCHIVE, 'PURCHASE')}
+                </div>
+              )}
             </div>
           )}
 
           {isVisible(MainCategory.VIETNAM) && (
             <div className="space-y-1">
-              <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <div 
+                onClick={() => setIsVietnamExpanded(!isVietnamExpanded)}
+                className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2 cursor-pointer hover:bg-slate-800/50 transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">VN베트남</h2>
+                </div>
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 text-slate-400 transition-transform duration-300 ${isVietnamExpanded ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
-                <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">VN베트남</h2>
               </div>
-              <div className="space-y-0.5 ml-2 border-l border-slate-800">
-                {renderSubMenu(VietnamSubCategory.CREATE_ROOT, 'VIETNAM')}
-                {isVNWritingExpanded && (
-                  <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                    {renderSubMenu(VietnamSubCategory.ORDER, 'VIETNAM', true)}
-                    {renderSubMenu(VietnamSubCategory.METAL_ORDER, 'VIETNAM', true)}
-                    {renderSubMenu(VietnamSubCategory.PAYMENT, 'VIETNAM', true)}
-                    {renderSubMenu(VietnamSubCategory.TEMPORARY, 'VIETNAM', true)}
-                  </div>
-                )}
-                {renderSubMenu(VietnamSubCategory.PENDING, 'VIETNAM')}
-                {renderSubMenu(VietnamSubCategory.REJECTED, 'VIETNAM')}
-                {renderSubMenu(VietnamSubCategory.COMPLETED_ROOT, 'VIETNAM')}
-                {isVNCompletedExpanded && (
-                  <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
-                    {renderSubMenu(VietnamSubCategory.ORDER_COMPLETED, 'VIETNAM', true)}
-                    {renderSubMenu(VietnamSubCategory.METAL_ORDER_COMPLETED, 'VIETNAM', true)}
-                    {renderSubMenu(VietnamSubCategory.PAYMENT_COMPLETED, 'VIETNAM', true)}
-                  </div>
-                )}
-              </div>
+              {isVietnamExpanded && (
+                <div className="space-y-0.5 ml-2 border-l border-slate-800">
+                  {renderSubMenu(VietnamSubCategory.CREATE_ROOT, 'VIETNAM')}
+                  {isVNWritingExpanded && (
+                    <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                      {renderSubMenu(VietnamSubCategory.ORDER, 'VIETNAM', true)}
+                      {renderSubMenu(VietnamSubCategory.METAL_ORDER, 'VIETNAM', true)}
+                      {renderSubMenu(VietnamSubCategory.PAYMENT, 'VIETNAM', true)}
+                      {renderSubMenu(VietnamSubCategory.TEMPORARY, 'VIETNAM', true)}
+                    </div>
+                  )}
+                  {renderSubMenu(VietnamSubCategory.PENDING, 'VIETNAM')}
+                  {renderSubMenu(VietnamSubCategory.REJECTED, 'VIETNAM')}
+                  {renderSubMenu(VietnamSubCategory.COMPLETED_ROOT, 'VIETNAM')}
+                  {isVNCompletedExpanded && (
+                    <div className="space-y-0.5 overflow-hidden animate-in slide-in-from-top-2 duration-300">
+                      {renderSubMenu(VietnamSubCategory.ORDER_COMPLETED, 'VIETNAM', true)}
+                      {renderSubMenu(VietnamSubCategory.METAL_ORDER_COMPLETED, 'VIETNAM', true)}
+                      {renderSubMenu(VietnamSubCategory.PAYMENT_COMPLETED, 'VIETNAM', true)}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
 

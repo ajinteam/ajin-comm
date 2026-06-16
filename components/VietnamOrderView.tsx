@@ -514,27 +514,22 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                   // Compress image as jpeg with 0.7 quality to optimize size
                   const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                   
-                  // Upload to Storage
-                  uploadImageToStorage('vnorder', compressedBase64).then((imageUrl) => {
-                    // Update vRows
-                    setVRows(prev => prev.map(row => 
-                      row.id === rowId ? { ...row, image: imageUrl } : row
-                    ));
+                  // Update vRows
+                  setVRows(prev => prev.map(row => 
+                    row.id === rowId ? { ...row, image: compressedBase64 } : row
+                  ));
 
-                    // Also update activeItem to auto-save in edit/view mode
-                    if (activeItem) {
-                      const updatedRows = activeItem.rows.map(row => 
-                        row.id === rowId ? { ...row, image: imageUrl } : row
-                      );
-                      const updatedItem = { ...activeItem, rows: updatedRows };
-                      setActiveItem(updatedItem);
-                      
-                      const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
-                      saveVietnamItems(updatedItems, updatedItem);
-                    }
-                  }).catch(uploadErr => {
-                    console.error('[Upload Error]', uploadErr);
-                  });
+                  // Also update activeItem to auto-save in edit/view mode
+                  if (activeItem) {
+                    const updatedRows = activeItem.rows.map(row => 
+                      row.id === rowId ? { ...row, image: compressedBase64 } : row
+                    );
+                    const updatedItem = { ...activeItem, rows: updatedRows };
+                    setActiveItem(updatedItem);
+                    
+                    const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
+                    saveVietnamItems(updatedItems, updatedItem);
+                  }
                 }
               };
               img.src = event.target?.result as string;
@@ -853,7 +848,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     }
   };
 
-  const handleSubmit = (isTemp: boolean = false) => {
+  const handleSubmit = async (isTemp: boolean = false) => {
     if (!vClientName.trim()) { alert('수신처(Khách hàng)를 입력해 주세요.'); return; }
     
     let docType: 'ORDER' | 'PAYMENT' | 'METAL' = 'ORDER';
@@ -872,6 +867,22 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     const finalTitle = (docType === 'METAL' && !isTemp) ? `${vClientName}_${vModelName}` : vTitle;
 
+    // 저장 시점에 등록된 실사용 이미지들만 Supabase Storage로 업로드
+    const processedRows = [...vRows];
+    for (let i = 0; i < processedRows.length; i++) {
+      const row = processedRows[i];
+      if (row.image && row.image.startsWith('data:image/')) {
+        try {
+          const publicUrl = await uploadImageToStorage('vnorder', row.image);
+          if (publicUrl) {
+            processedRows[i] = { ...row, image: publicUrl };
+          }
+        } catch (uploadErr) {
+          console.error('[Upload Error in Saving Vietnam Order]', uploadErr);
+        }
+      }
+    }
+
     if (editingId) {
         let updatedDoc: VietnamOrderItem | undefined;
         const updated = items.map(it => {
@@ -880,7 +891,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
               ...it, title: finalTitle, date: vDate, clientName: vClientName, clientAddress: vClientAddress, taxId: vTaxId, deliveryAddress: vDeliveryAddress,
               clientTel: vClientTel, writerName: vWriterName, modelName: vModelName,
               beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
-              rows: vRows.filter(r => r.itemName.trim() || r.image || r.drawingNo.trim() || r.specification.trim()), 
+              rows: processedRows.filter(r => r.itemName.trim() || r.image || r.drawingNo.trim() || r.specification.trim()), 
               status: targetStatus,
               rejectReason: isTemp ? it.rejectReason : undefined, 
               rejectLog: isTemp ? it.rejectLog : undefined, 
@@ -905,7 +916,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
             id: `VN${docType === 'PAYMENT' ? 'PAY' : (docType === 'METAL' ? 'MET' : 'PO')}-${Date.now()}`, title: finalTitle, type: docType, date: vDate, clientName: vClientName, clientAddress: vClientAddress, taxId: vTaxId, deliveryAddress: vDeliveryAddress,
             clientTel: vClientTel, writerName: vWriterName, modelName: vModelName,
             beneficiary: vBeneficiary, accountNo: vAccountNo, bank: vBank, bankAddr: vBankAddr, vatRate: vVatRate, remark: vRemark,
-            rows: vRows.filter(r => r.itemName.trim() || r.image || r.drawingNo.trim() || r.specification.trim()), 
+            rows: processedRows.filter(r => r.itemName.trim() || r.image || r.drawingNo.trim() || r.specification.trim()), 
             status: targetStatus, authorId: currentUser.initials, createdAt: new Date().toISOString(),
             merges, aligns, weights, borders,
             stamps: isTemp ? {} : { writer: { userId: currentUser.initials, timestamp: new Date().toISOString() } }
