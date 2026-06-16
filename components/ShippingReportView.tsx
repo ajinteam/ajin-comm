@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileText, Search, X, Loader2, Save, Printer, ArrowLeft, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
 import { ShippingReportSubCategory, ShippingReportItem, ShippingReportRow, ViewState, UserAccount } from '../types';
-import { saveSingleDoc, pushStateToCloud, deleteSingleDoc } from '../supabase';
+import { saveSingleDoc, pushStateToCloud, deleteSingleDoc, uploadImageToStorage } from '../supabase';
 
 const normalizeSub = (s: string): string => {
   if (s === '출하보고서작성' || s === 'shipment_create') return 'shipment_create';
@@ -340,7 +340,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
                 reader.onload = async (event) => {
                     const base64 = event.target?.result as string;
                     const compressed = await compressImage(base64);
-                    handleRowChange(rowId, 'image', compressed);
+                    const imageUrl = await uploadImageToStorage('shipment', compressed);
+                    handleRowChange(rowId, 'image', imageUrl);
                 };
                 reader.readAsDataURL(blob);
             }
@@ -388,6 +389,16 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       if (itemToDelete && normalizeSub(itemToDelete.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED)) {
         if (currentUser.initials.toUpperCase() !== 'MASTER') {
           alert('완료된 문서는 마스터만 삭제할 수 있습니다.');
+          return;
+        }
+      }
+
+      if (itemToDelete && normalizeSub(itemToDelete.status || '') === normalizeSub(ShippingReportSubCategory.TEMPORARY)) {
+        const isAuthor = (itemToDelete.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+          (itemToDelete.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+          (itemToDelete.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase();
+        if (currentUser.initials.toUpperCase() !== 'MASTER' && currentUser.loginId !== 'AJ5200' && !isAuthor) {
+          alert('임시저장 된 문서는 작성자만 삭제할 수 있습니다.');
           return;
         }
       }

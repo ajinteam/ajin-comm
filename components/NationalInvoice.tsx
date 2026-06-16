@@ -759,6 +759,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
   const handleDeleteDocument = (id: string) => {
     const itemToDelete = items.find(it => it.id === id);
+    const isAuthor = itemToDelete && itemToDelete.status === NationalInvoiceSubCategory.TEMPORARY && (
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+    );
+    if (!isMaster && !isAuthor) {
+      alert('삭제 권한이 없습니다.');
+      return;
+    }
     const updated = items.filter(it => it.id !== id);
     saveItems(updated);
     deleteSingleDoc('nationalinvoice', id, itemToDelete);
@@ -1847,7 +1856,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </div>
                   </div>
                 </div>
-                {isMaster && (
+                {(isMaster || (item.status === NationalInvoiceSubCategory.TEMPORARY && (
+                  (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                  (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                  (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                ))) && (
                   <button 
                     onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
                     className="absolute -top-2 -right-2 bg-red-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"
@@ -1910,7 +1923,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                             </div>
                           )}
                         </div>
-                        {isMaster && (
+                        {(isMaster || (item.status === NationalInvoiceSubCategory.TEMPORARY && (
+                          (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                          (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                          (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                        ))) && (
                           <button 
                             onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
                             className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"

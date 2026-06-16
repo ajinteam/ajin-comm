@@ -20,6 +20,142 @@ export const supabase = (supabaseUrl && supabaseAnonKey)
   ? createClient(supabaseUrl, supabaseAnonKey)
   : null;
 
+/**
+ * base64 Data URL을 Blob으로 변환
+ */
+export const base64ToBlob = (base64Str: string): Blob => {
+  const parts = base64Str.split(';base64,');
+  const contentType = parts[0].split(':')[1];
+  const raw = window.atob(parts[1]);
+  const rawLength = raw.length;
+  const uInt8Array = new Uint8Array(rawLength);
+  for (let i = 0; i < rawLength; ++i) {
+    uInt8Array[i] = raw.charCodeAt(i);
+  }
+  return new Blob([uInt8Array], { type: contentType });
+};
+
+/**
+ * 이미지를 Supabase Storage에 업로드하고 public URL 반환
+ */
+export const uploadImageToStorage = async (folder: 'vnorder' | 'shipment', base64Str: string): Promise<string> => {
+  if (!supabase) {
+    console.warn('[Supabase Storage] Supabase client is not initialized, falling back to base64');
+    return base64Str;
+  }
+  // base64가 아니거나 이미 http URL인 경우 그대로 반환
+  if (!base64Str.startsWith('data:image/')) {
+    return base64Str;
+  }
+
+  try {
+    const blob = base64ToBlob(base64Str);
+    const fileExt = 'jpg';
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 10)}.${fileExt}`;
+    const filePath = `${folder}/${fileName}`;
+
+    const { data, error } = await supabase.storage
+      .from('ajin-image')
+      .upload(filePath, blob, {
+        contentType: 'image/jpeg',
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      throw error;
+    }
+
+    const { data: { publicUrl } } = supabase.storage
+      .from('ajin-image')
+      .getPublicUrl(filePath);
+
+    console.log(`[Supabase Storage] Uploaded successfully: ${publicUrl}`);
+    return publicUrl;
+  } catch (err: any) {
+    console.error('[Supabase Storage Upload Error]', err);
+    return base64Str; // 오류 발생 시 안전하게 기존 base64로 폴백
+  }
+};
+
+/**
+ * 기존에 저장된 base64 이미지들을 Supabase Storage로 자동으로 마이그레이션(업로드 및 데이터베이스 업데이트)합니다.
+ */
+export const migrateLegacyImagesToStorage = async (
+  shippingReports: any[],
+  vnOrders: any[]
+) => {
+  if (!supabase) return;
+
+  let hasChanges = false;
+
+  // 1. Shipment Report 이미지 마이그레이션
+  for (const report of shippingReports) {
+    if (!report.content || !Array.isArray(report.content.rows)) continue;
+    let reportUpdated = false;
+    const updatedRows = [...report.content.rows];
+
+    for (let i = 0; i < updatedRows.length; i++) {
+      const row = updatedRows[i];
+      if (row.image && row.image.startsWith('data:image/')) {
+        try {
+          console.log(`[Migration] Migrating Shipment Image for report ${report.id}, row ${row.id}...`);
+          const publicUrl = await uploadImageToStorage('shipment', row.image);
+          if (publicUrl !== row.image) {
+            updatedRows[i] = { ...row, image: publicUrl };
+            reportUpdated = true;
+          }
+        } catch (err) {
+          console.error(`[Migration Error] shipment row ${row.id}:`, err);
+        }
+      }
+    }
+
+    if (reportUpdated) {
+      report.content.rows = updatedRows;
+      const updatedDoc = { ...report.content };
+      // 데이터베이스 및 로컬 스토리지 업데이트
+      await saveSingleDoc('na_invoice_image', updatedDoc);
+      hasChanges = true;
+    }
+  }
+
+  // 2. VN주문서 이미지 마이그레이션
+  for (const order of vnOrders) {
+    if (!order.content || !Array.isArray(order.content.rows)) continue;
+    let orderUpdated = false;
+    const updatedRows = [...order.content.rows];
+
+    for (let i = 0; i < updatedRows.length; i++) {
+      const row = updatedRows[i];
+      if (row.image && row.image.startsWith('data:image/')) {
+        try {
+          console.log(`[Migration] Migrating VN Order Image for order ${order.id}, row ${row.id}...`);
+          const publicUrl = await uploadImageToStorage('vnorder', row.image);
+          if (publicUrl !== row.image) {
+            updatedRows[i] = { ...row, image: publicUrl };
+            orderUpdated = true;
+          }
+        } catch (err) {
+          console.error(`[Migration Error] vnorder row ${row.id}:`, err);
+        }
+      }
+    }
+
+    if (orderUpdated) {
+      order.content.rows = updatedRows;
+      const updatedDoc = { ...order.content };
+      // 데이터베이스 및 로컬 스토리지 업데이트
+      await saveSingleDoc('vn_purchase_orders', updatedDoc);
+      hasChanges = true;
+    }
+  }
+
+  if (hasChanges) {
+    console.log('[Migration] All legacy images successfully migrated and updated!');
+  }
+};
+
 // 2. 트래픽 최적화용 관리 객체
 const debounceMap: Record<string, any> = {};
 let lastPullTime = 0;
@@ -246,6 +382,13 @@ export const pullStateFromCloud = async () => {
       if (key !== 'updatedAt') localStorage.setItem(`ajin_${key}`, JSON.stringify(val));
     });
     
+    // Background migration of legacy base64 images to Supabase Storage
+    setTimeout(() => {
+      migrateLegacyImagesToStorage(shippingReports, vnOrders).catch(err => {
+        console.error('[Background Migration Error]', err);
+      });
+    }, 1500);
+
     console.log('[Cloud Sync] Pull completed (Cloud data synced)');
     return finalData;
   } catch (err) {

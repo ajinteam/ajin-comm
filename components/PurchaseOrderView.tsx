@@ -1139,12 +1139,25 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   };
 
   const handleDeleteItemFromList = useCallback((id: string) => {
-    if (!isMaster) return;
+    const itemToDelete = items.find(i => i.id === id);
+    const isTemp = itemToDelete && (
+      itemToDelete.status === PurchaseOrderSubCategory.PO1_TEMP ||
+      itemToDelete.status === PurchaseOrderSubCategory.PO2_TEMP ||
+      itemToDelete.status === PurchaseOrderSubCategory.PO3_TEMP ||
+      (itemToDelete.status || '').includes('임시저장')
+    );
+    const isAuthor = itemToDelete && isTemp && (
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+    );
+
+    if (!isMaster && !isAuthor) return;
+
     setModal({
       type: 'DELETE_FILE',
       message: '해당 발주서 파일을 영구 삭제하시겠습니까? (복구 불가)',
       onConfirm: () => {
-        const itemToDelete = items.find(i => i.id === id);
         const updated = items.filter(i => i.id !== id);
         saveItems(updated);
         const tableName = itemToDelete?.code === 'INJECTION' ? 'Injection_Order' : 'purchase_orders';
@@ -1153,7 +1166,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         alert('발주서가 삭제되었습니다.');
       }
     });
-  }, [isMaster, items]);
+  }, [isMaster, currentUser, items]);
 
   const handlePrint = () => {
     const printContent = document.querySelector('.document-print-content')?.innerHTML;
@@ -2279,7 +2292,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   <div className="w-full text-center px-2 mb-2"><h3 className={`font-black text-sm truncate w-full mb-1 leading-tight ${item.isResubmitted ? 'text-blue-600' : 'text-black'}`}>{item.isResubmitted && <span className="mr-1">[수정본]</span>}{item.title}</h3><p className="text-[10px] text-slate-500 font-bold truncate mb-1">{item.recipient || "-"}</p><p className="text-[10px] text-slate-400 font-bold uppercase tabular-nums tracking-tight">{item.date}</p>{sub === PurchaseOrderSubCategory.REJECTED && item.rejectReason && (<div className="mt-3 p-2 bg-red-50 border border-red-100 rounded-lg text-left"><p className="text-[9px] font-black text-red-600 uppercase mb-0.5 tracking-tighter">반송사유</p><p className="text-[10px] text-red-700 leading-tight font-medium line-clamp-2">{item.rejectReason}</p></div>)}</div>
                   {item.status === PurchaseOrderSubCategory.PENDING && renderApprovalSteps(item)}
                 </button>
-                {isMaster && (
+                {(isMaster || (isTemp && (
+                  (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                  (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                  (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                ))) && (
                   <button onClick={(e) => { e.stopPropagation(); handleDeleteItemFromList(item.id); }} className="absolute -top-2 -right-2 bg-red-600 text-white w-7 h-7 md:w-8 md:h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10" title="항목 삭제"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>
                 )}
               </div>
@@ -2287,7 +2304,11 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           }))}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || (item.status || '').includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : (item.status || '').includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || (item.status || '').includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{isMaster && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>)}</div></td></tr>)))}</tbody></table></div>
+        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden overflow-x-auto"><table className="w-full text-left min-w-[800px]"><thead><tr className="bg-slate-50 border-b border-slate-200"><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isPO2 ? '제목' : '기종'}</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">수신처</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">결재상태</th><th className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">작업</th></tr></thead><tbody className="divide-y divide-slate-100">{paginated.length === 0 ? (<tr><td colSpan={5} className="px-6 py-12 text-center text-slate-400 italic">데이터가 없습니다.</td></tr>) : (paginated.map(item => (<tr key={item.id} className="hover:bg-slate-50 transition-colors group cursor-pointer" onClick={() => { if (sub === PurchaseOrderSubCategory.REJECTED || (item.status || '').includes('임시저장')) handleEditItem(item); else setActiveItem(item); }}><td className="px-4 md:px-6 py-3 md:py-4 text-xs font-mono text-slate-500 whitespace-nowrap">{item.date}</td><td className="px-4 md:px-6 py-3 md:py-4 text-xs md:text-sm font-black text-black">{item.isResubmitted && <span className="text-red-600">[수정본] </span>}{item.title}</td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className="text-xs font-bold text-slate-600">{item.recipient || "-"}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-center"><span className={`inline-block px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-tighter ${item.status === PurchaseOrderSubCategory.REJECTED ? 'bg-red-100 text-red-600' : (item.status || '').includes('임시저장') ? 'bg-amber-100 text-amber-700' : item.status === PurchaseOrderSubCategory.APPROVED ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'}`}>{item.status}</span></td><td className="px-4 md:px-6 py-3 md:py-4 text-right"><div className="flex justify-end gap-3" onClick={e => e.stopPropagation()}><span className="text-[10px] font-bold text-amber-600 opacity-0 group-hover:opacity-100 transition-opacity">{(sub === PurchaseOrderSubCategory.REJECTED || (item.status || '').includes('임시저장')) ? '편집하기 →' : '보기 →'}</span>{(isMaster || (((item.status || '').includes('임시저장')) && (
+  (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+  (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+  (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+))) && (<button onClick={() => handleDeleteItemFromList(item.id)} className="text-red-400 hover:text-red-600 p-1"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>)}</div></td></tr>)))}</tbody></table></div>
       )}
       {totalPages > 1 && (<div className="flex justify-center items-center gap-3 mt-12 no-print pb-10"><button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 19l-7-7 7-7"/></svg></button><div className="flex gap-2">{Array.from({length: totalPages}, (_, i) => i + 1).map(num => (<button key={num} onClick={() => setCurrentPage(num)} className={`w-10 h-10 rounded-xl font-black text-sm transition-all ${currentPage === num ? 'bg-amber-600 text-white shadow-lg shadow-amber-200' : 'bg-white border border-slate-200 text-slate-400 hover:bg-slate-50'}`}>{num}</button>))}</div><button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages} className="w-10 h-10 flex items-center justify-center bg-white border border-slate-200 rounded-xl disabled:opacity-30 hover:bg-slate-50 transition-all shadow-sm"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7"/></svg></button></div>)}
       

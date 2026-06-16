@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState, VnVendorInfo, VnBankVendorInfo } from '../types';
-import { sendJandiNotification, saveSingleDoc, deleteSingleDoc, supabase, saveRecipient, deleteRecipient } from '../supabase';
+import { sendJandiNotification, saveSingleDoc, deleteSingleDoc, supabase, saveRecipient, deleteRecipient, uploadImageToStorage } from '../supabase';
 
 interface StorageFile {
   name: string;
@@ -514,22 +514,27 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                   // Compress image as jpeg with 0.7 quality to optimize size
                   const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                   
-                  // Update vRows
-                  setVRows(prev => prev.map(row => 
-                    row.id === rowId ? { ...row, image: compressedBase64 } : row
-                  ));
+                  // Upload to Storage
+                  uploadImageToStorage('vnorder', compressedBase64).then((imageUrl) => {
+                    // Update vRows
+                    setVRows(prev => prev.map(row => 
+                      row.id === rowId ? { ...row, image: imageUrl } : row
+                    ));
 
-                  // Also update activeItem to auto-save in edit/view mode
-                  if (activeItem) {
-                    const updatedRows = activeItem.rows.map(row => 
-                      row.id === rowId ? { ...row, image: compressedBase64 } : row
-                    );
-                    const updatedItem = { ...activeItem, rows: updatedRows };
-                    setActiveItem(updatedItem);
-                    
-                    const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
-                    saveVietnamItems(updatedItems, updatedItem);
-                  }
+                    // Also update activeItem to auto-save in edit/view mode
+                    if (activeItem) {
+                      const updatedRows = activeItem.rows.map(row => 
+                        row.id === rowId ? { ...row, image: imageUrl } : row
+                      );
+                      const updatedItem = { ...activeItem, rows: updatedRows };
+                      setActiveItem(updatedItem);
+                      
+                      const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
+                      saveVietnamItems(updatedItems, updatedItem);
+                    }
+                  }).catch(uploadErr => {
+                    console.error('[Upload Error]', uploadErr);
+                  });
                 }
               };
               img.src = event.target?.result as string;
@@ -969,6 +974,18 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
   const handleDeleteDocument = (id: string) => {
     const itemToDelete = items.find(it => it.id === id);
+    const isTemp = itemToDelete && itemToDelete.status === VietnamSubCategory.TEMPORARY;
+    const isAuthor = itemToDelete && isTemp && (
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+      (itemToDelete.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+    );
+
+    if (!isMaster && !isAuthor) {
+      alert('삭제 권한이 없습니다.');
+      return;
+    }
+
     const updated = items.filter(it => it.id !== id);
     saveVietnamItems(updated);
     deleteSingleDoc('vn_purchase_orders', id, itemToDelete);
@@ -1853,7 +1870,11 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                     </div>
                                 )}
                             </button>
-                            {isMaster && (
+                            {(isMaster || (item.status === VietnamSubCategory.TEMPORARY && (
+                                (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                                (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                                (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                            ))) && (
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
                                     className="absolute -top-2 -right-2 bg-red-600 text-white w-7 h-7 md:w-8 md:h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"
@@ -1906,7 +1927,11 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                             <span className="text-[10px] font-bold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 {(sub === VietnamSubCategory.REJECTED || sub === VietnamSubCategory.TEMPORARY) ? '편집하기 →' : '보기 →'}
                                             </span>
-                                            {isMaster && (
+                                            {(isMaster || (item.status === VietnamSubCategory.TEMPORARY && (
+                                                (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                                                (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                                                (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                                            ))) && (
                                                 <button 
                                                     onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
                                                     className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
