@@ -593,7 +593,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   };
 
   const handleDeleteImage = (rowId: string) => {
-    if (!window.confirm('정말 이미지를 삭제하시겠습니까?')) return;
+    if (!window.confirm('Delete the image?')) return;
     takeSnapshot();
     
     // Update vRows
