@@ -38,7 +38,20 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     // 공지 / 요청사항 로드
     const savedNotices = localStorage.getItem('ajin_notices');
     if (savedNotices) {
-      setAnnouncements(JSON.parse(savedNotices));
+      try {
+        const parsed = JSON.parse(savedNotices) as Announcement[];
+        const sorted = [...parsed].sort((a, b) => {
+          const numA = Number(a.id);
+          const numB = Number(b.id);
+          if (!isNaN(numA) && !isNaN(numB)) {
+            return numB - numA;
+          }
+          return b.id.localeCompare(a.id);
+        });
+        setAnnouncements(sorted);
+      } catch (e) {
+        setAnnouncements(JSON.parse(savedNotices));
+      }
     }
 
     // 모든 문서 데이터 로드 및 카운트 집계
@@ -109,8 +122,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   };
 
   const saveNotices = (notices: Announcement[]) => {
-    setAnnouncements(notices);
-    localStorage.setItem('ajin_notices', JSON.stringify(notices));
+    const sorted = [...notices].sort((a, b) => {
+      const numA = Number(a.id);
+      const numB = Number(b.id);
+      if (!isNaN(numA) && !isNaN(numB)) {
+        return numB - numA;
+      }
+      return b.id.localeCompare(a.id);
+    });
+    setAnnouncements(sorted);
+    localStorage.setItem('ajin_notices', JSON.stringify(sorted));
     pushStateToCloud(); // 공지 / 요청사항은 즉시 반영
   };
 
@@ -291,7 +312,16 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           {announcements.length === 0 ? (
             <li className="py-12 text-center text-slate-400 font-medium italic">등록된 공지 / 요청사항이 없습니다.</li>
           ) : (
-            announcements.map(n => (
+            [...announcements]
+              .sort((a, b) => {
+                const numA = Number(a.id);
+                const numB = Number(b.id);
+                if (!isNaN(numA) && !isNaN(numB)) {
+                  return numB - numA;
+                }
+                return b.id.localeCompare(a.id);
+              })
+              .map(n => (
               <li key={n.id} className="group flex flex-col sm:flex-row sm:items-center justify-between py-3.5 px-5 border border-transparent hover:border-slate-100 hover:bg-slate-50 rounded-2xl transition-all gap-3">
                 <div className="flex items-center gap-3 overflow-hidden">
                   {n.isNew && <span className="shrink-0 text-[9px] bg-blue-600 text-white px-2 py-0.5 rounded-full font-black tracking-tighter">NEW</span>}
