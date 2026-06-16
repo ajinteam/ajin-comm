@@ -69,25 +69,24 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
   const [isOrderApprovedExpanded, setIsOrderApprovedExpanded] = useState(false);
   const [isInvoiceCompletedExpanded, setIsInvoiceCompletedExpanded] = useState(false);
 
-  // 대분류 접고 펴기 상태 (Requirement 2)
-  const [isInjectionExpanded, setIsInjectionExpanded] = useState(true);
-  const [isOrderExpanded, setIsOrderExpanded] = useState(true);
-  const [isInvoiceExpanded, setIsInvoiceExpanded] = useState(true);
-  const [isNationalExpanded, setIsNationalExpanded] = useState(true);
-  const [isShippingExpanded, setIsShippingExpanded] = useState(true);
-  const [isPurchaseExpanded, setIsPurchaseExpanded] = useState(true);
-  const [isVietnamExpanded, setIsVietnamExpanded] = useState(true);
+  // 대분류 접고 펴기 상태 (Requirement 2) - 처음은 항상 접혀 있도록 false로 초기화
+  const [isInjectionExpanded, setIsInjectionExpanded] = useState(false);
+  const [isOrderExpanded, setIsOrderExpanded] = useState(false);
+  const [isInvoiceExpanded, setIsInvoiceExpanded] = useState(false);
+  const [isNationalExpanded, setIsNationalExpanded] = useState(false);
+  const [isShippingExpanded, setIsShippingExpanded] = useState(false);
+  const [isPurchaseExpanded, setIsPurchaseExpanded] = useState(false);
+  const [isVietnamExpanded, setIsVietnamExpanded] = useState(false);
 
-  // 현재 활성화된 뷰에 따라 해당 대분류를 자동으로 펼치기
-  React.useEffect(() => {
-    if (currentView.type === 'INJECTION_ORDER_MAIN') setIsInjectionExpanded(true);
-    else if (currentView.type === 'ORDER') setIsOrderExpanded(true);
-    else if (currentView.type === 'INVOICE') setIsInvoiceExpanded(true);
-    else if (currentView.type === 'NATIONAL_INVOICE') setIsNationalExpanded(true);
-    else if (currentView.type === 'SHIPPING_REPORT') setIsShippingExpanded(true);
-    else if (currentView.type === 'PURCHASE') setIsPurchaseExpanded(true);
-    else if (currentView.type === 'VIETNAM') setIsVietnamExpanded(true);
-  }, [currentView.type]);
+  const collapseAllCategories = () => {
+    setIsInjectionExpanded(false);
+    setIsOrderExpanded(false);
+    setIsInvoiceExpanded(false);
+    setIsNationalExpanded(false);
+    setIsShippingExpanded(false);
+    setIsPurchaseExpanded(false);
+    setIsVietnamExpanded(false);
+  };
 
   const isVisible = (menuName: string) => {
     if (isMaster) return true;
@@ -208,7 +207,11 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
       `}>
         <div className="p-8 flex items-center justify-between">
           <button 
-            onClick={() => { setView({ type: 'DASHBOARD' }); onClose(); }}
+            onClick={() => { 
+              setView({ type: 'DASHBOARD' }); 
+              collapseAllCategories();
+              onClose(); 
+            }}
             className="group flex items-center gap-3 focus:outline-none"
           >
             <div className="w-10 h-10 bg-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20 group-hover:scale-110 transition-transform">
