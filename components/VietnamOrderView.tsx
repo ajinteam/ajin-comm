@@ -592,6 +592,28 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     }
   };
 
+  const handleDeleteImage = (rowId: string) => {
+    if (!window.confirm('정말 이미지를 삭제하시겠습니까?')) return;
+    takeSnapshot();
+    
+    // Update vRows
+    setVRows(prev => prev.map(row => 
+      row.id === rowId ? { ...row, image: '' } : row
+    ));
+
+    // Also update activeItem to auto-save in edit/view mode
+    if (activeItem) {
+      const updatedRows = activeItem.rows.map(row => 
+        row.id === rowId ? { ...row, image: '' } : row
+      );
+      const updatedItem = { ...activeItem, rows: updatedRows };
+      setActiveItem(updatedItem);
+      
+      const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
+      saveVietnamItems(updatedItems, updatedItem);
+    }
+  };
+
   const handleCellMouseDown = (r: number, c: number) => { setSelection({ sR: r, sC: c, eR: r, eC: c }); setIsDragging(true); };
   const handleCellMouseEnter = (r: number, c: number) => { if (isDragging && selection) setSelection({ ...selection, eR: r, eC: c }); };
   const handleMouseUp = () => setIsDragging(false);
@@ -1412,7 +1434,20 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                                 onFocus={() => !isReadOnly && setSelection({ sR: rIdx, sC: cell.c, eR: rIdx, eC: cell.c })}
                                             >
                                                 {row.image ? (
-                                                    <img src={row.image} alt="product" className={`max-w-full ${isPayDoc ? 'max-h-[50px]' : 'max-h-[120px]'} object-contain`}/>
+                                                    <div className="relative group/img w-full h-full flex items-center justify-center">
+                                                        <img src={row.image} alt="product" className={`max-w-full ${isPayDoc ? 'max-h-[50px]' : 'max-h-[120px]'} object-contain`}/>
+                                                        {!isReadOnly && (
+                                                            <button 
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteImage(row.id); }} 
+                                                                className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white w-5 h-5 rounded-full flex items-center justify-center shadow-md no-print opacity-0 group-hover/img:opacity-100 transition-opacity z-20"
+                                                                title="이미지 삭제"
+                                                            >
+                                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/>
+                                                                </svg>
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 ) : (
                                                     !isReadOnly && <span className="text-[8px] opacity-20">PASTE IMAGE</span>
                                                 )}
