@@ -395,6 +395,23 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     }
   };
 
+  const handleDeleteMessage = async (id: string, author: string) => {
+    if (!window.confirm('이 게시글을 정말 삭제하시겠습니까?')) return;
+    if (!supabase) return;
+    try {
+      const { error } = await supabase
+        .from('notice_board')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+      fetchMessages();
+    } catch (err: any) {
+      console.error('Failed to delete message:', err);
+      alert(`[게시글 삭제 실패]\n오류내용: ${err?.message || '알 수 없는 오류'}`);
+    }
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -608,11 +625,22 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                         </div>
 
                         {/* Unread Status & Timestamp */}
-                        <div className="flex flex-col items-start gap-0.5 text-[9px] font-black text-slate-400 select-none shrink-0 pl-1 leading-none">
+                        <div className="flex flex-col items-start gap-1 text-[9px] font-black text-slate-400 select-none shrink-0 pl-1 leading-none">
                           {unreadCount > 0 && (
                             <span className="text-blue-500 font-black mb-0.5">{unreadCount}</span>
                           )}
                           <span className="text-slate-400 font-bold">{formatTime(msg.created_at)}</span>
+                          {(msg.author === currentUser.initials || currentUser.loginId === 'master' || currentUser.role === 'admin') && (
+                            <button
+                              onClick={() => handleDeleteMessage(msg.id, msg.author)}
+                              className="text-slate-400 hover:text-red-500 mt-1 cursor-pointer transition-all p-1 rounded-md hover:bg-slate-100"
+                              title="삭제하기"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
