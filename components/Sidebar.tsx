@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabase';
 import { 
   OrderSubCategory, 
   InvoiceSubCategory, 
@@ -77,6 +78,59 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
   const [isShippingExpanded, setIsShippingExpanded] = useState(false);
   const [isPurchaseExpanded, setIsPurchaseExpanded] = useState(false);
   const [isVietnamExpanded, setIsVietnamExpanded] = useState(false);
+
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const fetchUnread = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('notice_board')
+          .select('read_by');
+
+        if (error) throw error;
+
+        if (data) {
+          let count = 0;
+          data.forEach(msg => {
+            let readByArray: string[] = [];
+            try {
+              if (msg.read_by) {
+                readByArray = typeof msg.read_by === 'string' ? JSON.parse(msg.read_by) : msg.read_by;
+              }
+            } catch (e) {
+              readByArray = [];
+            }
+            if (!readByArray.includes(user.loginId)) {
+              count++;
+            }
+          });
+          setUnreadCount(count);
+        }
+      } catch (err) {
+        console.error('Sidebar error fetching unread counts:', err);
+      }
+    };
+
+    fetchUnread();
+
+    const channel = supabase
+      .channel('notice_board_sidebar_realtime')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'notice_board' },
+        () => {
+          fetchUnread();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [user.loginId]);
 
   const collapseAllCategories = () => {
     setIsInjectionExpanded(false);
@@ -230,6 +284,32 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
         </div>
 
         <nav className="flex-1 px-4 space-y-6 mt-4 overflow-y-auto pb-8 custom-scrollbar">
+          <div className="space-y-1">
+            <button
+              onClick={() => {
+                setView({ type: 'NOTICE_BOARD' });
+                onClose();
+              }}
+              className={`w-full flex items-center justify-between gap-2 px-3.5 py-3 rounded-2xl border transition-all ${
+                currentView.type === 'NOTICE_BOARD'
+                  ? 'bg-blue-600 border-blue-500 text-white font-black shadow-lg shadow-blue-500/20'
+                  : 'bg-slate-900/50 border-slate-800 text-slate-300 hover:bg-slate-800/50 hover:text-white'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <svg xmlns="http://www.w3.org/2000/svg" className={`h-4.5 w-4.5 ${currentView.type === 'NOTICE_BOARD' ? 'text-white' : 'text-blue-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                </svg>
+                <span className="text-xs font-black uppercase tracking-widest">Notice Board</span>
+              </div>
+              {unreadCount > 0 && (
+                <span className="bg-red-500 text-white text-[10.5px] font-black h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center animate-bounce shadow-sm">
+                  {unreadCount}
+                </span>
+              )}
+            </button>
+          </div>
+
           {(isVisible(MainCategory.INJECTION_ORDER_MAIN) || isVisible(InjectionOrderSubCategory.INBOX)) && (
             <div className="space-y-1">
               <div 

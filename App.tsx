@@ -21,6 +21,7 @@ import VietnamOrderView from './components/VietnamOrderView';
 import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
 import Dashboard from './components/Dashboard';
+import { NoticeBoardView } from './components/NoticeBoardView';
 import { pullStateFromCloud, pushStateToCloud, supabase, subscribeToRealtime } from './supabase';
 
 const App: React.FC = () => {
@@ -164,6 +165,7 @@ const App: React.FC = () => {
             {view.type === 'NATIONAL_INVOICE' && <NationalInvoice key="national-invoice" sub={view.sub as NationalInvoiceSubCategory} editId={view.editId} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'SHIPPING_REPORT' && <ShippingReportView key={`shipping-${view.sub}`} sub={view.sub as any} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'STORAGE' && <PurchaseOrderView key="storage-view" sub={PurchaseOrderSubCategory.UPLOAD} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
+            {view.type === 'NOTICE_BOARD' && <NoticeBoardView key="notice-board-view" currentUser={currentUser} dataVersion={dataVersion} />}
             {view.type === 'SETTINGS' && isMaster && <SettingsView accounts={userAccounts} onUpdate={updateAccounts} setView={handleSetView} />}
           </div>
         </main>

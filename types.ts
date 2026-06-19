@@ -457,4 +457,5 @@ export type ViewState =
   | { type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory, editId?: string }
   | { type: 'SHIPPING_REPORT', sub: ShippingReportSubCategory, editId?: string }
   | { type: 'STORAGE' }
+  | { type: 'NOTICE_BOARD' }
   | { type: 'SETTINGS' };
