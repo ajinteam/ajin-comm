@@ -5,7 +5,7 @@ import { UserAccount } from '../types';
 interface FileAttachment {
   name: string;
   url: string;
-  type: 'pdf' | 'excel' | 'image';
+  type: 'pdf' | 'excel' | 'image' | 'cad' | 'etc';
 }
 
 interface NoticeMessage {
@@ -230,7 +230,7 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
   };
 
   // Upload attachment file handler
-  const handleUploadFile = async (rawFile: File, forcedType?: 'pdf' | 'excel' | 'image') => {
+  const handleUploadFile = async (rawFile: File, forcedType?: 'pdf' | 'excel' | 'image' | 'cad' | 'etc') => {
     if (!supabase) return;
     setIsUploading(true);
     setUploadProgress(10);
@@ -246,7 +246,7 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
 
     try {
       let fileToSend: Blob | File = rawFile;
-      let detectedType: 'pdf' | 'excel' | 'image' = 'image';
+      let detectedType: 'pdf' | 'excel' | 'image' | 'cad' | 'etc' = 'image';
 
       if (forcedType) {
         detectedType = forcedType;
@@ -258,9 +258,10 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
           detectedType = 'excel';
         } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic'].includes(fileExt)) {
           detectedType = 'image';
+        } else if (['dwg', 'dxf', 'dwf', 'step', 'stp', 'iges', 'igs', 'cad', '3dm'].includes(fileExt)) {
+          detectedType = 'cad';
         } else {
-          // Fallback to pdf for other documents/archives so they render as files
-          detectedType = 'pdf';
+          detectedType = 'etc';
         }
       }
 
@@ -271,9 +272,19 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
       }
 
       setUploadProgress(50);
-      const folder = detectedType === 'pdf' ? 'notice_pdf' : (detectedType === 'excel' ? 'notice_excel' : 'notice_image');
+      let folder = 'notice_image';
+      if (detectedType === 'pdf') {
+        folder = 'notice_pdf';
+      } else if (detectedType === 'excel') {
+        folder = 'notice_excel';
+      } else if (detectedType === 'cad') {
+        folder = 'notice_cad';
+      } else if (detectedType === 'etc') {
+        folder = 'notice_etc';
+      }
+
       const rawExt = rawFile.name.split('.').pop()?.toLowerCase() || '';
-      const safeExt = rawExt ? rawExt : (detectedType === 'pdf' ? 'pdf' : (detectedType === 'excel' ? 'xlsx' : 'jpg'));
+      const safeExt = rawExt ? rawExt : (detectedType === 'pdf' ? 'pdf' : (detectedType === 'excel' ? 'xlsx' : (detectedType === 'cad' ? 'dwg' : (detectedType === 'etc' ? 'bin' : 'jpg'))));
       // Create a 100% safe ASCII-only filename for Supabase storage key to avoid "Invalid key" or space/encoding issues
       const randPart = Math.random().toString(36).substring(2, 7);
       const uniqueFileName = `${Date.now()}_${randPart}.${safeExt}`;
@@ -282,7 +293,13 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
       let bucket = 'ajin-notice';
       
       // Determine explicit Content-Type for the upload request
-      const mimeType = fileToSend.type || rawFile.type || (detectedType === 'pdf' ? 'application/pdf' : (detectedType === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/octet-stream'));
+      const mimeType = fileToSend.type || rawFile.type || (
+        detectedType === 'pdf' ? 'application/pdf' : 
+        detectedType === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 
+        detectedType === 'cad' ? 'application/octet-stream' :
+        detectedType === 'etc' ? 'application/octet-stream' :
+        'application/octet-stream'
+      );
 
       const { data, error } = await supabase.storage
         .from(bucket)
@@ -678,61 +695,21 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
 
                           {/* Render Attached Files inside Message Bubble */}
                           {fileList.length > 0 && (
-                            <div className="border-t border-slate-100 pt-2.5 flex flex-col gap-2.5 w-full">
-                              {fileList.map((file, idx) => (
-                                <div key={idx} className="w-full">
-                                  {file.type === 'pdf' && (
-                                    <a
-                                      href={file.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      download={file.name}
-                                      className="flex flex-col p-3 bg-red-50 hover:bg-red-100/80 text-red-700 rounded-xl transition-all border border-red-100 w-full max-w-[340px]"
-                                    >
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center text-white shrink-0 font-black text-[10px] shadow-sm">PDF</div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-black truncate text-red-800 leading-tight">{file.name}</p>
-                                          <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-0.5">문서 열기 • 다운로드</p>
-                                        </div>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                      </div>
-                                    </a>
-                                  )}
-                                  {file.type === 'excel' && (
-                                    <a
-                                      href={file.url}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      download={file.name}
-                                      className="flex flex-col p-3 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 rounded-xl transition-all border border-emerald-100 w-full max-w-[340px]"
-                                    >
-                                      <div className="flex items-center gap-2.5">
-                                        <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0 font-black text-[10px] shadow-sm font-mono">XLSX</div>
-                                        <div className="flex-1 min-w-0">
-                                          <p className="text-xs font-black truncate text-emerald-800 leading-tight">{file.name}</p>
-                                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mt-0.5">엑셀 시트 다운로드</p>
-                                        </div>
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                                        </svg>
-                                      </div>
-                                    </a>
-                                  )}
-                                  {file.type === 'image' && (
-                                    <div className="flex flex-col gap-1.5 mt-0.5 max-w-[280px] w-full">
+                            <div className="border-t border-slate-100 pt-2 flex flex-col gap-1.5 w-full">
+                              {fileList.map((file, idx) => {
+                                if (file.type === 'image') {
+                                  return (
+                                    <div key={idx} className="flex flex-col gap-1 mt-0.5 max-w-[240px] w-full">
                                       <div className="relative group/img cursor-zoom-in overflow-hidden rounded-xl border border-slate-200/60 shadow-sm">
                                         <img
                                           src={file.url}
                                           alt={file.name}
                                           onClick={() => setPreviewImage(file.url)}
                                           referrerPolicy="no-referrer"
-                                          className="h-auto max-h-56 w-full object-cover hover:scale-105 transition-transform duration-300"
+                                          className="h-auto max-h-48 w-full object-cover hover:scale-105 transition-transform duration-300"
                                         />
-                                        <div className="absolute inset-0 bg-black/45 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
-                                          <span className="bg-black/60 text-white text-[10px] font-black px-3 py-1 rounded-full backdrop-blur-sm tracking-wide uppercase">🔍 원본 크게보기</span>
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                          <span className="bg-black/60 text-white text-[9px] font-black px-2 py-0.5 rounded-full backdrop-blur-sm tracking-wide">🔍 크게보기</span>
                                         </div>
                                       </div>
                                       <a
@@ -742,15 +719,34 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                                         rel="noreferrer"
                                         className="text-[10px] font-bold text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-1 self-start px-0.5"
                                       >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                         </svg>
                                         <span>이미지 다운로드</span>
                                       </a>
                                     </div>
-                                  )}
-                                </div>
-                              ))}
+                                  );
+                                }
+
+                                return (
+                                  <a
+                                    key={idx}
+                                    href={file.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    download={file.name}
+                                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100/90 hover:border-slate-300 transition-all w-full max-w-[320px] text-left group"
+                                    title={`${file.name} 다운로드`}
+                                  >
+                                    <span className="text-[11.5px] font-semibold truncate flex-1 leading-normal text-slate-700 group-hover:text-blue-600">
+                                      {file.name}
+                                    </span>
+                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5 shrink-0 text-slate-400 group-hover:text-blue-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                    </svg>
+                                  </a>
+                                );
+                              })}
                             </div>
                           )}
                         </div>
