@@ -272,8 +272,11 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
 
       setUploadProgress(50);
       const folder = detectedType === 'pdf' ? 'notice_pdf' : (detectedType === 'excel' ? 'notice_excel' : 'notice_image');
-      const sanitizedName = sanitizeFilename(rawFile.name);
-      const uniqueFileName = `${Date.now()}_${sanitizedName}`;
+      const rawExt = rawFile.name.split('.').pop()?.toLowerCase() || '';
+      const safeExt = rawExt ? rawExt : (detectedType === 'pdf' ? 'pdf' : (detectedType === 'excel' ? 'xlsx' : 'jpg'));
+      // Create a 100% safe ASCII-only filename for Supabase storage key to avoid "Invalid key" or space/encoding issues
+      const randPart = Math.random().toString(36).substring(2, 7);
+      const uniqueFileName = `${Date.now()}_${randPart}.${safeExt}`;
       const filePath = `${folder}/${uniqueFileName}`;
 
       let bucket = 'ajin-notice';

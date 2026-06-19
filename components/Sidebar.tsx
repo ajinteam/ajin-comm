@@ -303,9 +303,14 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                 <span className="text-xs font-black uppercase tracking-widest">Notice Board</span>
               </div>
               {unreadCount > 0 && (
-                <span className="bg-red-500 text-white text-[10.5px] font-black h-5 min-w-[20px] px-1.5 rounded-full flex items-center justify-center animate-bounce shadow-sm">
-                  {unreadCount}
-                </span>
+                <div className="flex items-center gap-1.5 shrink-0 select-none">
+                  <span className="bg-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md flex items-center justify-center animate-pulse shadow-sm shadow-red-500/50 tracking-tight">
+                    NEW
+                  </span>
+                  <span className="bg-slate-800 text-[10px] text-slate-300 font-bold px-1.5 py-0.5 rounded-md border border-slate-700">
+                    {unreadCount}
+                  </span>
+                </div>
               )}
             </button>
           </div>
