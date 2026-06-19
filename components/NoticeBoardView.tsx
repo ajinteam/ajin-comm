@@ -86,10 +86,14 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
         updatedAny = true;
 
         // Perform quiet update
-        await supabase
-          .from('notice_board')
-          .update({ read_by: readByArray })
-          .eq('id', msg.id);
+        try {
+          await supabase
+            .from('notice_board')
+            .update({ read_by: readByArray })
+            .eq('id', msg.id);
+        } catch (e) {
+          // Ignore if column is missing
+        }
       }
     }
 
@@ -191,9 +195,17 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
       if (forcedType) {
         detectedType = forcedType;
       } else {
-        const fileExt = rawFile.name.split('.').pop()?.toLowerCase();
-        if (fileExt === 'pdf') detectedType = 'pdf';
-        else if (['xls', 'xlsx'].includes(fileExt || '')) detectedType = 'excel';
+        const fileExt = rawFile.name.split('.').pop()?.toLowerCase() || '';
+        if (fileExt === 'pdf') {
+          detectedType = 'pdf';
+        } else if (['xls', 'xlsx', 'csv'].includes(fileExt)) {
+          detectedType = 'excel';
+        } else if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'heic'].includes(fileExt)) {
+          detectedType = 'image';
+        } else {
+          // Fallback to pdf for other documents/archives so they render as files
+          detectedType = 'pdf';
+        }
       }
 
       // Optimize/compress if it is an image
@@ -287,42 +299,99 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     if (!inputText.trim() && attachedFiles.length === 0) return;
     if (!supabase) return;
 
-    try {
-      const readByList = [currentUser.loginId];
-      const payload = {
-        content: inputText.trim(),
-        author: currentUser.initials,
-        files: attachedFiles,
-        read_by: readByList,
-        created_at: new Date().toISOString()
-      };
+    // Build initial payload
+    const readByList = [currentUser.loginId];
+    let payload: any = {
+      content: inputText.trim(),
+      author: currentUser.initials,
+      files: attachedFiles,
+      read_by: readByList,
+      created_at: new Date().toISOString()
+    };
 
-      // Query to check if insert with raw object succeeds, if database column is JSON or TEXT based
-      const { error } = await supabase
-        .from('notice_board')
-        .insert([payload]);
-
-      if (error) {
-        // Retry logic with stringified objects just in case columns require serialization strings
-        console.warn('Upserting raw payload failed, trying stringified column payload:', error.message);
-        const fallbackPayload = {
-          ...payload,
-          files: JSON.stringify(attachedFiles),
-          read_by: JSON.stringify(readByList)
-        };
-        const { error: error2 } = await supabase
+    const tryInsert = async (currentPayload: any): Promise<{ success: boolean; error: any }> => {
+      try {
+        const { error } = await supabase
           .from('notice_board')
-          .insert([fallbackPayload]);
+          .insert([currentPayload]);
+        
+        if (!error) return { success: true, error: null };
+        return { success: false, error };
+      } catch (err) {
+        return { success: false, error: err };
+      }
+    };
+
+    try {
+      let result = await tryInsert(payload);
+      
+      // If insertion failed, let's try to adapt dynamically to their exact database columns
+      if (!result.success && result.error) {
+        let errMessage = String(result.error.message || '').toLowerCase();
+        let currentPayload = { ...payload };
+
+        // Try stringified JSON first if it failed due to array types
+        if (errMessage.includes('invalid input syntax') || errMessage.includes('type') || errMessage.includes('json')) {
+          currentPayload.files = JSON.stringify(attachedFiles);
+          currentPayload.read_by = JSON.stringify(readByList);
+          result = await tryInsert(currentPayload);
+          if (result.success) {
+            setInputText('');
+            setAttachedFiles([]);
+            fetchMessages();
+            return;
+          }
+          errMessage = String(result.error.message || '').toLowerCase();
+        }
+
+        // Loop up to 5 times to prune missing columns one-by-one based on DB exceptions!
+        for (let attempt = 0; attempt < 5; attempt++) {
+          if (result.success) break;
+          errMessage = String(result.error?.message || '').toLowerCase();
           
-        if (error2) throw error2;
+          let colMatched = false;
+          // Check for well-known column names in error message
+          const possibleColumns = ['files', 'read_by', 'author', 'created_at'];
+          for (const col of possibleColumns) {
+            if (currentPayload[col] !== undefined && (errMessage.includes(`column "${col}"`) || errMessage.includes(`column "${col.toLowerCase()}"`) || errMessage.includes(`"${col}" does not exist`) || errMessage.includes(`column "${col}" of relation`))) {
+              delete currentPayload[col];
+              colMatched = true;
+              break;
+            }
+          }
+
+          if (colMatched) {
+            result = await tryInsert(currentPayload);
+          } else {
+            // No recognizable column error, or other DB issue like RLS
+            break;
+          }
+        }
+      }
+
+      if (!result.success) {
+        throw result.error;
       }
 
       setInputText('');
       setAttachedFiles([]);
       fetchMessages();
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to post to notice board:', err);
-      alert('오류가 발생하여 등록하지 못했습니다.');
+      const errorMsg = err?.message || '알 수 없는 DB 오류';
+      const errorCode = err?.code ? `(오류 코드: ${err.code})` : '';
+      const errorDetails = err?.details ? `\n상세 정보: ${err.details}` : '';
+      
+      let hint = '';
+      if (errorMsg.includes('row-level security') || errorMsg.includes('policy') || err?.code === '42501') {
+        hint = '\n\n💡 해결방법: Supabase 대시보드에서 notice_board 테이블의 RLS 정책을 추가하셔야 합니다. [INSERT] 권한 정책을 허용해주세요(anon 혹은 authenticated).';
+      } else if (err?.code === '42P01') {
+        hint = '\n\n💡 해결방법: notice_board 테이블이 public 스키마에 존재하지 않습니다. 테이블명이 정확한지 확인해주세요.';
+      } else {
+        hint = '\n\n💡 해결방법: 테이블에 content 컬럼이 정의되어 있는지, 데이터 형식이 올바른지 확인해주세요.';
+      }
+
+      alert(`[게시글 등록 실패]\n오류내용: ${errorMsg} ${errorCode}${errorDetails}${hint}`);
     }
   };
 
@@ -461,20 +530,27 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
 
                           {/* Render Attached Files inside Message Bubble */}
                           {fileList.length > 0 && (
-                            <div className="border-t border-slate-100 pt-2 flex flex-col gap-2">
+                            <div className="border-t border-slate-100 pt-2.5 flex flex-col gap-2.5 w-full">
                               {fileList.map((file, idx) => (
-                                <div key={idx} className="flex items-center gap-2">
+                                <div key={idx} className="w-full">
                                   {file.type === 'pdf' && (
                                     <a
                                       href={file.url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="flex items-center gap-2 px-3 py-2 bg-red-50 text-red-600 rounded-xl hover:bg-red-100 transition-colors border border-red-100/50 w-full"
+                                      download={file.name}
+                                      className="flex flex-col p-3 bg-red-50 hover:bg-red-100/80 text-red-700 rounded-xl transition-all border border-red-100 w-full max-w-[340px]"
                                     >
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <span className="text-xs font-bold truncate max-w-[180px]">{file.name}</span>
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-red-500 flex items-center justify-center text-white shrink-0 font-black text-[10px] shadow-sm">PDF</div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-black truncate text-red-800 leading-tight">{file.name}</p>
+                                          <p className="text-[10px] font-bold text-red-500 uppercase tracking-wider mt-0.5">문서 열기 • 다운로드</p>
+                                        </div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                      </div>
                                     </a>
                                   )}
                                   {file.type === 'excel' && (
@@ -482,23 +558,47 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                                       href={file.url}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="flex items-center gap-2 px-3 py-2 bg-emerald-50 text-emerald-600 rounded-xl hover:bg-emerald-100 transition-colors border border-emerald-100/50 w-full"
+                                      download={file.name}
+                                      className="flex flex-col p-3 bg-emerald-50 hover:bg-emerald-100/80 text-emerald-700 rounded-xl transition-all border border-emerald-100 w-full max-w-[340px]"
                                     >
-                                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                                      </svg>
-                                      <span className="text-xs font-bold truncate max-w-[180px]">{file.name}</span>
+                                      <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-lg bg-emerald-600 flex items-center justify-center text-white shrink-0 font-black text-[10px] shadow-sm font-mono">XLSX</div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs font-black truncate text-emerald-800 leading-tight">{file.name}</p>
+                                          <p className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mt-0.5">엑셀 시트 다운로드</p>
+                                        </div>
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                      </div>
                                     </a>
                                   )}
                                   {file.type === 'image' && (
-                                    <div className="relative group/img cursor-zoom-in overflow-hidden rounded-xl border border-slate-100 max-w-[280px]">
-                                      <img
-                                        src={file.url}
-                                        alt={file.name}
-                                        onClick={() => setPreviewImage(file.url)}
-                                        referrerPolicy="no-referrer"
-                                        className="h-auto max-h-48 w-full object-cover rounded-xl hover:scale-105 transition-transform"
-                                      />
+                                    <div className="flex flex-col gap-1.5 mt-0.5 max-w-[280px] w-full">
+                                      <div className="relative group/img cursor-zoom-in overflow-hidden rounded-xl border border-slate-200/60 shadow-sm">
+                                        <img
+                                          src={file.url}
+                                          alt={file.name}
+                                          onClick={() => setPreviewImage(file.url)}
+                                          referrerPolicy="no-referrer"
+                                          className="h-auto max-h-56 w-full object-cover hover:scale-105 transition-transform duration-300"
+                                        />
+                                        <div className="absolute inset-0 bg-black/45 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center pointer-events-none">
+                                          <span className="bg-black/60 text-white text-[10px] font-black px-3 py-1 rounded-full backdrop-blur-sm tracking-wide uppercase">🔍 원본 크게보기</span>
+                                        </div>
+                                      </div>
+                                      <a
+                                        href={file.url}
+                                        download={file.name}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-[10px] font-bold text-blue-500 hover:text-blue-600 hover:underline flex items-center gap-1 self-start px-0.5"
+                                      >
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                                        </svg>
+                                        <span>이미지 다운로드</span>
+                                      </a>
                                     </div>
                                   )}
                                 </div>
@@ -564,70 +664,48 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="이곳에 공유할 공지나 메모 글을 남겨주세요. 클립보드 이미지 캡처 붙여넣기(Ctrl+V)도 가능합니다."
-          className="w-full text-slate-700 min-h-[50px] max-h-[140px] p-3 text-sm rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-slate-50/50 resize-none custom-scrollbar"
+          className="w-full text-slate-700 min-h-[100px] max-h-[220px] p-4 text-sm rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-slate-50/50 resize-none custom-scrollbar"
         />
 
-        <div className="flex items-center justify-between mt-1">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-1.5">
           {/* Attachment buttons row */}
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => {
                 if (fileInputRef.current) {
-                  fileInputRef.current.accept = '.pdf,application/pdf';
+                  fileInputRef.current.removeAttribute('accept');
                   fileInputRef.current.click();
                 }
               }}
-              title="PDF 파일 첨부"
-              className="p-2 text-slate-400 hover:text-red-500 hover:bg-slate-50 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs px-5 py-3 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all shrink-0"
+              title="컴퓨터에서 파일(PDF, 엑셀, 사진) 선택하여 올리기"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
+              <span>첨부파일</span>
             </button>
-            <button
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = '.xls,.xlsx,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-                  fileInputRef.current.click();
-                }
-              }}
-              title="엑셀 파일 첨부"
-              className="p-2 text-slate-400 hover:text-emerald-500 hover:bg-slate-50 rounded-xl transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-              </svg>
-            </button>
-            <button
-              onClick={() => {
-                if (fileInputRef.current) {
-                  fileInputRef.current.accept = 'image/*';
-                  fileInputRef.current.click();
-                }
-              }}
-              title="이미지 사진 첨부"
-              className="p-2 text-slate-400 hover:text-blue-500 hover:bg-slate-50 rounded-xl transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </button>
+
+            <span className="text-[10px] text-slate-400 font-bold select-none ml-2">Shift + Enter 로 줄바꿈</span>
+            
             <input
               type="file"
               ref={fileInputRef}
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file) handleUploadFile(file);
+                if (file) {
+                  handleUploadFile(file);
+                  e.target.value = ''; // Reset to allow re-upload of the same file
+                }
               }}
               className="hidden"
             />
-            <span className="text-[10px] text-slate-400 font-bold select-none">Shift + Enter 로 줄바꿈</span>
           </div>
 
           <button
             onClick={handleSendMessage}
             disabled={!inputText.trim() && attachedFiles.length === 0}
-            className="bg-blue-600 text-white font-black text-xs px-5 py-2 rounded-2xl shadow-md cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:scale-100 disabled:cursor-not-allowed transition-all"
+            className="bg-blue-600 text-white font-black text-xs px-5 py-3 rounded-xl shadow-md cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             보내기
           </button>
