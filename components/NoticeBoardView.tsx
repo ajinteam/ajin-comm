@@ -33,6 +33,45 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messageEndRef = useRef<HTMLDivElement>(null);
 
+  // Helper to extract fields cleanly regardless of standard schema or fallback-wrapped schema
+  const parseNoticeMessage = (msg: NoticeMessage) => {
+    let content = msg.content;
+    let author = msg.author || '알수없음';
+    let files: FileAttachment[] = [];
+    let read_by: string[] = [];
+
+    if (msg.content && msg.content.startsWith('{"__is_fallback_notice__":')) {
+      try {
+        const parsed = JSON.parse(msg.content);
+        content = parsed.content || '';
+        author = parsed.author || author;
+        files = parsed.files || [];
+        read_by = parsed.read_by || [];
+      } catch (e) {
+        // quiet fail
+      }
+    } else {
+      try {
+        if (msg.files) {
+          files = typeof msg.files === 'string' ? JSON.parse(msg.files) : msg.files;
+        }
+      } catch (e) {}
+      try {
+        if (msg.read_by) {
+          read_by = typeof msg.read_by === 'string' ? JSON.parse(msg.read_by) : msg.read_by;
+        }
+      } catch (e) {}
+    }
+
+    return {
+      ...msg,
+      content,
+      author,
+      files,
+      read_by
+    };
+  };
+
   // Load user accounts for unread calculations (Total count)
   useEffect(() => {
     const saved = localStorage.getItem('ajin_accounts');
@@ -72,27 +111,35 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     let updatedAny = false;
 
     for (const msg of loadedMessages) {
-      let readByArray: string[] = [];
-      try {
-        if (msg.read_by) {
-          readByArray = typeof msg.read_by === 'string' ? JSON.parse(msg.read_by) : msg.read_by;
-        }
-      } catch (e) {
-        readByArray = [];
-      }
+      const parsed = parseNoticeMessage(msg);
+      const readByArray = [...parsed.read_by];
 
       if (!readByArray.includes(currentUser.loginId)) {
         readByArray.push(currentUser.loginId);
         updatedAny = true;
 
-        // Perform quiet update
-        try {
-          await supabase
-            .from('notice_board')
-            .update({ read_by: readByArray })
-            .eq('id', msg.id);
-        } catch (e) {
-          // Ignore if column is missing
+        if (msg.content && msg.content.startsWith('{"__is_fallback_notice__":')) {
+          // Fallback structure update in content column
+          try {
+            const parsedObj = JSON.parse(msg.content);
+            parsedObj.read_by = readByArray;
+            await supabase
+              .from('notice_board')
+              .update({ content: JSON.stringify(parsedObj) })
+              .eq('id', msg.id);
+          } catch (e) {
+            console.error('Failed to update fallback message read count:', e);
+          }
+        } else {
+          // Standard columns update
+          try {
+            await supabase
+              .from('notice_board')
+              .update({ read_by: readByArray })
+              .eq('id', msg.id);
+          } catch (e) {
+            // If fallback update fails because it was somehow treated standard, write it as standard exception ignore
+          }
         }
       }
     }
@@ -299,12 +346,16 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     if (!inputText.trim() && attachedFiles.length === 0) return;
     if (!supabase) return;
 
-    // Build initial payload
+    // Use a clean state backup to clear UI instantly for snappy feel
+    const currentInput = inputText.trim();
+    const currentAttached = [...attachedFiles];
+
+    // Build standard payload
     const readByList = [currentUser.loginId];
     let payload: any = {
-      content: inputText.trim(),
+      content: currentInput,
       author: currentUser.initials,
-      files: attachedFiles,
+      files: currentAttached,
       read_by: readByList,
       created_at: new Date().toISOString()
     };
@@ -323,49 +374,49 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     };
 
     try {
+      // 1. Try standard insert
       let result = await tryInsert(payload);
       
-      // If insertion failed, let's try to adapt dynamically to their exact database columns
+      // 2. If standard insert fails, attempt JSON stringification for array columns
       if (!result.success && result.error) {
         let errMessage = String(result.error.message || '').toLowerCase();
-        let currentPayload = { ...payload };
-
-        // Try stringified JSON first if it failed due to array types
-        if (errMessage.includes('invalid input syntax') || errMessage.includes('type') || errMessage.includes('json')) {
-          currentPayload.files = JSON.stringify(attachedFiles);
-          currentPayload.read_by = JSON.stringify(readByList);
-          result = await tryInsert(currentPayload);
-          if (result.success) {
-            setInputText('');
-            setAttachedFiles([]);
-            fetchMessages();
-            return;
-          }
-          errMessage = String(result.error.message || '').toLowerCase();
+        
+        if (errMessage.includes('invalid input syntax') || errMessage.includes('type') || errMessage.includes('json') || errMessage.includes('array')) {
+          const stringifiedPayload = {
+            ...payload,
+            files: JSON.stringify(currentAttached),
+            read_by: JSON.stringify(readByList)
+          };
+          result = await tryInsert(stringifiedPayload);
         }
+      }
 
-        // Loop up to 5 times to prune missing columns one-by-one based on DB exceptions!
-        for (let attempt = 0; attempt < 5; attempt++) {
-          if (result.success) break;
-          errMessage = String(result.error?.message || '').toLowerCase();
-          
-          let colMatched = false;
-          // Check for well-known column names in error message
-          const possibleColumns = ['files', 'read_by', 'author', 'created_at'];
-          for (const col of possibleColumns) {
-            if (currentPayload[col] !== undefined && (errMessage.includes(`column "${col}"`) || errMessage.includes(`column "${col.toLowerCase()}"`) || errMessage.includes(`"${col}" does not exist`) || errMessage.includes(`column "${col}" of relation`))) {
-              delete currentPayload[col];
-              colMatched = true;
-              break;
-            }
-          }
+      // 3. Ultimate Fallback: If it still fails, it means some columns like 'author', 'files', 'read_by' don't exist in user's Supabase schema!
+      // In this case, we serialize ALL metadata into the 'content' column so it's guaranteed to work on any schema with at least 'content' column!
+      if (!result.success && result.error) {
+        console.warn('Standard columns rejected by Supabase, attempting structural metadata fallback inside content field:', result.error);
+        
+        const fallbackValue = JSON.stringify({
+          __is_fallback_notice__: true,
+          content: currentInput,
+          author: currentUser.initials,
+          files: currentAttached,
+          read_by: readByList
+        });
 
-          if (colMatched) {
-            result = await tryInsert(currentPayload);
-          } else {
-            // No recognizable column error, or other DB issue like RLS
-            break;
-          }
+        // 3a. Try with content and created_at
+        const fallbackPayload = {
+          content: fallbackValue,
+          created_at: new Date().toISOString()
+        };
+        result = await tryInsert(fallbackPayload);
+
+        // 3b. If 'created_at' column is also missing or errors, do the absolute bare minimum insertion: just 'content'
+        if (!result.success) {
+          console.warn('Even created_at column failed, inserting with ONLY content column specified:', result.error);
+          result = await tryInsert({
+            content: fallbackValue
+          });
         }
       }
 
@@ -373,6 +424,7 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
         throw result.error;
       }
 
+      // Success cleanup
       setInputText('');
       setAttachedFiles([]);
       fetchMessages();
@@ -515,16 +567,10 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                 <div className="h-[1px] bg-slate-200 flex-1"></div>
               </div>
 
-              {items.map((msg) => {
+              {items.map((rawMsg) => {
+                const msg = parseNoticeMessage(rawMsg);
                 const unreadCount = getUnreadUserCount(msg);
-                const fileList: FileAttachment[] = (() => {
-                  try {
-                    if (!msg.files) return [];
-                    return typeof msg.files === 'string' ? JSON.parse(msg.files) : msg.files;
-                  } catch (e) {
-                    return [];
-                  }
-                })();
+                const fileList: FileAttachment[] = msg.files;
 
                 return (
                   <div key={msg.id} className="group flex items-start gap-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
@@ -630,10 +676,14 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                             <span className="text-blue-500 font-black mb-0.5">{unreadCount}</span>
                           )}
                           <span className="text-slate-400 font-bold">{formatTime(msg.created_at)}</span>
-                          {(msg.author === currentUser.initials || currentUser.loginId === 'master' || currentUser.role === 'admin') && (
+                          {(msg.author === currentUser.initials || 
+                            msg.author === currentUser.name || 
+                            msg.author === currentUser.loginId || 
+                            currentUser.loginId === 'master' || 
+                            currentUser.role === 'admin') && (
                             <button
                               onClick={() => handleDeleteMessage(msg.id, msg.author)}
-                              className="text-slate-400 hover:text-red-500 mt-1 cursor-pointer transition-all p-1 rounded-md hover:bg-slate-100"
+                              className="text-slate-400 hover:text-red-500 mt-1 cursor-pointer transition-all p-1 rounded-md hover:bg-slate-100 animate-in fade-in"
                               title="삭제하기"
                             >
                               <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -685,17 +735,17 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
       )}
 
       {/* Input Form Panel */}
-      <div className="p-4 border-t border-slate-100 flex flex-col gap-2 relative bg-white">
+      <div className="p-2.5 pb-3 border-t border-slate-100 flex flex-col gap-1.5 relative bg-white">
         <textarea
           value={inputText}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
           onPaste={handlePaste}
           placeholder="이곳에 공유할 공지나 메모 글을 남겨주세요. 클립보드 이미지 캡처 붙여넣기(Ctrl+V)도 가능합니다."
-          className="w-full text-slate-700 min-h-[100px] max-h-[220px] p-4 text-sm rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-slate-50/50 resize-none custom-scrollbar"
+          className="w-full text-slate-700 min-h-[50px] max-h-[140px] p-3 text-sm rounded-2xl border border-slate-200 focus:outline-none focus:border-blue-500 bg-slate-50/50 resize-none custom-scrollbar"
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-3 mt-1.5">
+        <div className="flex flex-wrap items-center justify-between gap-3 mt-1">
           {/* Attachment buttons row */}
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -705,13 +755,10 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                   fileInputRef.current.click();
                 }
               }}
-              className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-black text-xs px-5 py-3 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all shrink-0"
+              className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-3.5 py-2.5 rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:scale-105 active:scale-95 transition-all shrink-0"
               title="컴퓨터에서 파일(PDF, 엑셀, 사진) 선택하여 올리기"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-slate-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-              </svg>
-              <span>첨부파일</span>
+              <span>📎 첨부파일</span>
             </button>
 
             <span className="text-[10px] text-slate-400 font-bold select-none ml-2">Shift + Enter 로 줄바꿈</span>
@@ -733,7 +780,7 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
           <button
             onClick={handleSendMessage}
             disabled={!inputText.trim() && attachedFiles.length === 0}
-            className="bg-blue-600 text-white font-black text-xs px-5 py-3 rounded-xl shadow-md cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:scale-100 disabled:cursor-not-allowed transition-all"
+            className="bg-blue-600 text-white font-black text-xs px-5 py-2.5 rounded-xl shadow-md cursor-pointer hover:bg-blue-700 hover:scale-105 active:scale-95 disabled:bg-slate-200 disabled:text-slate-400 disabled:scale-100 disabled:cursor-not-allowed transition-all"
           >
             보내기
           </button>
