@@ -235,6 +235,15 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     setIsUploading(true);
     setUploadProgress(10);
 
+    // Clean and sanitize filename to prevent any character-encoding errors or forbidden characters in Supabase Storage URLs
+    const sanitizeFilename = (filename: string) => {
+      const ext = filename.split('.').pop() || '';
+      const base = filename.substring(0, filename.lastIndexOf('.')) || filename;
+      // Allow only safe characters: alphabet, numbers, hangul, underscore, hyphen.
+      const cleanBase = base.replace(/[^a-zA-Z0-9ㄱ-ㅎㅏ-ㅣ가-힣_\-]/g, '_');
+      return `${cleanBase}.${ext}`;
+    };
+
     try {
       let fileToSend: Blob | File = rawFile;
       let detectedType: 'pdf' | 'excel' | 'image' = 'image';
@@ -263,16 +272,21 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
 
       setUploadProgress(50);
       const folder = detectedType === 'pdf' ? 'notice_pdf' : (detectedType === 'excel' ? 'notice_excel' : 'notice_image');
-      const uniqueFileName = `${Date.now()}_${rawFile.name}`;
+      const sanitizedName = sanitizeFilename(rawFile.name);
+      const uniqueFileName = `${Date.now()}_${sanitizedName}`;
       const filePath = `${folder}/${uniqueFileName}`;
 
       let bucket = 'ajin-notice';
       
+      // Determine explicit Content-Type for the upload request
+      const mimeType = fileToSend.type || rawFile.type || (detectedType === 'pdf' ? 'application/pdf' : (detectedType === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/octet-stream'));
+
       const { data, error } = await supabase.storage
         .from(bucket)
         .upload(filePath, fileToSend, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          contentType: mimeType
         });
 
       if (error) {
@@ -282,7 +296,8 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
           .from(bucket)
           .upload(filePath, fileToSend, {
             cacheControl: '3600',
-            upsert: false
+            upsert: false,
+            contentType: mimeType
           });
           
         if (error2) {
@@ -292,7 +307,8 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
             .from(bucket)
             .upload(filePath, fileToSend, {
               cacheControl: '3600',
-              upsert: false
+              upsert: false,
+              contentType: mimeType
             });
           if (error3) throw error3;
         }
@@ -311,9 +327,9 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
 
       setAttachedFiles(prev => [...prev, newAttachment]);
       setUploadProgress(100);
-    } catch (err) {
+    } catch (err: any) {
       console.error('File sync upload failed:', err);
-      alert('파일 업로드 중 오류가 발생했습니다.');
+      alert(`[파일 업로드 실패]\n${err?.message || '업로드 중 오류가 발생했습니다. 파일 형식을 다시 확인해 주세요.'}`);
     } finally {
       setTimeout(() => {
         setIsUploading(false);
@@ -326,16 +342,34 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     setInputText(e.target.value);
   };
 
-  // Paste handler for screenshot or captured image copy-paste directly
+  // Paste handler for screenshot or files copy-pasted directly from Clipboard (Ctrl+V)
   const handlePaste = async (e: React.ClipboardEvent) => {
     const items = e.clipboardData.items;
+    let fallbackAction = false;
+    
     for (let i = 0; i < items.length; i++) {
-      if (items[i].type.indexOf('image') !== -1) {
+      if (items[i].kind === 'file') {
         const file = items[i].getAsFile();
         if (file) {
           e.preventDefault();
-          const namedSnapshot = new File([file], `캡처_${new Date().toLocaleTimeString('ko-KR').replace(/ /g, '_')}.png`, { type: file.type });
-          await handleUploadFile(namedSnapshot, 'image');
+          fallbackAction = true;
+          
+          // Generate a safe unique name for pasted clipboard capture (avoiding colons and spaces)
+          if (file.type.indexOf('image') !== -1 && (file.name === 'image.png' || !file.name || file.name.includes('image'))) {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0');
+            const date = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            const namedSnapshot = new File([file], `capture_${year}${month}${date}_${hours}${minutes}${seconds}.png`, { type: file.type || 'image/png' });
+            await handleUploadFile(namedSnapshot, 'image');
+          } else {
+            // Document, PDF, or Excel pasted file
+            await handleUploadFile(file);
+          }
         }
       }
     }
@@ -447,10 +481,58 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
     }
   };
 
-  const handleDeleteMessage = async (id: string, author: string) => {
+  const deleteAttachedFileFromStorage = async (url: string) => {
+    if (!supabase) return;
+    try {
+      let bucketName = '';
+      let filePath = '';
+
+      const match = url.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+      if (match) {
+        bucketName = match[1];
+        filePath = match[2];
+      } else {
+        // Fallback: search for bucket names in URL
+        const buckets = ['ajin-notice', 'ajin-nocice', 'ajin-image'];
+        for (const b of buckets) {
+          if (url.includes(`/${b}/`)) {
+            bucketName = b;
+            filePath = url.split(`/${b}/`)[1];
+            break;
+          }
+        }
+      }
+
+      if (bucketName && filePath) {
+        // Decode percent-encoded characters like %20 to raw unicode for Storage API
+        const decodedFilePath = decodeURIComponent(filePath);
+        console.log(`Deleting storage file from bucket: ${bucketName}, path: ${decodedFilePath}`);
+        const { error } = await supabase.storage.from(bucketName).remove([decodedFilePath]);
+        if (error) {
+          console.error(`Failed to delete storage file ${decodedFilePath} from bucket ${bucketName}:`, error);
+        } else {
+          console.log(`Successfully deleted storage file ${decodedFilePath} from bucket ${bucketName}`);
+        }
+      }
+    } catch (err) {
+      console.error('Error during deleting file from storage:', err);
+    }
+  };
+
+  const handleDeleteMessage = async (id: string, author: string, filesToClean?: FileAttachment[]) => {
     if (!window.confirm('이 게시글을 정말 삭제하시겠습니까?')) return;
     if (!supabase) return;
     try {
+      // 1. Delete associated files from Supabase Storage first
+      if (filesToClean && filesToClean.length > 0) {
+        for (const file of filesToClean) {
+          if (file.url) {
+            await deleteAttachedFileFromStorage(file.url);
+          }
+        }
+      }
+
+      // 2. Delete Notice Message entry from table
       const { error } = await supabase
         .from('notice_board')
         .delete()
@@ -682,7 +764,7 @@ export const NoticeBoardView: React.FC<NoticeBoardViewProps> = ({ currentUser })
                             currentUser.loginId === 'master' || 
                             currentUser.role === 'admin') && (
                             <button
-                              onClick={() => handleDeleteMessage(msg.id, msg.author)}
+                              onClick={() => handleDeleteMessage(msg.id, msg.author, fileList)}
                               className="text-slate-400 hover:text-red-500 mt-1 cursor-pointer transition-all p-1 rounded-md hover:bg-slate-100 animate-in fade-in"
                               title="삭제하기"
                             >
