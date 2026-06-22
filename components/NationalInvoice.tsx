@@ -1994,66 +1994,66 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         .invoice-table-input { font-size: 13px !important; }
       `}</style>
 
-      <div className="flex justify-between items-center no-print">
-        <div className="flex items-center gap-4">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 no-print mb-4">
+        <div className="flex flex-wrap items-center gap-4">
           <button 
             onClick={() => setView({ type: 'NATIONAL_INVOICE', sub: normalizeSub(formData.status || NationalInvoiceSubCategory.TEMPORARY) as NationalInvoiceSubCategory })}
             className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl font-bold text-sm hover:bg-slate-50 transition-all shadow-sm"
           >
-            
             ← 닫기
           </button>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <select 
-              className="text-4xl font-black text-slate-900 tracking-tighter bg-transparent border-none outline-none cursor-pointer hover:text-blue-600 transition-colors"
+              className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter bg-transparent border-none outline-none cursor-pointer hover:text-blue-600 transition-colors"
               value={formData.invoiceType || 'COMMERCIAL'}
               onChange={(e) => setFormData(prev => ({ ...prev, invoiceType: e.target.value as any }))}
             >
               <option value="SAMPLE">SAMPLE</option>
               <option value="COMMERCIAL">COMMERCIAL</option>
             </select>
-            <h1 className="text-4xl font-black text-slate-900 tracking-tighter">INVOICE</h1>
+            <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">INVOICE</h1>
           </div>
 
-          <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-xl no-print">
+          <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl no-print">
             {(['USD', 'EUR', 'KRW', 'JPY', 'VND'] as const).map(c => (
               <button 
                 key={c}
                 onClick={() => handleCurrencyChange(c)}
-                className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all ${formData.currency === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-black transition-all ${formData.currency === c ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
               >
                 {c}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-2 w-full lg:w-auto">
           <button 
             onClick={handleUndo} 
             disabled={historyIndex <= 0}
-            className={`px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm transition-colors flex items-center gap-2 ${historyIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-50'}`}
+            className={`px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs md:text-sm transition-colors flex items-center gap-1.5 ${historyIndex <= 0 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-slate-50'}`}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" /></svg>
             되돌리기 (Undo)
           </button>
-          <button onClick={handlePrint} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
+          <button onClick={handlePrint} className="px-3 py-1.5 bg-white border border-slate-200 text-slate-700 rounded-xl font-bold text-xs md:text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" /></svg>
             인쇄 / PDF
           </button>
-          <button onClick={handleExportExcel} className="px-4 py-2 bg-white border border-slate-200 text-emerald-700 rounded-xl font-bold text-sm hover:bg-slate-50 transition-colors flex items-center gap-2">
+          <button onClick={handleExportExcel} className="px-3 py-1.5 bg-white border border-slate-200 text-emerald-700 rounded-xl font-bold text-xs md:text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             엑셀 내보내기
           </button>
-          <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-4 py-2 bg-slate-100 text-slate-700 rounded-xl font-bold text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
+          <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs md:text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
           {normalizeSub(formData.status || '') !== normalizeSub(NationalInvoiceSubCategory.COMPLETED) && (
-            <button onClick={() => handleSave(NationalInvoiceSubCategory.TEMPORARY)} className="px-4 py-2 bg-amber-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-amber-500/20">임시저장</button>
+            <button onClick={() => handleSave(NationalInvoiceSubCategory.TEMPORARY)} className="px-3 py-1.5 bg-amber-500 text-white rounded-xl font-bold text-xs md:text-sm shadow-lg shadow-amber-500/20">임시저장</button>
           )}
-          <button onClick={() => handleSave(NationalInvoiceSubCategory.COMPLETED)} className="px-6 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">작성완료</button>
+          <button onClick={() => handleSave(NationalInvoiceSubCategory.COMPLETED)} className="px-5 py-1.5 bg-blue-600 text-white rounded-xl font-bold text-xs md:text-sm shadow-lg shadow-blue-500/20">작성완료</button>
         </div>
       </div>
 
-      <div className="bg-white shadow-2xl rounded-sm overflow-hidden border border-slate-200 p-6 md:p-8 lg:p-12 flex flex-col space-y-12 min-h-[2500px]">
-        <div className="national-invoice-print flex flex-col min-h-[1123px]">
+      <div className="bg-white shadow-2xl rounded-sm border border-slate-200 p-3 md:p-8 lg:p-12 flex flex-col space-y-12 min-h-[2500px] overflow-x-auto">
+        <div className="min-w-[1020px] xl:min-w-0 w-full flex flex-col space-y-12">
+          <div className="national-invoice-print flex flex-col min-h-[1123px]">
           <div className="text-center mb-8">
             <h2 className="text-5xl font-black underline tracking-widest">{formData.invoiceType} INVOICE</h2>
           </div>
@@ -3157,6 +3157,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               </>
             )}
           </div>
+        </div>
         </div>
       </div>
 

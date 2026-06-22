@@ -756,7 +756,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
 
     return (
       <div className={`bg-white border-[1px] border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[210mm] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto`}>
-        <div className="min-w-[650px] md:min-w-0">
+        <div className="min-w-[768px] lg:min-w-0">
           <div className="flex justify-between items-start mb-8">
             <div className="text-3xl md:text-5xl font-bold uppercase tracking-widest">송 장</div>
             <div className="text-right">

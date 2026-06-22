@@ -1210,7 +1210,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     return (
       <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-5xl text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-center">
-        <div className="w-full font-bold">
+        <div className="min-w-[900px] lg:min-w-0 w-full font-bold">
           <div className="flex justify-between items-start mb-2 font-bold w-full">
             <div className="flex flex-col flex-1 mt-0">
               <h2 className="text-xl font-black tracking-tight uppercase m-0 leading-tight">CÔNG TY TNHH AJIN TRAIN VINA</h2>

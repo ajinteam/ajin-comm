@@ -604,7 +604,7 @@ tr {
     const eVat = Math.floor(itemTotals.extra * 0.1);
 
     return (
-      <div className="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar bg-slate-50">
+      <div className="flex-1 overflow-y-auto p-2 md:p-6 space-y-4 md:space-y-8 custom-scrollbar bg-slate-50">
         <div className="flex justify-between items-start no-print">
           <button onClick={() => setActiveItem(null)} className="px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center shadow-sm">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
@@ -713,11 +713,11 @@ tr {
         <div className="space-y-8">
           {isOrderStyle ? (
             /* Order Style Header */
-            <div className="bg-white border-[1px] border-slate-200 shadow-sm p-8 rounded-2xl">
+            <div className="bg-white border-[1px] border-slate-200 shadow-sm p-4 md:p-8 rounded-2xl">
               <div className="flex flex-col items-center">
-                <h1 className="text-2xl font-black underline mb-8 text-black">사출 발주서 (INJECTION ORDER)</h1>
+                <h1 className="text-xl md:text-2xl font-black underline mb-6 md:mb-8 text-black text-center">사출 발주서 (INJECTION ORDER)</h1>
                 
-                <div className="w-full flex justify-between items-start mb-8">
+                <div className="w-full flex flex-col md:flex-row justify-between items-center md:items-start gap-4 mb-6 md:mb-8">
                   <div className="text-sm font-bold text-black">
                     <p>파일명: {item.item || item.title}</p>
                     <p>작성일: {item.date || new Date().toLocaleDateString()}</p>
@@ -756,17 +756,17 @@ tr {
             </div>
           ) : (
             /* Take Style Header */
-            <div className="bg-white border-[1px] border-slate-200 shadow-sm p-8 rounded-2xl">
+            <div className="bg-white border-[1px] border-slate-200 shadow-sm p-4 md:p-8 rounded-2xl">
               {/* Company Info */}
-              <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4">
-                <h1 className="text-3xl font-black tracking-[0.5rem] mb-2 uppercase text-black">주 식 회 사 아 진 정 공</h1>
-                <p className="text-xs font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
-                <p className="text-xs font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="ml-4 text-blue-600 underline">misuk.kim@ajinpre.net</span></p>
+              <div className="flex flex-col items-center mb-4 border-b-2 border-black pb-4 text-center">
+                <h1 className="text-xl md:text-3xl font-black tracking-[0.2rem] md:tracking-[0.5rem] mb-2 uppercase text-black">주 식 회 사 아 진 정 공</h1>
+                <p className="text-[10px] md:text-xs font-bold text-slate-500">(우;08510) 서울시 금천구 디지털로9길 99, 스타밸리 806호</p>
+                <p className="text-[10px] md:text-xs font-bold text-slate-500">☎ (02) 894-2611 FAX (02) 802-9941 <span className="block md:inline md:ml-4 text-blue-600 underline">misuk.kim@ajinpre.net</span></p>
               </div>
 
               {/* Title & Approval */}
-              <div className="flex justify-between items-end mb-6 border-b border-black pb-4">
-                <div className="text-4xl font-black tracking-[2rem] uppercase leading-none ml-10 text-black">사출 발주서</div>
+              <div className="flex flex-col md:flex-row justify-between items-center md:items-end gap-6 mb-6 border-b border-black pb-4">
+                <div className="text-2xl md:text-4xl font-black tracking-[0.5rem] md:tracking-[2rem] uppercase leading-none md:ml-10 text-black text-center">사출 발주서</div>
                 <table className="border-collapse border-black border-[1px] text-center text-[11px] w-auto">
                   <tbody>
                     <tr>
@@ -805,7 +805,7 @@ tr {
               </div>
 
               {/* Recipient / Sender Info */}
-              <div className="grid grid-cols-2 gap-x-12 mb-6 text-sm leading-tight text-black">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-x-12 mb-6 text-sm leading-tight text-black">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 border-b border-black pb-1">
                     <span className="font-bold whitespace-nowrap">수 신 :</span>
@@ -867,7 +867,7 @@ tr {
               <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {data.length} ITEMS</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left">
+              <table className="w-full border-collapse text-left min-w-[1400px]">
                 <thead>
                   <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
                     <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
@@ -1729,7 +1729,7 @@ tr {
                 <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {excelData.length} ITEMS</span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full border-collapse text-left">
+                <table className="w-full border-collapse text-left min-w-[1400px]">
                   <thead>
                     <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
                       <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
