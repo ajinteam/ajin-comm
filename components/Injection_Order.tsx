@@ -710,7 +710,8 @@ tr {
           </div>
         </div>
 
-        <div className="space-y-8">
+        <div className="overflow-x-auto -mx-2 md:mx-0 p-1 md:p-0">
+          <div className="min-w-[1020px] xl:min-w-0 w-full space-y-8">
           {isOrderStyle ? (
             /* Order Style Header */
             <div className="bg-white border-[1px] border-slate-200 shadow-sm p-4 md:p-8 rounded-2xl">
@@ -1261,6 +1262,7 @@ tr {
                 )}
               </div>
             </div>
+          </div>
           </div>
         </div>
       </div>
