@@ -106,10 +106,42 @@ const App: React.FC = () => {
     };
   }, [currentUser]);
 
+  // Synchronize browser back/forward buttons (History API) to prevent exit on back gesture
+  useEffect(() => {
+    if (!currentUser) return;
+
+    if (!window.history.state) {
+      window.history.replaceState({ type: 'DASHBOARD' }, '', '');
+    }
+
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state && event.state.type) {
+        setView(event.state as ViewState);
+      } else {
+        setView({ type: 'DASHBOARD' });
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [currentUser]);
+
   const handleSetView = async (v: ViewState) => {
     setIsSyncing(true);
-    
     setIsSyncing(false);
+    
+    try {
+      const currentStr = JSON.stringify(view);
+      const targetStr = JSON.stringify(v);
+      if (currentStr !== targetStr) {
+        window.history.pushState(v, '', '');
+      }
+    } catch (e) {
+      console.error('History API error:', e);
+    }
+
     setView(v);
     setIsSidebarOpen(false);
   };
