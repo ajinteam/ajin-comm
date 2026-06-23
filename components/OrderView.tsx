@@ -1063,6 +1063,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     if (type === 'manager' && !isMaster && userInit !== '재성') { alert('과장 결재 권한이 없습니다. (재성 전용)'); return; }
     if (type === 'director' && !isMaster && userInit !== '무연') { alert('이사 결재 권한이 없습니다. (무연 전용)'); return; }
     
+    if (!window.confirm('결재를 승인하시겠습니까?')) {
+      return;
+    }
+
     const updatedStamps = { ...order.stamps, [type]: { userId: currentUser.initials, timestamp: getCurrentTime() } };
     let nextStatus = order.status;
     const isSeoul = order.location === 'SEOUL';
@@ -1099,8 +1103,12 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         }
     }
 
-    if (activeOrder?.id === order.id) setActiveOrder(updatedDoc || null);
-    if (nextStatus === OrderSubCategory.APPROVED) { alert('최종 결재가 승인되어 결재완료 폴더로 이동되었습니다.'); setActiveOrder(null); }
+    if (nextStatus === OrderSubCategory.APPROVED) {
+      alert('최종 결재가 승인되어 결재완료 폴더로 이동되었습니다.');
+    } else {
+      alert('결재 승인이 완료되었습니다.');
+    }
+    setActiveOrder(null);
   };
 
   const handleFinalComplete = (order: OrderItem) => {

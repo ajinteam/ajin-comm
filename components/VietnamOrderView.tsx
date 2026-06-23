@@ -953,6 +953,10 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     if (type === 'head' && !isMaster && userInit !== '의순') { alert('법인장 결재 권한이 없습니다. (의순 전용)'); return; }
     if (type === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
 
+    if (!window.confirm('결재를 승인하시겠습니까?')) {
+      return;
+    }
+
     const updatedStamps = { ...item.stamps, [type]: { userId: currentUser.initials, timestamp: new Date().toISOString() } };
     
     const isPay = item.type === 'PAYMENT';
@@ -977,7 +981,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         sendJandiNotification('VN', 'COMPLETE', item.title, item.authorId, item.date);
     }
 
-    alert(`${type === 'head' ? '법인장' : '대표'} 결재가 완료되었습니다.`);
+    alert('결재 승인이 완료되었습니다.');
     setActiveItem(null);
   };
 

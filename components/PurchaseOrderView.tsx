@@ -1048,6 +1048,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     if (stampType === 'director' && !isMaster && userInit !== '무연') { alert('이사 결재 권한이 없습니다. (무연 전용)'); return; }
     if (stampType === 'ceo' && !isMaster && userInit !== 'david') { alert('대표 결재 권한이 없습니다. (DAVID 전용)'); return; }
     
+    if (!window.confirm('결재를 승인하시겠습니까?')) {
+      return;
+    }
+
     let updatedDoc: PurchaseOrderItem | undefined;
     const updated = items.map(item => {
       if (item.id === id) {
@@ -1086,25 +1090,12 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     saveItems(updated, updatedDoc);
     const updatedActive = updated.find(i => i.id === id);
     if (updatedActive) {
-      const isTargetPO = updatedActive.type === PurchaseOrderSubCategory.PO1 || 
-                         updatedActive.type === PurchaseOrderSubCategory.PO2 || 
-                         updatedActive.type === PurchaseOrderSubCategory.PO3 || 
-                         ['사출발주서', '메탈발주서', '인쇄발주서'].includes(updatedActive.type as string);
-      
-      if (isTargetPO) {
-        if (updatedActive.status === PurchaseOrderSubCategory.APPROVED) {
-          alert(`최종 결재가 완료되어 PO 결재완료 목록으로 이동되었습니다.`);
-        } else {
-          alert("승인 처리가 완료되었습니다.");
-        }
-        setActiveItem(null);
+      if (updatedActive.status === PurchaseOrderSubCategory.APPROVED) {
+        alert(`최종 결재가 완료되어 PO 결재완료 목록으로 이동되었습니다.`);
       } else {
-        setActiveItem(updatedActive);
-        if (updatedActive.status === PurchaseOrderSubCategory.APPROVED) {
-          alert(`최종 결재가 완료되어 PO 결재완료 목록으로 이동되었습니다.`);
-          setActiveItem(null);
-        }
+        alert('결재 승인이 완료되었습니다.');
       }
+      setActiveItem(null);
     }
   };
 

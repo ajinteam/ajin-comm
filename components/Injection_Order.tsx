@@ -239,7 +239,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       return;
     }
 
-    if (!window.confirm(`${role === 'design' ? '설계' : role === 'director' ? '이사' : '대표'} 승인하시겠습니까?`)) return;
+    if (!window.confirm('결재를 승인하시겠습니까?')) return;
 
     try {
       const now = new Date();
@@ -267,11 +267,11 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       setItems(updatedItems.filter((item: any) => item.status === sub));
       
       if (isFinalStep) {
-        alert(`${role === 'director' ? '이사' : '대표'} 승인이 완료되어 결재완료 목록으로 이동합니다.`);
+        alert('최종 승인이 완료되어 결재완료 목록으로 이동합니다.');
         setActiveItem(null);
         setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.APPROVED });
       } else {
-        alert('승인되었습니다.');
+        alert('결재 승인이 완료되었습니다.');
         setActiveItem(null);
       }
 

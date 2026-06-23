@@ -110,15 +110,23 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
 
-    if (!window.history.state) {
-      window.history.replaceState({ type: 'DASHBOARD' }, '', '');
+    try {
+      if (window && window.history && !window.history.state) {
+        window.history.replaceState({ type: 'DASHBOARD' }, '', '');
+      }
+    } catch (e) {
+      console.warn('History API not supported or restricted in this environment:', e);
     }
 
     const handlePopState = (event: PopStateEvent) => {
-      if (event.state && event.state.type) {
-        setView(event.state as ViewState);
-      } else {
-        setView({ type: 'DASHBOARD' });
+      try {
+        if (event.state && event.state.type) {
+          setView(event.state as ViewState);
+        } else {
+          setView({ type: 'DASHBOARD' });
+        }
+      } catch (e) {
+        console.error('popstate event handling error:', e);
       }
     };
 
