@@ -108,13 +108,19 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   };
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent, rowIndex: number, fieldIndex: number) => {
+    const targetEl = e.currentTarget as HTMLTextAreaElement | HTMLInputElement;
+    const hasText = targetEl && targetEl.value && targetEl.value.length > 0;
+
     if (e.key === 'ArrowUp') {
       if (rowIndex > 0) setSelectedCell({ rowIndex: rowIndex - 1, field: fields[fieldIndex] });
     } else if (e.key === 'ArrowDown') {
       if (rowIndex < loadedRows.length - 1) setSelectedCell({ rowIndex: rowIndex + 1, field: fields[fieldIndex] });
     } else if (e.key === 'ArrowLeft') {
+      if (hasText) return;
       if (fieldIndex > 0) setSelectedCell({ rowIndex, field: fields[fieldIndex - 1] });
     } else if (e.key === 'ArrowRight' || e.key === 'Enter') {
+      if (e.key === 'ArrowRight' && hasText) return;
+      
       if (fieldIndex < fields.length - 1) {
         setSelectedCell({ rowIndex, field: fields[fieldIndex + 1] });
       } else if (rowIndex < loadedRows.length - 1) {

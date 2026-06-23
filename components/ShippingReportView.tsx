@@ -450,10 +450,31 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
     const fields: (keyof ShippingReportRow)[] = ['hsCode', 'itemNo', 'itemName', 'qty', 'size', 'remarks', 'boxInfo', 'boxQty', 'memo'];
     const fieldIdx = fields.indexOf(field);
 
+    const targetEl = e.currentTarget as HTMLTextAreaElement | HTMLInputElement;
+    const hasText = targetEl && targetEl.value && targetEl.value.length > 0;
+
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      let nextFieldIdx = fieldIdx + 1;
+      let nextRowIdx = rowIdx;
+      if (nextFieldIdx >= fields.length) {
+        nextFieldIdx = 0;
+        nextRowIdx++;
+      }
+      if (nextRowIdx < formData.rows.length) {
+        const nextField = fields[nextFieldIdx];
+        const nextRow = formData.rows[nextRowIdx];
+        const nextId = `input-${nextRow.id}-${nextField}`;
+        const el = document.getElementById(nextId);
+        if (el) el.focus();
+      }
+      return;
+    }
+
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-      // Only move if cursor is at the beginning/end or if it's up/down (which is harder to check in textarea)
-      // Actually, for better UX in Excel-like tools, some people prefer moving only with specific modifiers or simple move if not in "edit mode".
-      // But standard requirement "상하좌우 방향키로 이동" usually implies moving between cells.
+      if (hasText && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return;
+      }
       
       let nextRowIdx = rowIdx;
       let nextFieldIdx = fieldIdx;

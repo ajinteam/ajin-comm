@@ -371,6 +371,9 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     
     const currentIndex = validCols.indexOf(colIdx);
     
+    const targetEl = e.currentTarget as HTMLTextAreaElement | HTMLInputElement;
+    const hasText = targetEl && targetEl.value && targetEl.value.length > 0;
+    
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (currentIndex < validCols.length - 1) {
@@ -383,6 +386,10 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         }
       }
     } else if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(e.key)) {
+      if (hasText && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return;
+      }
+      
       e.preventDefault();
       let nR = rowIdx, nC = colIdx;
       if (e.key === 'ArrowDown') nR++;
@@ -710,10 +717,49 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         e.preventDefault();
         handleMerge();
       }
+
+      const activeTag = document.activeElement?.tagName;
+      const isInputFocused = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
+
+      if (!isInputFocused && selection) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          e.preventDefault();
+          let { sR, sC } = selection;
+          const isPayDoc = sub === VietnamSubCategory.PAYMENT || activeItem?.type === 'PAYMENT';
+          const isMetalDoc = sub === VietnamSubCategory.METAL_ORDER || activeItem?.type === 'METAL';
+
+          const validColsPo = [1, 2, 3, 4, 5, 6, 7];
+          const validColsPay = [1, 3, 4, 5, 6, 7];
+          const validColsMetal = [0, 1, 2, 3, 4, 5, 6, 7];
+          let validCols = validColsPo;
+          if (isPayDoc) validCols = validColsPay;
+          else if (isMetalDoc) validCols = validColsMetal;
+
+          const currentIndex = validCols.indexOf(sC);
+          const targetRows = isEditable ? vRows : (activeItem ? activeItem.rows : []);
+
+          if (targetRows && targetRows.length > 0) {
+            if (e.key === 'ArrowDown') {
+              sR = Math.min(targetRows.length - 1, sR + 1);
+            } else if (e.key === 'ArrowUp') {
+              sR = Math.max(0, sR - 1);
+            } else if (e.key === 'ArrowRight') {
+              if (currentIndex < validCols.length - 1) {
+                sC = validCols[currentIndex + 1];
+              }
+            } else if (e.key === 'ArrowLeft') {
+              if (currentIndex > 0) {
+                sC = validCols[currentIndex - 1];
+              }
+            }
+            setSelection({ sR, sC, eR: sR, eC: sC });
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleMerge, selection, sub, editingId]);
+  }, [handleMerge, selection, sub, editingId, vRows, activeItem]);
 
   const handlePrint = () => {
     const printEl = document.querySelector('.vietnam-order-print')?.cloneNode(true) as HTMLElement;

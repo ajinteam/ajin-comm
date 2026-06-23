@@ -653,6 +653,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     };
     const validCols = getValidCols();
     const currentIndex = validCols.indexOf(colIdx);
+    
+    const targetEl = e.currentTarget as HTMLTextAreaElement | HTMLInputElement;
+    const hasText = targetEl && targetEl.value && targetEl.value.length > 0;
+
     if (e.key === 'Enter') {
       if (e.shiftKey) return;
       e.preventDefault();
@@ -674,18 +678,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       const prevRowIdx = rowIdx - 1;
       if (prevRowIdx >= 0) (document.querySelector(`[data-row="${prevRowIdx}"][data-col="${colIdx}"]`) as HTMLTextAreaElement)?.focus();
     } else if (e.key === 'ArrowRight') {
-      const target = e.target as HTMLTextAreaElement | HTMLInputElement;
-      const isAtEnd = target && typeof target.selectionStart === 'number' && target.selectionStart === target.value.length && target.selectionEnd === target.value.length;
-      if (!isAtEnd) return;
+      if (hasText) return;
       e.preventDefault();
       if (currentIndex < validCols.length - 1) {
         const nextCol = validCols[currentIndex + 1];
         (document.querySelector(`[data-row="${rowIdx}"][data-col="${nextCol}"]`) as HTMLTextAreaElement)?.focus();
       }
     } else if (e.key === 'ArrowLeft') {
-      const target = e.target as HTMLTextAreaElement | HTMLInputElement;
-      const isAtStart = target && typeof target.selectionStart === 'number' && target.selectionStart === 0 && target.selectionEnd === 0;
-      if (!isAtStart) return;
+      if (hasText) return;
       e.preventDefault();
       if (currentIndex > 0) {
         const prevCol = validCols[currentIndex - 1];
@@ -921,10 +921,44 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               e.preventDefault(); handleClearSelectionText();
           }
       }
+
+      const activeTag = document.activeElement?.tagName;
+      const isInputFocused = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
+
+      if (!isInputFocused && po1Selection) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          e.preventDefault();
+          let { sR, sC } = po1Selection;
+
+          const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
+          const baseCols = (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] : ((currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP) ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4, 5]);
+          const validCols = ((currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) && hideInjectionColumn) ? baseCols.filter(c => c !== 8) : baseCols;
+
+          const currentIndex = validCols.indexOf(sC);
+          const targetRows = canEdit ? po2Rows : (activeItem ? activeItem.rows : []);
+
+          if (targetRows && targetRows.length > 0) {
+            if (e.key === 'ArrowDown') {
+              sR = Math.min(targetRows.length - 1, sR + 1);
+            } else if (e.key === 'ArrowUp') {
+              sR = Math.max(0, sR - 1);
+            } else if (e.key === 'ArrowRight') {
+              if (currentIndex < validCols.length - 1) {
+                sC = validCols[currentIndex + 1];
+              }
+            } else if (e.key === 'ArrowLeft') {
+              if (currentIndex > 0) {
+                sC = validCols[currentIndex - 1];
+              }
+            }
+            setPo1Selection({ sR, sC, eR: sR, eC: sC });
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleMerge, handleClearSelectionText, isWritingAnyPO, editingItemId, po1Selection]);
+  }, [handleMerge, handleClearSelectionText, isWritingAnyPO, editingItemId, po1Selection, items, sub, hideInjectionColumn, po2Rows, activeItem]);
 
   const handleUnmerge = () => {
     if (!po1Selection) return;

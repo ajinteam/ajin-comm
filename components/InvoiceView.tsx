@@ -365,6 +365,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const validCols = [0, 1, 2, 3, 4, 5, 6, 7];
     const currentIndex = validCols.indexOf(colIdx);
     
+    const targetEl = e.currentTarget as HTMLTextAreaElement | HTMLInputElement;
+    const hasText = targetEl && targetEl.value && targetEl.value.length > 0;
+    
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (currentIndex < validCols.length - 1) {
@@ -394,6 +397,10 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
         }
       }
     } else if (['ArrowDown', 'ArrowUp', 'ArrowRight', 'ArrowLeft'].includes(e.key)) {
+      if (hasText && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return;
+      }
+      
       e.preventDefault();
       let nR = rowIdx, nC = colIdx;
       if (e.key === 'ArrowDown') nR++;
@@ -520,10 +527,40 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'F4' && (sub === InvoiceSubCategory.CREATE || activeInvoice)) { e.preventDefault(); handleMerge(); }
       if (e.key === 'Delete' && (sub === InvoiceSubCategory.CREATE || activeInvoice) && selection) { e.preventDefault(); handleClearSelectionText(); }
+
+      const activeTag = document.activeElement?.tagName;
+      const isInputFocused = activeTag === 'INPUT' || activeTag === 'TEXTAREA';
+
+      if (!isInputFocused && selection) {
+        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+          e.preventDefault();
+          let { sR, sC } = selection;
+          const validCols = [0, 1, 2, 3, 4, 5, 6, 7];
+          const currentIndex = validCols.indexOf(sC);
+          const targetRows = activeInvoice ? activeInvoice.rows : formRows;
+
+          if (targetRows && targetRows.length > 0) {
+            if (e.key === 'ArrowDown') {
+              sR = Math.min(targetRows.length - 1, sR + 1);
+            } else if (e.key === 'ArrowUp') {
+              sR = Math.max(0, sR - 1);
+            } else if (e.key === 'ArrowRight') {
+              if (currentIndex < validCols.length - 1) {
+                sC = validCols[currentIndex + 1];
+              }
+            } else if (e.key === 'ArrowLeft') {
+              if (currentIndex > 0) {
+                sC = validCols[currentIndex - 1];
+              }
+            }
+            setSelection({ sR, sC, eR: sR, eC: sC });
+          }
+        }
+      }
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [handleMerge, handleClearSelectionText, sub, activeInvoice, selection]);
+  }, [handleMerge, handleClearSelectionText, sub, activeInvoice, selection, formRows]);
 
   const isCellSelected = (r: number, c: number) => {
     if (!selection) return false;

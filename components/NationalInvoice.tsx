@@ -639,6 +639,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       if (e.key === 'Enter' && e.shiftKey) return;
       
       const target = e.target as HTMLElement;
+      const targetEl = e.currentTarget as HTMLTextAreaElement | HTMLInputElement;
+      const hasText = targetEl && targetEl.value && targetEl.value.length > 0;
+      
+      if (hasText && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+        return;
+      }
+      
       const inputs = Array.from(document.querySelectorAll('.invoice-table-input')) as HTMLElement[];
       const currentIndex = inputs.indexOf(target);
       
