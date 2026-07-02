@@ -77,6 +77,14 @@ const AutoExpandingTextarea = React.memo(({
   );
 });
 
+const formatNumberWithCommas = (str: any): string => {
+  if (str === undefined || str === null) return '';
+  const s = String(str);
+  const parts = s.split('.');
+  parts[0] = parts[0].replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
 const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, dataVersion }) => {
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [activeInvoice, setActiveInvoice] = useState<InvoiceItem | null>(null);
@@ -245,8 +253,12 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   };
 
   const updateRowField = useCallback((rowId: string, field: keyof InvoiceRow, value: any) => {
+    let processedValue = value;
+    if (field === 'qty' || field === 'qtyExtra') {
+      processedValue = formatNumberWithCommas(value);
+    }
     if (!activeInvoice) {
-      setFormRows(prev => prev.map(row => row.id === rowId ? { ...row, [field]: value } : row));
+      setFormRows(prev => prev.map(row => row.id === rowId ? { ...row, [field]: processedValue } : row));
     } else {
       const currentFullList = JSON.parse(localStorage.getItem('ajin_invoices') || '[]');
       const updatedList = currentFullList.map((inv: InvoiceItem) => {
@@ -255,7 +267,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             if (row.id === rowId) {
               return { 
                 ...row, 
-                [field]: value, 
+                [field]: processedValue, 
                 modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } 
               } as InvoiceRow;
             }
@@ -329,7 +341,11 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
               const cIdx = startColIdx + cOffset;
               if (cIdx < fields.length) {
                 const field = fields[cIdx];
-                newRows[rIdx] = { ...newRows[rIdx], [field]: pCell, modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } } as InvoiceRow;
+                let val = pCell;
+                if (field === 'qty' || field === 'qtyExtra') {
+                  val = formatNumberWithCommas(pCell);
+                }
+                newRows[rIdx] = { ...newRows[rIdx], [field]: val, modLog: { userId: currentUser.initials, timestamp: getCurrentAmPmTime(), type: 'EDIT' as const } } as InvoiceRow;
               }
             });
           });
@@ -341,7 +357,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
       setInvoices(updatedList);
       const current = updatedList.find((i: InvoiceItem) => i.id === activeInvoice.id);
       if (current) setActiveInvoice(current);
-     
+      
     } else {
       setFormRows(prev => {
         let newRows = [...prev];
@@ -352,7 +368,11 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             const cIdx = startColIdx + cOffset;
             if (cIdx < fields.length) {
               const field = fields[cIdx];
-              newRows[rIdx] = { ...newRows[rIdx], [field]: pCell } as InvoiceRow;
+              let val = pCell;
+              if (field === 'qty' || field === 'qtyExtra') {
+                val = formatNumberWithCommas(pCell);
+              }
+              newRows[rIdx] = { ...newRows[rIdx], [field]: val } as InvoiceRow;
             }
           });
         });
@@ -930,7 +950,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             <table className="border-collapse border border-slate-900 text-[10px] md:text-[11px] w-40 md:w-48">
               <tbody>
                 <tr><td className="border border-slate-900 p-1 bg-slate-50 font-bold w-16 md:w-20 text-center whitespace-nowrap">무게(KG)</td><td className="border border-slate-900 p-0">{isReadOnly && !isTempDoc ? <span className="px-2">{weight}</span> : <input type="text" value={weight} onChange={(e) => { takeSnapshot(); setFormWeight(e.target.value); }} onFocus={takeSnapshot} className="w-full bg-transparent outline-none p-1 text-center"/>}</td></tr>
-                <tr><td className="border border-slate-900 p-1 bg-slate-50 font-bold w-16 md:w-20 text-center whitespace-nowrap">수량(BOX)</td><td className="border border-slate-900 p-0">{isReadOnly && !isTempDoc ? <span className="px-2">{boxQty}</span> : <input type="text" value={boxQty} onChange={(e) => { takeSnapshot(); setFormBoxQty(e.target.value); }} onFocus={takeSnapshot} className="w-full bg-transparent outline-none p-1 text-center"/>}</td></tr>
+                <tr><td className="border border-slate-900 p-1 bg-slate-50 font-bold w-16 md:w-20 text-center whitespace-nowrap">수량(BOX)</td><td className="border border-slate-900 p-0">{isReadOnly && !isTempDoc ? <span className="px-2">{boxQty}</span> : <input type="text" value={boxQty} onChange={(e) => { takeSnapshot(); setFormBoxQty(formatNumberWithCommas(e.target.value)); }} onFocus={takeSnapshot} className="w-full bg-transparent outline-none p-1 text-center"/>}</td></tr>
               </tbody>
             </table>
           </div>

@@ -41,6 +41,14 @@ const AutoExpandingTextarea = React.memo(({
   );
 });
 
+const formatNumberWithCommas = (str: any): string => {
+  if (str === undefined || str === null) return '';
+  const s = String(str);
+  const parts = s.split('.');
+  parts[0] = parts[0].replace(/,/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  return parts.join('.');
+};
+
 const formatCompletionDate = (isoString: string, isVietnam: boolean) => {
   if (!isoString) return '';
   const date = new Date(isoString);
@@ -673,19 +681,23 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   };
 
   const updateRowField = useCallback((rowId: string, field: keyof OrderRow, value: string) => {
+    let processedValue = value;
+    if (field === 'price' || field === 'unitPrice') {
+      processedValue = formatNumberWithCommas(value);
+    }
     setFormRows(prev => prev.map(row => {
       if (row.id === rowId) {
         let updatedFields = row.changedFields ? [...row.changedFields] : [];
         if (originalRejectedOrder) {
           const oriRow = originalRejectedOrder.rows.find(r => r.id === rowId);
           const oriValue = oriRow ? (oriRow[field] || '') : '';
-          if (String(value).trim() !== String(oriValue).trim()) {
+          if (String(processedValue).trim() !== String(oriValue).trim()) {
             if (!updatedFields.includes(field)) updatedFields.push(field);
           } else {
             updatedFields = updatedFields.filter(f => f !== field);
           }
         }
-        return { ...row, [field]: value, changedFields: updatedFields };
+        return { ...row, [field]: processedValue, changedFields: updatedFields };
       }
       return row;
     }));
@@ -703,6 +715,10 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   }, [approvedLibrary, originalRejectedOrder]);
 
   const handleRowEdit = useCallback((order: OrderItem, rowId: string, field: keyof OrderRow, value: string) => {
+    let processedValue = value;
+    if (field === 'price' || field === 'unitPrice') {
+      processedValue = formatNumberWithCommas(value);
+    }
     const currentFullList = JSON.parse(localStorage.getItem('ajin_orders') || '[]');
     let updatedDoc: OrderItem | undefined;
     const updatedList = currentFullList.map((o: OrderItem) => {
@@ -710,7 +726,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         const nextRows = o.rows.map(r => 
           r.id === rowId ? { 
             ...r, 
-            [field]: value, 
+            [field]: processedValue, 
             modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'EDIT' as const } 
           } : r
         );
@@ -953,7 +969,11 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
               const cIdx = startColIdx + cOffset;
               if (cIdx < fields.length) {
                 const field = fields[cIdx];
-                newRows[rIdx] = { ...newRows[rIdx], [field]: pCell, modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'EDIT' as const } } as any;
+                let val = pCell;
+                if (field === 'price' || field === 'unitPrice') {
+                  val = formatNumberWithCommas(pCell);
+                }
+                newRows[rIdx] = { ...newRows[rIdx], [field]: val, modLog: { userId: currentUser.initials, timestamp: getCurrentTime(), type: 'EDIT' as const } } as any;
               }
             });
           });
@@ -975,13 +995,17 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             if (cIdx < fields.length) { 
               const field = fields[cIdx];
               let row = { ...newRows[rIdx] };
-              (row as any)[field] = pCell;
+              let val = pCell;
+              if (field === 'price' || field === 'unitPrice') {
+                val = formatNumberWithCommas(pCell);
+              }
+              (row as any)[field] = val;
               
               if (originalRejectedOrder) {
                 const oriRow = originalRejectedOrder.rows.find(or => or.id === row.id);
                 const oriValue = oriRow ? (oriRow[field] || '') : '';
                 let updatedFields = row.changedFields ? [...row.changedFields] : [];
-                if (String(pCell).trim() !== String(oriValue).trim()) {
+                if (String(val).trim() !== String(oriValue).trim()) {
                   if (!updatedFields.includes(field)) updatedFields.push(field);
                 } else {
                   updatedFields = updatedFields.filter(f => f !== field);
