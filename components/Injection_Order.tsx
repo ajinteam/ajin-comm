@@ -105,17 +105,29 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
         let headerIndex = -1;
         for (let i = 0; i < json.length; i++) {
           const row = json[i];
-          if (row && Array.isArray(row) && (row.includes('MOLD') || row.includes('DN'))) {
-            headerIndex = i;
-            break;
+          if (row && Array.isArray(row)) {
+            const hasMold = row.some(cell => {
+              const str = String(cell || '').replace(/\s/g, '').toUpperCase();
+              return str.includes('MOLD') || str.includes('DN') || str.includes('PARTNAME') || str.includes('기종');
+            });
+            if (hasMold) {
+              headerIndex = i;
+              break;
+            }
           }
         }
 
         if (headerIndex !== -1 && json.length > headerIndex + 1) {
-          const headers: any[] = json[headerIndex].map(h => String(h || '').replace(/\s/g, '')); // Remove whitespace and newlines for matching
+          const headers: string[] = json[headerIndex].map(h => String(h || '').trim().toUpperCase().replace(/\s/g, '')); // Remove whitespace and convert to uppercase for robust matching
           
           const findIndex = (patterns: string[]) => {
-            return headers.findIndex(h => patterns.some(p => h.includes(p)));
+            const normalizedPatterns = patterns.map(p => p.trim().toUpperCase().replace(/\s/g, ''));
+            // 1. Try exact match first
+            const exactIdx = headers.findIndex(h => normalizedPatterns.some(p => h === p));
+            if (exactIdx !== -1) return exactIdx;
+
+            // 2. Try substring match as fallback
+            return headers.findIndex(h => normalizedPatterns.some(p => h.includes(p) || p.includes(h)));
           };
 
           const idxMold = findIndex(['MOLD']);
@@ -132,7 +144,8 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
           const idxPrice = findIndex(['금액']);
           const idxExtra = findIndex(['추가']);
           const idxExtraAmount = findIndex(['추가금액']);
-          const idxRemarksRSP = findIndex(['비고/R.SP', 'R.S/P', '비고']);
+          const idxRemarks = findIndex(['비고']);
+          const idxRemarksRSP = findIndex(['비고/R.SP', 'R.S/P', '비고R.S/P', 'R.SP']);
 
           const tableRows: OrderRow[] = [];
           const footerRows: string[] = [];
@@ -154,6 +167,9 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
             }
 
             if (row[idxMold] || row[idxDn]) {
+              const rowRemarks = idxRemarks !== -1 ? String(row[idxRemarks] || '') : '';
+              const rowRemarksRSP = idxRemarksRSP !== -1 ? String(row[idxRemarksRSP] || '') : '';
+
               tableRows.push({
                 id: crypto.randomUUID ? crypto.randomUUID() : `injection-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                 model: String(row[idxMold] || ''),
@@ -168,10 +184,10 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
                 orderQty: String(row[idxOrderQty] || ''),
                 unitPrice: String(row[idxUnitPrice] || ''),
                 price: String(row[idxPrice] || ''),
-                remarks: String(row[idxRemarksRSP] || ''), // Keep remarks for compatibility if needed
+                remarks: rowRemarks || rowRemarksRSP, // Keep remarks for compatibility, fallback to remarksRSP if empty
                 extra: String(row[idxExtra] || ''),
                 extraAmount: String(row[idxExtraAmount] || ''),
-                remarksRSP: String(row[idxRemarksRSP] || ''),
+                remarksRSP: rowRemarksRSP || rowRemarks, // Use remarksRSP first, fallback to standard remarks if empty
               });
             }
           }
