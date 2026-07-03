@@ -884,24 +884,24 @@ tr {
               <span className="text-[10px] font-bold text-slate-400 bg-white px-2 py-1 rounded-md border border-slate-200">TOTAL: {data.length} ITEMS</span>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left min-w-[1400px]">
+              <table className="w-full border-collapse text-left min-w-[1000px]">
                 <thead>
                   <tr className="bg-slate-50/80 border-b-2 border-slate-300 text-black">
-                    <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
-                    <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
-                    <th className="w-[3%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
-                    <th className="w-[18%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
-                    <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
-                    <th className="w-[4%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
-                    <th className="w-[10%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
-                    <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
-                    <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
-                    <th className="w-[6%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
-                    <th className="w-[8%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
-                    <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
-                    <th className="w-[5%] px-0 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
-                    <th className="w-[9%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
-                    <th className="w-[6%] px-1 py-3 text-[13px] font-black uppercase tracking-tighter">비고 R.S/P</th>
+                    <th className="w-[6%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200">MOLD</th>
+                    <th className="w-[6%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200">DN</th>
+                    <th className="w-[3%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">S</th>
+                    <th className="w-[18%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200">PART NAME</th>
+                    <th className="w-[4%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">CTY</th>
+                    <th className="w-[4%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">QTY</th>
+                    <th className="w-[10%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200">MATERIAL</th>
+                    <th className="w-[5%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">금형<br/>업체</th>
+                    <th className="w-[5%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">사출<br/>업체</th>
+                    <th className="w-[6%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center leading-tight">주문<br/>수량</th>
+                    <th className="w-[8%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">단가</th>
+                    <th className="w-[9%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">금액</th>
+                    <th className="w-[5%] px-0 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가</th>
+                    <th className="w-[9%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter border-r border-slate-200 text-center">추가금액</th>
+                    <th className="w-[6%] px-1 py-2 text-[11px] font-black uppercase tracking-tighter">비고 R.S/P</th>
                   </tr>
                 </thead>
                 <tbody className="text-black">
@@ -917,45 +917,45 @@ tr {
 
                     return (
                       <tr key={index} className={`hover:bg-slate-50/50 transition-colors group ${borderTopClass} ${borderBottomClass}`}>
-                        <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 break-words">{row.model}</td>
-                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.dept}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.s}</td>
-                        <td className="px-1 py-2 text-[15px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.cty}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
-                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 break-words">{row.material}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.vendor}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
-                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
-                        <td className="px-1 py-2 text-[15px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
-                        <td className="px-0 py-2 text-[15px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
-                        <td className="px-1 py-2 text-[15px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
-                        <td className="px-1 py-2 text-[15px] italic text-slate-500 break-words">{row.remarksRSP}</td>
+                        <td className="px-1 py-1.5 text-[13px] font-bold border-r border-slate-100 break-words">{row.model}</td>
+                        <td className="px-1 py-1.5 text-[13px] border-r border-slate-100 break-words">{row.dept}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{row.s}</td>
+                        <td className="px-1 py-1.5 text-[13px] font-medium border-r border-slate-100 break-words">{row.itemName}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{row.cty}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{formatNum(row.qty)}</td>
+                        <td className="px-1 py-1.5 text-[13px] border-r border-slate-100 break-words">{row.material}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{row.vendor}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{row.injectionVendor}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{formatNum(row.orderQty)}</td>
+                        <td className="px-1 py-1.5 text-[13px] border-r border-slate-100 text-right whitespace-normal break-all">{unitPriceStr}</td>
+                        <td className="px-1 py-1.5 text-[13px] font-bold border-r border-slate-100 text-right">{formatNum(row.price)}</td>
+                        <td className="px-0 py-1.5 text-[13px] border-r border-slate-100 text-center">{formatNum(row.extra)}</td>
+                        <td className="px-1 py-1.5 text-[13px] border-r border-slate-100 text-right">{formatNum(row.extraAmount)}</td>
+                        <td className="px-1 py-1.5 text-[13px] italic text-slate-500 break-words">{row.remarksRSP}</td>
                       </tr>
                     );
                   })}
                   {/* Summary Rows */}
                   <tr className="bg-slate-50/30 font-bold text-black border-t-2 border-slate-400">
-                    <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
-                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{itemTotals.price.toLocaleString()}</td>
-                    <td className="px-0 py-3 border-r border-slate-100"></td>
-                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{itemTotals.extra.toLocaleString()}</td>
-                    <td className="px-1 py-3"></td>
+                    <td colSpan={11} className="px-4 py-2 text-right text-[12px] uppercase tracking-widest border-r border-slate-100">합계 (Subtotal)</td>
+                    <td className="px-1 py-2 text-[13px] text-right border-r border-slate-100">{itemTotals.price.toLocaleString()}</td>
+                    <td className="px-0 py-2 border-r border-slate-100"></td>
+                    <td className="px-1 py-2 text-[13px] text-right border-r border-slate-100">{itemTotals.extra.toLocaleString()}</td>
+                    <td className="px-1 py-2"></td>
                   </tr>
                   <tr className="bg-slate-50/30 font-bold text-black">
-                    <td colSpan={11} className="px-4 py-3 text-right text-[13px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
-                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{pVat.toLocaleString()}</td>
-                    <td className="px-0 py-3 border-r border-slate-100"></td>
-                    <td className="px-1 py-3 text-[15px] text-right border-r border-slate-100">{eVat.toLocaleString()}</td>
-                    <td className="px-1 py-3"></td>
+                    <td colSpan={11} className="px-4 py-2 text-right text-[12px] uppercase tracking-widest border-r border-slate-100">부가세 (VAT 10%)</td>
+                    <td className="px-1 py-2 text-[13px] text-right border-r border-slate-100">{pVat.toLocaleString()}</td>
+                    <td className="px-0 py-2 border-r border-slate-100"></td>
+                    <td className="px-1 py-2 text-[13px] text-right border-r border-slate-100">{eVat.toLocaleString()}</td>
+                    <td className="px-1 py-2"></td>
                   </tr>
                   <tr className="bg-blue-50/50 font-black text-black border-b-2 border-slate-400">
-                    <td colSpan={11} className="px-4 py-3 text-right text-[13px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
-                    <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.price + pVat).toLocaleString()}</td>
-                    <td className="px-0 py-3 border-r border-slate-100"></td>
-                    <td className="px-1 py-3 text-[16px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.extra + eVat).toLocaleString()}</td>
-                    <td className="px-1 py-3"></td>
+                    <td colSpan={11} className="px-4 py-2 text-right text-[12px] text-blue-600 uppercase tracking-widest border-r border-slate-100">총액 (Grand Total)</td>
+                    <td className="px-1 py-2 text-[14px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.price + pVat).toLocaleString()}</td>
+                    <td className="px-0 py-2 border-r border-slate-100"></td>
+                    <td className="px-1 py-2 text-[14px] text-blue-700 text-right border-r border-slate-100">{(itemTotals.extra + eVat).toLocaleString()}</td>
+                    <td className="px-1 py-2"></td>
                   </tr>
                 </tbody>
               </table>
