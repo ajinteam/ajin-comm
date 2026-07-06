@@ -296,7 +296,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             const prStr = parseNumber(updated.proc || '');
             const pr = parseFloat(prStr) || 0;
             
-            updated.amount = (q * p).toFixed(2);
+            // QUANTITY 단위(unit)가 있을 때만 자동 계산
+            if (updated.unit && updated.unit.trim() !== '') {
+              updated.amount = (q * p).toFixed(2);
+            }
             
             // Only show procAmount if proc is entered (PROC를 입력해야 값이 표시되게)
             if (prStr === '') {
@@ -550,7 +553,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         const q = parseFloat(parseNumber(row.quantity || '0')) || 0;
         const p = parseFloat(parseNumber(row.price || '0')) || 0;
         const pr = parseFloat(parseNumber(row.proc || '0')) || 0;
-        row.amount = (q * p).toFixed(2);
+        if (row.unit && row.unit.trim() !== '') {
+          row.amount = (q * p).toFixed(2);
+        }
         row.procAmount = (q * pr).toFixed(2);
         
         rows[currentPtr] = row;
@@ -2530,9 +2535,21 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right relative align-middle">
-                        <div className={`font-bold flex items-center justify-end min-h-[22px] ${getEditedColor('amount', row.id)}`} style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}>
-                          {row.unit ? formatNumber(row.amount) : ''}
-                        </div>
+                        {!row.unit || row.unit.trim() === '' ? (
+                          <input 
+                            className={`invoice-table-input invoice-input font-bold text-right focus:bg-sky-100 w-full ${getEditedColor('amount', row.id)}`} 
+                            style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
+                            value={formatNumber(row.amount) || ''} 
+                            onChange={(e) => handleRowChange(row.id, 'amount', e.target.value)} 
+                            onKeyDown={(e) => handleKeyDown(e, row.id, 'amount')}
+                            onPaste={(e) => handlePaste(e, row.id, 'amount')}
+                            onFocus={() => setSelectedRowId(row.id)}
+                          />
+                        ) : (
+                          <div className={`font-bold flex items-center justify-end min-h-[22px] ${getEditedColor('amount', row.id)}`} style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}>
+                            {formatNumber(row.amount)}
+                          </div>
+                        )}
                         <div className={`absolute -right-10 top-1/2 -translate-y-1/2 flex items-center gap-1 transition-opacity no-print bg-white p-1 rounded-lg shadow-sm border border-slate-200 z-20 ${selectedRowId === row.id ? 'opacity-100' : 'opacity-0 group-hover/row:opacity-100'}`}>
                           <button onClick={() => handleRowChange(row.id, 'isBold', !row.isBold)} className={`p-1 w-6 rounded text-[10px] font-black ${row.isBold ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-900'}`}>B</button>
                         </div>
