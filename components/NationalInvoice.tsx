@@ -982,10 +982,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             ${shippingMarkCell}
             <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
           </tr>
         `;
       }).join('');
