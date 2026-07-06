@@ -198,6 +198,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
   const formatNumber = (num: string | number) => {
     if (num === undefined || num === null || num === '') return '';
+    
+    if (formData && formData.currency === 'JPY') {
+      const parsed = parseFloat(num.toString().replace(/,/g, ''));
+      if (!isNaN(parsed)) {
+        const rounded = Math.round(parsed);
+        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      }
+    }
+
     const parts = num.toString().split('.');
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     return parts.join('.');
@@ -954,7 +963,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         } else if (row.type === 'TOTAL') {
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
           const amountVal = parseFloat(parseNumber(row.amount || '0'));
-          const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : '0.00';
+          const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (formData.currency === 'JPY' ? '0' : '0.00');
           
           const procAmtSum = parseFloat(parseNumber(row.procAmount || '0'));
           const formattedProcAmt = procAmtSum !== 0 ? `${formData.currencySymbol}${formatNumber(row.procAmount)}` : '';
@@ -1270,7 +1279,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
                 
                 <div class="cell" style="grid-column: 1;">
-                  <span class="label">VESSEL/ FLIGHT</span>
+                  <span class="label">SHIPMENT METHOD</span>
                   <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.vesselFlight || ''}</div>
                 </div>
                 <div class="cell" style="grid-column: 2;">
@@ -1405,7 +1414,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
                 
                 <div class="cell" style="grid-column: 1;">
-                  <span class="label">VESSEL/ FLIGHT</span>
+                  <span class="label">SHIPMENT METHOD</span>
                   <div class="content-medium" style="text-align: center; margin-top: 2px;">${formData.vesselFlight || ''}</div>
                 </div>
                 <div class="cell" style="grid-column: 2;">
@@ -1614,7 +1623,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
       sheet.mergeCells('A17:B18');
       const cVessel = sheet.getCell('A17');
-      cVessel.value = "VESSEL/ FLIGHT\n\n" + (formData.vesselFlight || "");
+      cVessel.value = "SHIPMENT METHOD\n\n" + (formData.vesselFlight || "");
       applyStyle(cVessel, { topAlign: true, size: 8 });
 
       sheet.mergeCells('C17:D18');
@@ -1668,7 +1677,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           } else {
             const amountVal = parseFloat(parseNumber(row.amount || '0'));
             r.getCell(5).value = formatNumber(row.procAmount);
-            r.getCell(7).value = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : '0.00';
+            r.getCell(7).value = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (formData.currency === 'JPY' ? '0' : '0.00');
           }
           [4,5,6,7].forEach(c => r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' });
           for(let i=1; i<=7; i++) r.getCell(i).border = { top: { style: 'thin' } };
@@ -2236,7 +2245,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
             <div className="invoice-cell" style={{ gridColumn: '1' }}>
               <div className="flex justify-between items-center mb-1">
-                <label className="invoice-label mb-0">VESSEL/FLIGHT</label>
+                <label className="invoice-label mb-0">SHIPMENT METHOD</label>
                 <select className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print" value={formData.vesselFlight || ''} onChange={(e) => setFormData(prev => ({ ...prev, vesselFlight: e.target.value }))}>
                   <option value="">선택</option>
                   <option value="FEDEX">FEDEX</option>
@@ -2816,7 +2825,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
             {/* Row 7 Left: Vessel & From */}
             <div className="invoice-cell" style={{ gridColumn: '1' }}>
-              <label className="invoice-label">VESSEL/ FLIGHT</label>
+              <label className="invoice-label">SHIPMENT METHOD</label>
               <div className={`text-center font-bold text-[10.5px] ${getEditedColor('vesselFlight')}`}>{formData.vesselFlight || ''}</div>
             </div>
             <div className="invoice-cell" style={{ gridColumn: '2' }}>
