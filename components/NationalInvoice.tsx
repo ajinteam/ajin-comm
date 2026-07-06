@@ -2035,6 +2035,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               onChange={(e) => setFormData(prev => ({ ...prev, invoiceType: e.target.value as any }))}
             >
               <option value="SAMPLE">SAMPLE</option>
+              <option value="PROFORMA">PROFORMA</option>
               <option value="COMMERCIAL">COMMERCIAL</option>
             </select>
             <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">INVOICE</h1>
