@@ -199,17 +199,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const formatNumber = (num: string | number) => {
     if (num === undefined || num === null || num === '') return '';
     
-    if (formData && formData.currency === 'JPY') {
-      const parsed = parseFloat(num.toString().replace(/,/g, ''));
-      if (!isNaN(parsed)) {
-        const rounded = Math.round(parsed);
-        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      }
-    }
+    const parsed = parseFloat(num.toString().replace(/,/g, ''));
+    if (isNaN(parsed)) return num.toString();
 
-    const parts = num.toString().split('.');
-    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    return parts.join('.');
+    const currency = formData?.currency || 'USD';
+    
+    if (['JPY', 'KRW', 'VND'].includes(currency)) {
+      // 소수점 제외 처리 (정수로 반올림)
+      const rounded = Math.round(parsed);
+      return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    } else {
+      // USD, EUR 등 소수점이 있는 통화는 소수점 2자리 유지
+      const fixedStr = parsed.toFixed(2);
+      const parts = fixedStr.split('.');
+      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      return parts.join('.');
+    }
   };
 
   const parseNumber = (val: string) => {
@@ -963,7 +968,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         } else if (row.type === 'TOTAL') {
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
           const amountVal = parseFloat(parseNumber(row.amount || '0'));
-          const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (formData.currency === 'JPY' ? '0' : '0.00');
+          const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (['JPY', 'KRW', 'VND'].includes(formData.currency) ? '0' : '0.00');
           
           const procAmtSum = parseFloat(parseNumber(row.procAmount || '0'));
           const formattedProcAmt = procAmtSum !== 0 ? `${formData.currencySymbol}${formatNumber(row.procAmount)}` : '';
@@ -1677,7 +1682,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           } else {
             const amountVal = parseFloat(parseNumber(row.amount || '0'));
             r.getCell(5).value = formatNumber(row.procAmount);
-            r.getCell(7).value = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (formData.currency === 'JPY' ? '0' : '0.00');
+            r.getCell(7).value = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (['JPY', 'KRW', 'VND'].includes(formData.currency) ? '0' : '0.00');
           }
           [4,5,6,7].forEach(c => r.getCell(c).alignment = { horizontal: 'right', vertical: 'middle' });
           for(let i=1; i<=7; i++) r.getCell(i).border = { top: { style: 'thin' } };
