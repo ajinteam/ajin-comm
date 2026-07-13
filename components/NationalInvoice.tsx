@@ -196,10 +196,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     
   };
 
-  const formatNumber = (num: string | number) => {
+  const formatNumber = (num: string | number, isInput = false) => {
     if (num === undefined || num === null || num === '') return '';
     
-    const parsed = parseFloat(num.toString().replace(/,/g, ''));
+    const cleanNum = num.toString().replace(/,/g, '');
+    
+    if (cleanNum === '-' || cleanNum === '.' || cleanNum === '-.') return cleanNum;
+    
+    const parsed = parseFloat(cleanNum);
     if (isNaN(parsed)) return num.toString();
 
     const currency = formData?.currency || 'USD';
@@ -209,11 +213,20 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const rounded = Math.round(parsed);
       return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
     } else {
-      // USD, EUR 등 소수점이 있는 통화는 소수점 2자리 유지
-      const fixedStr = parsed.toFixed(2);
-      const parts = fixedStr.split('.');
-      parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      return parts.join('.');
+      // USD, EUR 등 소수점이 있는 통화
+      if (isInput) {
+        // 입력 필드인 경우 소수점을 강제 2자리로 제한하거나 고정시키지 않음.
+        // 사용자가 입력한 소수점 이하 값을 그대로 보여주며, 세 자리 단위 컴마만 추가함.
+        const parts = cleanNum.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+      } else {
+        // 일반 출력/디스플레이용인 경우 소수점 2자리 유지
+        const fixedStr = parsed.toFixed(2);
+        const parts = fixedStr.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+      }
     }
   };
 
@@ -2486,7 +2499,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <input 
                             className={`invoice-table-input invoice-input text-right focus:bg-sky-100 flex-grow ${getEditedColor('quantity', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={formatNumber(row.quantity) || ''} 
+                            value={formatNumber(row.quantity, true) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')}
                             onPaste={(e) => handlePaste(e, row.id, 'quantity')}
@@ -2515,7 +2528,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <input 
                             className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('proc', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={formatNumber(row.proc) || ''} 
+                            value={formatNumber(row.proc, true) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'proc', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'proc')}
                             onPaste={(e) => handlePaste(e, row.id, 'proc')}
@@ -2528,7 +2541,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <input 
                             className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('procAmount', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={formatNumber(row.procAmount) || ''} 
+                            value={formatNumber(row.procAmount, true) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'procAmount', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'procAmount')}
                             onPaste={(e) => handlePaste(e, row.id, 'procAmount')}
@@ -2541,7 +2554,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <input 
                             className={`invoice-table-input invoice-input text-right focus:bg-sky-100 ${getEditedColor('price', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={formatNumber(row.price) || ''} 
+                            value={formatNumber(row.price, true) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'price', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'price')}
                             onPaste={(e) => handlePaste(e, row.id, 'price')}
@@ -2554,7 +2567,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <input 
                             className={`invoice-table-input invoice-input font-bold text-right focus:bg-sky-100 w-full ${getEditedColor('amount', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={formatNumber(row.amount) || ''} 
+                            value={formatNumber(row.amount, true) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'amount', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'amount')}
                             onPaste={(e) => handlePaste(e, row.id, 'amount')}
@@ -2923,7 +2936,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                                 <div className="text-right font-black whitespace-nowrap leading-tight">{row.unitBreakdown}</div>
                               ) : (
                                 <>
-                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
+                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity, true) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
                                   <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
                                 </>
                               )}
@@ -2931,16 +2944,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           </div>
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
                         </td>
                       </>
                     ) : (
@@ -2983,7 +2996,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         <div className="flex items-center justify-end min-h-[22px] w-full">
                           <input 
                             className={`invoice-table-input invoice-input text-right flex-grow ${getEditedColor('quantity', row.id)}`} 
-                            value={formatNumber(row.quantity) || ''} 
+                            value={formatNumber(row.quantity, true) || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} 
                             onFocus={() => setSelectedRowId(row.id)}
@@ -2992,22 +3005,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
                         </div>
                       </td>
                     </>
@@ -3022,22 +3035,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <div className="text-right font-black whitespace-nowrap leading-tight">{formData.totalQuantityBreakdown}</div>
                     ) : (
                       <div className="flex items-center justify-end min-h-[22px]">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity, true) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
                       </div>
                     )}
                   </div>
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty, true) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight')}`} value={formatNumber(formData.plTotalNetWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight')}`} value={formatNumber(formData.plTotalNetWeight, true) || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight')}`} value={formatNumber(formData.plTotalGrossWeight) || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight')}`} value={formatNumber(formData.plTotalGrossWeight, true) || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm')}`} value={formatNumber(formData.plTotalCbm) || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm')}`} value={formatNumber(formData.plTotalCbm, true) || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
                 </td>
               </tr>
             </tbody>
