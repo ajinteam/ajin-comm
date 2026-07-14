@@ -203,6 +203,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     
     if (cleanNum === '-' || cleanNum === '.' || cleanNum === '-.') return cleanNum;
     
+    // Check if the value is a range or a string (not a pure standard number)
+    const isNumeric = /^[-+]?(\d+(\.\d*)?|\.\d+)$/.test(cleanNum);
+    if (!isNumeric) return num.toString();
+    
     const parsed = parseFloat(cleanNum);
     if (isNaN(parsed)) return num.toString();
 
