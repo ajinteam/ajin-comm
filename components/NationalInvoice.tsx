@@ -196,7 +196,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     
   };
 
-  const formatNumber = (num: string | number, isInput = false) => {
+  const formatNumber = (num: string | number, isInput = false, type: 'currency' | 'quantity' | 'decimal' = 'currency') => {
     if (num === undefined || num === null || num === '') return '';
     
     const cleanNum = num.toString().replace(/,/g, '');
@@ -206,6 +206,31 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     const parsed = parseFloat(cleanNum);
     if (isNaN(parsed)) return num.toString();
 
+    if (type === 'quantity') {
+      if (isInput) {
+        const parts = cleanNum.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+      } else {
+        const rounded = Math.round(parsed);
+        return rounded.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      }
+    }
+
+    if (type === 'decimal') {
+      if (isInput) {
+        const parts = cleanNum.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+      } else {
+        const fixedStr = parsed.toFixed(2);
+        const parts = fixedStr.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+      }
+    }
+
+    // Default: 'currency'
     const currency = formData?.currency || 'USD';
     
     if (['JPY', 'KRW', 'VND'].includes(currency)) {
@@ -986,7 +1011,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           const procAmtSum = parseFloat(parseNumber(row.procAmount || '0'));
           const formattedProcAmt = procAmtSum !== 0 ? `${formData.currencySymbol}${formatNumber(row.procAmount)}` : '';
           
-          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity) || '0'} ${row.unit || 'UNIT'}`;
+          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity, false, 'quantity') || '0'} ${row.unit || 'UNIT'}`;
 
           return `
             <tr style="${rowStyle}">
@@ -1008,7 +1033,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           <tr style="${rowStyle}">
             ${shippingMarkCell}
             <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
             <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
@@ -1043,7 +1068,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           `;
         } else if (row.type === 'TOTAL') {
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
-          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity) || '0'} ${row.unit || 'UNIT'}`;
+          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity, false, 'quantity') || '0'} ${row.unit || 'UNIT'}`;
 
           return `
             <tr style="${rowStyle}">
@@ -1053,10 +1078,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
                 </div>
               </td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount) || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
             </tr>
           `;
         }
@@ -1064,11 +1089,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           <tr style="${rowStyle}">
             ${shippingMarkCell}
             <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity) || ''} ${row.unit || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc) || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount) || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice) || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount) || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
           </tr>
         `;
       }).join('');
@@ -1334,7 +1359,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
                       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>GRAND TOTAL</span>
-                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity) || ''}`}</span>
+                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
                       </div>
                     </td>
                     <td style="padding: 11px 8px;"></td>
@@ -1469,13 +1494,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
                       <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                         <span>GRAND TOTAL</span>
-                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity) || ''}`}</span>
+                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
                       </div>
                     </td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty) || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight) || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight) || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm) || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty, false, 'quantity') || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight, false, 'decimal') || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight, false, 'decimal') || ''}</td>
+                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm, false, 'decimal') || ''}</td>
                   </tr>
                 </tbody>
               </table>
@@ -1684,14 +1709,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           r.getCell(2).value = row.description || 'TOTAL';
           r.getCell(2).alignment = { horizontal: 'left', vertical: 'middle' };
           r.getCell(2).font = { bold: true, size: 9 };
-          r.getCell(3).value = row.unitBreakdown || (row.unit ? `${formatNumber(row.quantity)} ${row.unit}` : '');
+          r.getCell(3).value = row.unitBreakdown || (row.unit ? `${formatNumber(row.quantity, false, 'quantity')} ${row.unit}` : '');
           r.getCell(3).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
           
           if (isPL) {
-            r.getCell(4).value = formatNumber(row.plProc);
-            r.getCell(5).value = formatNumber(row.plProcAmount);
-            r.getCell(6).value = formatNumber(row.plPrice);
-            r.getCell(7).value = formatNumber(row.plAmount);
+            r.getCell(4).value = formatNumber(row.plProc, false, 'quantity');
+            r.getCell(5).value = formatNumber(row.plProcAmount, false, 'decimal');
+            r.getCell(6).value = formatNumber(row.plPrice, false, 'decimal');
+            r.getCell(7).value = formatNumber(row.plAmount, false, 'decimal');
           } else {
             const amountVal = parseFloat(parseNumber(row.amount || '0'));
             r.getCell(5).value = formatNumber(row.procAmount);
@@ -1702,12 +1727,24 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         } else {
           // Normal Item - NO vertical borders for descriptions usually in these forms
           const vList = isPL ? 
-            [row.plPkgNo || '', row.description || '', `${formatNumber(row.quantity)} ${row.unit || ''}`, row.plProc, row.plProcAmount, row.plPrice, row.plAmount] :
-            [row.pkgNo || '', row.description || '', row.unit ? `${formatNumber(row.quantity)} ${row.unit || ''}` : '', row.proc, row.procAmount, row.price, row.amount];
+            [row.plPkgNo || '', row.description || '', `${formatNumber(row.quantity, false, 'quantity')} ${row.unit || ''}`, row.plProc, row.plProcAmount, row.plPrice, row.plAmount] :
+            [row.pkgNo || '', row.description || '', row.unit ? `${formatNumber(row.quantity, false, 'quantity')} ${row.unit || ''}` : '', row.proc, row.procAmount, row.price, row.amount];
           
           vList.forEach((v, i) => {
             const cell = r.getCell(i + 1);
-            cell.value = (i >= 3 && typeof v === 'number') ? formatNumber(v) : v;
+            let displayVal = v;
+            if (i >= 3) {
+              if (isPL) {
+                if (i === 3) {
+                  displayVal = formatNumber(v, false, 'quantity');
+                } else {
+                  displayVal = formatNumber(v, false, 'decimal');
+                }
+              } else {
+                displayVal = formatNumber(v, false, 'currency');
+              }
+            }
+            cell.value = displayVal;
             cell.font = { name: 'Arial', size: 9 };
             cell.alignment = { 
               horizontal: (i >= 2 ? 'right' : 'left'), 
@@ -1730,14 +1767,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       gtRow.getCell(2).value = "GRAND TOTAL";
       applyStyle(gtRow.getCell(2), { bold: true, size: 10, align: 'left', border: false });
       
-      gtRow.getCell(3).value = formData.totalQuantityBreakdown || formatNumber(formData.totalQuantity);
+      gtRow.getCell(3).value = formData.totalQuantityBreakdown || formatNumber(formData.totalQuantity, false, 'quantity');
       gtRow.getCell(3).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
       gtRow.getCell(3).font = { bold: true };
       
       if (isPL) {
         [4,5,6,7].forEach((cNum, i) => {
           const val = [formData.plTotalCtQty, formData.plTotalNetWeight, formData.plTotalGrossWeight, formData.plTotalCbm][i];
-          gtRow.getCell(cNum).value = formatNumber(val);
+          const fmtType = i === 0 ? 'quantity' : 'decimal';
+          gtRow.getCell(cNum).value = formatNumber(val, false, fmtType);
           applyStyle(gtRow.getCell(cNum), { bold: true, align: 'right', border: false });
         });
       } else {
@@ -2437,7 +2475,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                               onFocus={() => setSelectedRowId(row.id)}
                             />
                             <div className="text-[10.5px] font-black whitespace-nowrap leading-tight text-right pr-2">
-                              {row.unitBreakdown || (row.quantity && row.quantity !== '0' ? `${formatNumber(row.quantity)} ${row.unit || 'UNIT'}` : '')}
+                              {row.unitBreakdown || (row.quantity && row.quantity !== '0' ? `${formatNumber(row.quantity, false, 'quantity')} ${row.unit || 'UNIT'}` : '')}
                             </div>
                           </div>
                         </td>
@@ -2499,7 +2537,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <input 
                             className={`invoice-table-input invoice-input text-right focus:bg-sky-100 flex-grow ${getEditedColor('quantity', row.id)}`} 
                             style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal', minHeight: row.fontSize ? row.fontSize * 2 : 20 }}
-                            value={formatNumber(row.quantity, true) || ''} 
+                            value={formatNumber(row.quantity, true, 'quantity') || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} 
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')}
                             onPaste={(e) => handlePaste(e, row.id, 'quantity')}
@@ -2591,7 +2629,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   <div className="flex items-center justify-between w-full">
                     <span>GRAND TOTAL</span>
                     <div className="whitespace-nowrap leading-tight text-right pr-2">
-                      {formData.totalQuantityBreakdown || (formData.totalQuantity && formData.totalQuantity !== '0' ? `${formatNumber(formData.totalQuantity)} UNIT` : '')}
+                      {formData.totalQuantityBreakdown || (formData.totalQuantity && formData.totalQuantity !== '0' ? `${formatNumber(formData.totalQuantity, false, 'quantity')} UNIT` : '')}
                     </div>
                   </div>
                 </td>
@@ -2936,7 +2974,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                                 <div className="text-right font-black whitespace-nowrap leading-tight">{row.unitBreakdown}</div>
                               ) : (
                                 <>
-                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity, true) || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
+                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity, true, 'quantity') || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
                                   <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
                                 </>
                               )}
@@ -2944,16 +2982,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           </div>
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true, 'quantity') || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
                         </td>
                       </>
                     ) : (
@@ -2996,7 +3034,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         <div className="flex items-center justify-end min-h-[22px] w-full">
                           <input 
                             className={`invoice-table-input invoice-input text-right flex-grow ${getEditedColor('quantity', row.id)}`} 
-                            value={formatNumber(row.quantity, true) || ''} 
+                            value={formatNumber(row.quantity, true, 'quantity') || ''} 
                             onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} 
                             onFocus={() => setSelectedRowId(row.id)}
@@ -3005,22 +3043,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true, 'quantity') || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true) || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true) || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
                         </div>
                       </td>
                     </>
@@ -3035,22 +3073,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <div className="text-right font-black whitespace-nowrap leading-tight">{formData.totalQuantityBreakdown}</div>
                     ) : (
                       <div className="flex items-center justify-end min-h-[22px]">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity, true) || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
+                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity, true, 'quantity') || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
                       </div>
                     )}
                   </div>
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty, true) || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty, true, 'quantity') || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight')}`} value={formatNumber(formData.plTotalNetWeight, true) || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight')}`} value={formatNumber(formData.plTotalNetWeight, true, 'decimal') || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight')}`} value={formatNumber(formData.plTotalGrossWeight, true) || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight')}`} value={formatNumber(formData.plTotalGrossWeight, true, 'decimal') || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm')}`} value={formatNumber(formData.plTotalCbm, true) || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm')}`} value={formatNumber(formData.plTotalCbm, true, 'decimal') || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
                 </td>
               </tr>
             </tbody>
