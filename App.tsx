@@ -22,7 +22,8 @@ import SettingsView from './components/SettingsView';
 import AuthView from './components/AuthView';
 import Dashboard from './components/Dashboard';
 import { NoticeBoardView } from './components/NoticeBoardView';
-import { pullStateFromCloud, pushStateToCloud, supabase, subscribeToRealtime } from './supabase';
+import { TrashView } from './components/TrashView';
+import { pullStateFromCloud, pushStateToCloud, supabase, subscribeToRealtime, cleanExpiredTrash } from './supabase';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -38,6 +39,9 @@ const App: React.FC = () => {
     const initApp = async () => {
       setIsSyncing(true);
       await pullStateFromCloud();
+      
+      // 2일 경과 휴지통 아이템 자동 삭제 실행
+      cleanExpiredTrash().catch(err => console.error('[Trash Auto Cleanup Failed]', err));
       
       const saved = localStorage.getItem('ajin_accounts');
       let accounts: UserAccount[] = saved ? JSON.parse(saved) : [];
@@ -206,6 +210,7 @@ const App: React.FC = () => {
             {view.type === 'SHIPPING_REPORT' && <ShippingReportView key={`shipping-${view.sub}`} sub={view.sub as any} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'STORAGE' && <PurchaseOrderView key="storage-view" sub={PurchaseOrderSubCategory.UPLOAD} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'NOTICE_BOARD' && <NoticeBoardView key="notice-board-view" currentUser={currentUser} dataVersion={dataVersion} />}
+            {view.type === 'TRASH' && <TrashView currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'SETTINGS' && isMaster && <SettingsView accounts={userAccounts} onUpdate={updateAccounts} setView={handleSetView} />}
           </div>
         </main>

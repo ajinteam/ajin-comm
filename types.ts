@@ -458,4 +458,5 @@ export type ViewState =
   | { type: 'SHIPPING_REPORT', sub: ShippingReportSubCategory, editId?: string }
   | { type: 'STORAGE' }
   | { type: 'NOTICE_BOARD' }
+  | { type: 'TRASH' }
   | { type: 'SETTINGS' };

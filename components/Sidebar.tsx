@@ -575,6 +575,32 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               </div>
             </div>
           )}
+
+          {/* 휴지통 관리 */}
+          <div className="space-y-1 mt-4">
+            <div className="flex items-center gap-2 px-3 py-2 bg-slate-900/50 rounded-xl border border-slate-800 mb-2">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              <h2 className="text-xs font-black text-slate-200 uppercase tracking-widest">휴지통</h2>
+            </div>
+            <div className="space-y-0.5 ml-2 border-l border-slate-800">
+              <button
+                onClick={() => {
+                  setView({ type: 'TRASH' });
+                  onClose();
+                }}
+                className={`w-full text-left px-4 py-2 text-sm font-semibold rounded-xl transition-all flex items-center justify-between ${
+                  currentView.type === 'TRASH'
+                    ? 'bg-emerald-600 text-white shadow-lg translate-x-1'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                }`}
+              >
+                <span>휴지통 관리</span>
+                <span className="text-[10px] bg-slate-800 text-slate-300 px-1.5 py-0.5 rounded-full font-bold">7일 보관</span>
+              </button>
+            </div>
+          </div>
         </nav>
         
         <div className="p-6 border-t border-slate-900 bg-slate-950/50">

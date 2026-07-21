@@ -222,11 +222,58 @@ export const saveRecipient = async (data: any) => {
 };
 
 /**
- * 데이터 삭제
+ * 데이터 삭제 (휴지통 기능 탑재)
  */
 export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any) => {
   if (!supabase) return;
   try {
+    // 1. 휴지통 테이블로 이동 시도
+    try {
+      let docContent = _doc;
+      
+      // 만약 _doc가 주어지지 않았다면, 삭제 전에 원본 데이터 조회
+      if (!docContent) {
+        const { data: originalRow } = await supabase
+          .from(tableName)
+          .select('content, status')
+          .eq('id', String(id))
+          .maybeSingle();
+          
+        if (originalRow && originalRow.content) {
+          docContent = {
+            ...originalRow.content,
+            status: originalRow.status || originalRow.content.status
+          };
+        }
+      }
+
+      if (docContent) {
+        const trashId = `${tableName}_${id}_${Date.now()}`;
+        const payload = {
+          id: trashId,
+          table_name: tableName,
+          original_id: String(id),
+          content: docContent,
+          deleted_at: new Date().toISOString(),
+          status: docContent.status || null,
+          category: docContent.type || docContent.location || null
+        };
+
+        const { error: trashError } = await supabase
+          .from('trash')
+          .insert(payload);
+
+        if (trashError) {
+          console.warn('[Trash Copy Warning] Failed to copy to trash table:', trashError.message);
+        } else {
+          console.log('[Trash Copy Success] Moved document to trash:', trashId);
+        }
+      }
+    } catch (trashErr: any) {
+      console.error('[Trash Copy Error - Ignored to allow delete]', trashErr.message);
+    }
+
+    // 2. 원래 테이블에서 삭제 실행
     const { error } = await supabase
       .from(tableName)
       .delete()
@@ -236,6 +283,126 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
     console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${id}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message);
+  }
+};
+
+/**
+ * 7일이 지난 휴지통 데이터 자동 삭제 (Retention 7 days)
+ */
+export const cleanExpiredTrash = async () => {
+  if (!supabase) return;
+  try {
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const isoString = sevenDaysAgo.toISOString();
+
+    const { error } = await supabase
+      .from('trash')
+      .delete()
+      .lt('deleted_at', isoString);
+
+    if (error) throw error;
+    console.log('[Trash Cleanup] 7일이 경과한 휴지통 데이터 자동 청소 완료');
+  } catch (err: any) {
+    console.error('[Trash Cleanup Error]', err.message);
+  }
+};
+
+/**
+ * 휴지통에서 문서 복구
+ */
+export const restoreDocFromTrash = async (trashId: string) => {
+  if (!supabase) return { success: false, error: 'Supabase client is not initialized' };
+  try {
+    // 1. 휴지통에서 해당 항목 가져오기
+    const { data: trashItem, error: fetchError } = await supabase
+      .from('trash')
+      .select('*')
+      .eq('id', trashId)
+      .single();
+
+    if (fetchError || !trashItem) {
+      throw new Error(fetchError?.message || '휴지통에서 문서를 찾을 수 없습니다.');
+    }
+
+    const { table_name, original_id, content } = trashItem;
+
+    // 2. 원래 테이블로 복구 (upsert)
+    const payload: any = {
+      id: String(original_id),
+      content: content,
+      status: content.status || '결재대기',
+      category: content.type || content.location || '일반'
+    };
+
+    const { error: restoreError } = await supabase
+      .from(table_name)
+      .upsert(payload, { onConflict: 'id' });
+
+    if (restoreError) {
+      // 만약 category 컬럼 에러가 난다면 category 제거 후 재시도
+      if (restoreError.message.includes('category')) {
+        delete payload.category;
+        const { error: retryError } = await supabase
+          .from(table_name)
+          .upsert(payload, { onConflict: 'id' });
+        if (retryError) throw retryError;
+      } else {
+        throw restoreError;
+      }
+    }
+
+    // 3. 휴지통에서 삭제
+    const { error: deleteError } = await supabase
+      .from('trash')
+      .delete()
+      .eq('id', trashId);
+
+    if (deleteError) throw deleteError;
+
+    console.log(`[Trash Restore] Successfully restored ${original_id} to ${table_name}`);
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Trash Restore Error]', err.message);
+    return { success: false, error: err.message };
+  }
+};
+
+/**
+ * 휴지통 목록 가져오기
+ */
+export const fetchTrashList = async () => {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('trash')
+      .select('*')
+      .order('deleted_at', { ascending: false });
+
+    if (error) throw error;
+    return data || [];
+  } catch (err: any) {
+    console.error('[Fetch Trash Error]', err.message);
+    return [];
+  }
+};
+
+/**
+ * 휴지통에서 항목 영구 삭제
+ */
+export const permanentlyDeleteFromTrash = async (trashId: string) => {
+  if (!supabase) return { success: false, error: 'Supabase client is not initialized' };
+  try {
+    const { error } = await supabase
+      .from('trash')
+      .delete()
+      .eq('id', trashId);
+
+    if (error) throw error;
+    return { success: true };
+  } catch (err: any) {
+    console.error('[Permanent Delete Error]', err.message);
+    return { success: false, error: err.message };
   }
 };
 
