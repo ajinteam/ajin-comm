@@ -248,15 +248,22 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
       }
 
       if (docContent) {
-        const trashId = `${tableName}_${id}_${Date.now()}`;
-        const payload: any = {
-          id: trashId,
-          table_name: tableName,
+        // trash 테이블의 id 컬럼은 uuid 타입이므로 uuid를 생성해야 함
+        const uuid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+          ? crypto.randomUUID()
+          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+              const r = Math.random() * 16 | 0;
+              const v = c === 'x' ? r : (r & 0x3 | 0x8);
+              return v.toString(16);
+            });
+
+        // 실제 컬럼명: id(uuid), original_table(text), original_id(text), content(jsonb), deleted_at(timestamptz)
+        const payload = {
+          id: uuid,
+          original_table: tableName,
           original_id: String(id),
           content: docContent,
-          deleted_at: new Date().toISOString(),
-          status: docContent.status || null,
-          category: docContent.type || docContent.location || null
+          deleted_at: new Date().toISOString()
         };
 
         const { error: trashError } = await supabase
@@ -264,41 +271,9 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
           .insert(payload);
 
         if (trashError) {
-          console.warn('[Trash Copy Warning] Failed with full payload, trying minimal payload:', trashError.message);
-          
-          // Retry with guaranteed basic columns: id, table_name, original_id, content, deleted_at
-          const minimalPayload = {
-            id: trashId,
-            table_name: tableName,
-            original_id: String(id),
-            content: docContent,
-            deleted_at: payload.deleted_at
-          };
-
-          const { error: retryError } = await supabase
-            .from('trash')
-            .insert(minimalPayload);
-
-          if (retryError) {
-            console.error('[Trash Copy Critical Error] Minimal retry also failed:', retryError.message);
-            // Absolute bare-minimum try: id, content
-            const barePayload = {
-              id: trashId,
-              content: docContent
-            };
-            const { error: bareError } = await supabase
-              .from('trash')
-              .insert(barePayload);
-            if (bareError) {
-              console.error('[Trash Copy Bare-minimum Error]', bareError.message);
-            } else {
-              console.log('[Trash Copy Success] Moved document to trash with bare payload:', trashId);
-            }
-          } else {
-            console.log('[Trash Copy Success] Moved document to trash with minimal payload:', trashId);
-          }
+          console.error('[Trash Copy Error] Failed to insert to trash table:', trashError.message);
         } else {
-          console.log('[Trash Copy Success] Moved document to trash:', trashId);
+          console.log('[Trash Copy Success] Moved document to trash:', uuid);
         }
       }
     } catch (trashErr: any) {
@@ -357,7 +332,7 @@ export const restoreDocFromTrash = async (trashId: string) => {
       throw new Error(fetchError?.message || '휴지통에서 문서를 찾을 수 없습니다.');
     }
 
-    const { table_name, original_id, content } = trashItem;
+    const { original_table, original_id, content } = trashItem;
 
     // 2. 원래 테이블로 복구 (upsert)
     const payload: any = {
@@ -368,7 +343,7 @@ export const restoreDocFromTrash = async (trashId: string) => {
     };
 
     const { error: restoreError } = await supabase
-      .from(table_name)
+      .from(original_table)
       .upsert(payload, { onConflict: 'id' });
 
     if (restoreError) {
@@ -376,7 +351,7 @@ export const restoreDocFromTrash = async (trashId: string) => {
       if (restoreError.message.includes('category')) {
         delete payload.category;
         const { error: retryError } = await supabase
-          .from(table_name)
+          .from(original_table)
           .upsert(payload, { onConflict: 'id' });
         if (retryError) throw retryError;
       } else {
@@ -392,8 +367,8 @@ export const restoreDocFromTrash = async (trashId: string) => {
 
     if (deleteError) throw deleteError;
 
-    console.log(`[Trash Restore] Successfully restored ${original_id} to ${table_name}`);
-    return { success: true, table_name, content };
+    console.log(`[Trash Restore] Successfully restored ${original_id} to ${original_table}`);
+    return { success: true, table_name: original_table, content };
   } catch (err: any) {
     console.error('[Trash Restore Error]', err.message);
     return { success: false, error: err.message };

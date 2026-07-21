@@ -207,9 +207,12 @@ export const TrashView: React.FC<TrashViewProps> = ({ currentUser, setView }) =>
 
   // 필터링 적용
   const filteredItems = trashItems.filter(item => {
-    const readableTable = TABLE_NAME_MAP[item.table_name] || item.table_name;
-    const summary = getDocumentSummary(item.table_name, item.content);
-    const textToSearch = `${item.original_id} ${readableTable} ${summary} ${item.status || ''} ${item.category || ''}`.toLowerCase();
+    const tableField = item.original_table || item.table_name;
+    const readableTable = TABLE_NAME_MAP[tableField] || tableField;
+    const summary = getDocumentSummary(tableField, item.content);
+    const itemStatus = item.content?.status || item.status || '';
+    const itemCategory = item.content?.type || item.content?.location || item.category || '';
+    const textToSearch = `${item.original_id} ${readableTable} ${summary} ${itemStatus} ${itemCategory}`.toLowerCase();
     return textToSearch.includes(searchTerm.toLowerCase());
   });
 
@@ -322,9 +325,11 @@ export const TrashView: React.FC<TrashViewProps> = ({ currentUser, setView }) =>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs font-semibold text-slate-700">
                 {filteredItems.map((item) => {
-                  const readableTable = TABLE_NAME_MAP[item.table_name] || item.table_name;
-                  const colorClass = TABLE_COLOR_MAP[item.table_name] || 'bg-slate-50 text-slate-700 border-slate-200';
+                  const tableField = item.original_table || item.table_name;
+                  const readableTable = TABLE_NAME_MAP[tableField] || tableField;
+                  const colorClass = TABLE_COLOR_MAP[tableField] || 'bg-slate-50 text-slate-700 border-slate-200';
                   const isPendingAction = actionLoading === item.id;
+                  const itemStatus = item.content?.status || item.status || '일반';
 
                   return (
                     <tr key={item.id} className="hover:bg-slate-50/50 transition-colors">
@@ -339,19 +344,19 @@ export const TrashView: React.FC<TrashViewProps> = ({ currentUser, setView }) =>
                         {item.original_id}
                       </td>
                       {/* 요약 */}
-                      <td className="py-4 px-4 font-medium text-slate-600 max-w-sm truncate" title={getDocumentSummary(item.table_name, item.content)}>
-                        {getDocumentSummary(item.table_name, item.content)}
+                      <td className="py-4 px-4 font-medium text-slate-600 max-w-sm truncate" title={getDocumentSummary(tableField, item.content)}>
+                        {getDocumentSummary(tableField, item.content)}
                       </td>
                       {/* 상태 */}
                       <td className="py-4 px-4">
                         <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                          item.status === '결재완료' || item.status === '송장완료'
+                          itemStatus === '결재완료' || itemStatus === '송장완료'
                             ? 'bg-blue-50 text-blue-700' 
-                            : item.status === '결재대기' 
+                            : itemStatus === '결재대기' 
                             ? 'bg-amber-50 text-amber-700' 
                             : 'bg-slate-100 text-slate-600'
                         }`}>
-                          {item.status || '일반'}
+                          {itemStatus}
                         </span>
                       </td>
                       {/* 삭제 일시 */}
@@ -369,7 +374,7 @@ export const TrashView: React.FC<TrashViewProps> = ({ currentUser, setView }) =>
                       <td className="py-4 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <button
-                            onClick={() => handleRestore(item.id, item.original_id, item.table_name)}
+                            onClick={() => handleRestore(item.id, item.original_id, tableField)}
                             disabled={!!actionLoading}
                             className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-bold disabled:opacity-50"
                           >
