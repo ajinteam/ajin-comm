@@ -249,7 +249,7 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
 
       if (docContent) {
         const trashId = `${tableName}_${id}_${Date.now()}`;
-        const payload = {
+        const payload: any = {
           id: trashId,
           table_name: tableName,
           original_id: String(id),
@@ -264,7 +264,39 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
           .insert(payload);
 
         if (trashError) {
-          console.warn('[Trash Copy Warning] Failed to copy to trash table:', trashError.message);
+          console.warn('[Trash Copy Warning] Failed with full payload, trying minimal payload:', trashError.message);
+          
+          // Retry with guaranteed basic columns: id, table_name, original_id, content, deleted_at
+          const minimalPayload = {
+            id: trashId,
+            table_name: tableName,
+            original_id: String(id),
+            content: docContent,
+            deleted_at: payload.deleted_at
+          };
+
+          const { error: retryError } = await supabase
+            .from('trash')
+            .insert(minimalPayload);
+
+          if (retryError) {
+            console.error('[Trash Copy Critical Error] Minimal retry also failed:', retryError.message);
+            // Absolute bare-minimum try: id, content
+            const barePayload = {
+              id: trashId,
+              content: docContent
+            };
+            const { error: bareError } = await supabase
+              .from('trash')
+              .insert(barePayload);
+            if (bareError) {
+              console.error('[Trash Copy Bare-minimum Error]', bareError.message);
+            } else {
+              console.log('[Trash Copy Success] Moved document to trash with bare payload:', trashId);
+            }
+          } else {
+            console.log('[Trash Copy Success] Moved document to trash with minimal payload:', trashId);
+          }
         } else {
           console.log('[Trash Copy Success] Moved document to trash:', trashId);
         }
