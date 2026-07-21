@@ -296,12 +296,18 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       await saveSingleDoc(tableName, updatedItem);
       
       // JANDI Notification
-      let nextRecipient = '';
-      if (role === 'design') nextRecipient = 'DIRECTOR';
-      else if (role === 'director') nextRecipient = 'CEO';
-      
-      if (nextRecipient) {
-        sendJandiNotification('KR_PO', 'APPROVE', `[사출] ${activeItem.title}`, nextRecipient, now.toISOString().split('T')[0]);
+      const notifyTitle = `[사출] ${activeItem.title}`;
+      const notifyDate = activeItem.date || now.toISOString().split('T')[0];
+      const authorId = activeItem.authorId || activeItem.writer || '';
+
+      if (isFinalStep) {
+        sendJandiNotification('KR_PO', 'COMPLETE', notifyTitle, authorId, notifyDate);
+      } else {
+        if (role === 'design') {
+          sendJandiNotification('KR_PO', 'REQUEST', notifyTitle, '무연', notifyDate);
+        } else if (role === 'director') {
+          sendJandiNotification('KR_PO', 'REQUEST', notifyTitle, 'DAVID', notifyDate);
+        }
       }
 
       pushStateToCloud();
