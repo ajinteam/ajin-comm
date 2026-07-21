@@ -468,7 +468,7 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
       localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
       
       const tableName = id.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
-      await deleteSingleDoc(tableName, id);
+      await deleteSingleDoc(tableName, id, targetItem);
       
       setItems(prev => prev.filter(item => item.id !== id));
       alert('삭제되었습니다.');

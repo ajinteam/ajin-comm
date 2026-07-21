@@ -423,7 +423,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
       
       const updated = allItems.filter((i: any) => i.id !== id);
       localStorage.setItem('ajin_shipping_reports', JSON.stringify(updated));
-      await deleteSingleDoc('na_invoice_image', id);
+      await deleteSingleDoc('na_invoice_image', id, itemToDelete);
       setItems(updated.filter(i => normalizeSub(i.status || '') === normalizeSub(sub)));
       pushStateToCloud();
     } catch (e) {

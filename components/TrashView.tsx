@@ -114,6 +114,42 @@ export const TrashView: React.FC<TrashViewProps> = ({ currentUser, setView }) =>
     try {
       const res = await restoreDocFromTrash(id);
       if (res.success) {
+        // 클라이언트 로컬 스토리지 실시간 동기화 보강
+        if (res.table_name && res.content) {
+          const simpleTables: Record<string, string> = {
+            'orders': 'ajin_orders',
+            'invoices': 'ajin_invoices',
+            'purchase_orders': 'ajin_purchase_orders',
+            'vn_purchase_orders': 'ajin_vietnam_orders',
+            'nationalinvoice': 'ajin_national_invoices',
+            'na_invoice_image': 'ajin_shipping_reports'
+          };
+          
+          let storageKey = '';
+          if (simpleTables[res.table_name]) {
+            storageKey = simpleTables[res.table_name];
+          } else if (res.table_name === 'Injection_Order' || res.table_name === 'Injection_Take') {
+            storageKey = 'ajin_injection_orders';
+          }
+          
+          if (storageKey) {
+            try {
+              let list = JSON.parse(localStorage.getItem(storageKey) || '[]');
+              const doc = res.content;
+              const index = list.findIndex((item: any) => String(item.id) === String(doc.id));
+              if (index > -1) {
+                list[index] = doc;
+              } else {
+                list.unshift(doc);
+              }
+              localStorage.setItem(storageKey, JSON.stringify(list));
+              console.log(`[Local Sync restored item] Saved back to local storage key: ${storageKey}`);
+            } catch (err) {
+              console.error('[Local Sync Error on Restore]', err);
+            }
+          }
+        }
+
         showNotification('success', '문서가 성공적으로 원래대로 복구되었습니다.');
         setTrashItems(prev => prev.filter(item => item.id !== id));
       } else {

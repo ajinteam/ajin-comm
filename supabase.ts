@@ -361,7 +361,7 @@ export const restoreDocFromTrash = async (trashId: string) => {
     if (deleteError) throw deleteError;
 
     console.log(`[Trash Restore] Successfully restored ${original_id} to ${table_name}`);
-    return { success: true };
+    return { success: true, table_name, content };
   } catch (err: any) {
     console.error('[Trash Restore Error]', err.message);
     return { success: false, error: err.message };
