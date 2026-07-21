@@ -765,15 +765,22 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     setView({ type: 'INVOICE', sub: isTemp ? InvoiceSubCategory.TEMPORARY : InvoiceSubCategory.COMPLETED }); 
   };
 
-  const handleFileDelete = (invoiceId: string) => {
+  const handleFileDelete = async (invoiceId: string) => {
     const itemToDelete = invoices.find(inv => inv.id === invoiceId);
     const isAuthor = itemToDelete && itemToDelete.isTemporary && (itemToDelete.authorId || '').toUpperCase() === (currentUser?.initials || '').toUpperCase();
     if (!isMaster && !isAuthor) return;
-    const filtered = invoices.filter(inv => inv.id !== invoiceId);
-    saveInvoices(filtered); 
-    deleteSingleDoc('invoices', invoiceId, itemToDelete);
-    setModal(null); setActiveInvoice(null);
-    alert('송장 파일이 영구 삭제되었습니다.');
+    
+    if (!confirm('정말로 삭제하시겠습니까? 삭제된 문서는 휴지통으로 이동합니다.')) return;
+
+    try {
+      await deleteSingleDoc('invoices', invoiceId, itemToDelete);
+      const filtered = invoices.filter(inv => inv.id !== invoiceId);
+      saveInvoices(filtered); 
+      setModal(null); setActiveInvoice(null);
+      alert('삭제되어 휴지통으로 이동했습니다.');
+    } catch (e) {
+      console.error('[Delete Failed]', e);
+    }
   };
 
   // Add helper function to get color for specific locations

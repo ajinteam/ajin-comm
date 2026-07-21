@@ -1252,12 +1252,18 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setActiveOrder(null); 
   };
 
-  const handleFileDelete = (orderId: string) => {
+  const handleFileDelete = async (orderId: string) => {
     if (!isMaster) return;
+    if (!confirm('정말로 삭제하시겠습니까? 삭제된 문서는 휴지통으로 이동합니다.')) return;
     const orderToDelete = orders.find(o => o.id === orderId);
-    saveOrders(orders.filter(o => o.id !== orderId));
-    deleteSingleDoc('orders', orderId, orderToDelete);
-    setDeletingFileId(null); setActiveOrder(null);
+    try {
+      await deleteSingleDoc('orders', orderId, orderToDelete);
+      saveOrders(orders.filter(o => o.id !== orderId));
+      setDeletingFileId(null); setActiveOrder(null);
+      alert('삭제되어 휴지통으로 이동했습니다.');
+    } catch (e) {
+      console.error('[Delete Failed]', e);
+    }
   };
 
   const executeRowDelete = (order: OrderItem, rowId: string, index?: number) => {

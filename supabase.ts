@@ -228,56 +228,55 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
   if (!supabase) return;
   try {
     // 1. 휴지통 테이블로 이동 시도
-    try {
-      let docContent = _doc;
-      
-      // 만약 _doc가 주어지지 않았다면, 삭제 전에 원본 데이터 조회
-      if (!docContent) {
-        const { data: originalRow } = await supabase
-          .from(tableName)
-          .select('content, status')
-          .eq('id', String(id))
-          .maybeSingle();
-          
-        if (originalRow && originalRow.content) {
-          docContent = {
-            ...originalRow.content,
-            status: originalRow.status || originalRow.content.status
-          };
-        }
-      }
-
-      if (docContent) {
-        // trash 테이블의 id 컬럼은 uuid 타입이므로 uuid를 생성해야 함
-        const uuid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-          ? crypto.randomUUID()
-          : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-              const r = Math.random() * 16 | 0;
-              const v = c === 'x' ? r : (r & 0x3 | 0x8);
-              return v.toString(16);
-            });
-
-        // 실제 컬럼명: id(uuid), original_table(text), original_id(text), content(jsonb), deleted_at(timestamptz)
-        const payload = {
-          id: uuid,
-          original_table: tableName,
-          original_id: String(id),
-          content: docContent,
-          deleted_at: new Date().toISOString()
+    let docContent = _doc;
+    
+    // 만약 _doc가 주어지지 않았다면, 삭제 전에 원본 데이터 조회
+    if (!docContent) {
+      const { data: originalRow } = await supabase
+        .from(tableName)
+        .select('content, status')
+        .eq('id', String(id))
+        .maybeSingle();
+        
+      if (originalRow && originalRow.content) {
+        docContent = {
+          ...originalRow.content,
+          status: originalRow.status || originalRow.content.status
         };
-
-        const { error: trashError } = await supabase
-          .from('trash')
-          .insert(payload);
-
-        if (trashError) {
-          console.error('[Trash Copy Error] Failed to insert to trash table:', trashError.message);
-        } else {
-          console.log('[Trash Copy Success] Moved document to trash:', uuid);
-        }
       }
-    } catch (trashErr: any) {
-      console.error('[Trash Copy Error - Ignored to allow delete]', trashErr.message);
+    }
+
+    if (docContent) {
+      // trash 테이블의 id 컬럼은 uuid 타입이므로 uuid를 생성해야 함
+      const uuid = typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+        ? crypto.randomUUID()
+        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+            const r = Math.random() * 16 | 0;
+            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+            return v.toString(16);
+          });
+
+      // 실제 컬럼명: id(uuid), original_table(text), original_id(text), content(jsonb), deleted_at(timestamptz)
+      const payload = {
+        id: uuid,
+        original_table: tableName,
+        original_id: String(id),
+        content: docContent,
+        deleted_at: new Date().toISOString()
+      };
+
+      const { error: trashError } = await supabase
+        .from('trash')
+        .insert(payload);
+
+      if (trashError) {
+        console.error('[Trash Copy Error] Failed to insert to trash table:', trashError.message);
+        throw new Error(`휴지통 복사 실패 (Supabase RLS 설정 또는 테이블 권한 확인 필요): ${trashError.message}`);
+      } else {
+        console.log('[Trash Copy Success] Moved document to trash:', uuid);
+      }
+    } else {
+      console.warn(`[Delete doc] No content found for ${tableName} id: ${id}. Proceeding with delete directly.`);
     }
 
     // 2. 원래 테이블에서 삭제 실행
@@ -290,6 +289,8 @@ export const deleteSingleDoc = async (tableName: string, id: string, _doc?: any)
     console.log(`[Cloud Sync] ${tableName} 삭제 성공: ${id}`);
   } catch (err: any) {
     console.error(`[Cloud Sync Delete Error] ${tableName}:`, err.message);
+    alert(`삭제에 실패했습니다:\n${err.message}`);
+    throw err; // 상위 컴포넌트에서 에러를 인지할 수 있도록 예외 전달
   }
 };
 

@@ -1181,14 +1181,18 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
     setModal({
       type: 'DELETE_FILE',
-      message: '해당 발주서 파일을 영구 삭제하시겠습니까? (복구 불가)',
-      onConfirm: () => {
-        const updated = items.filter(i => i.id !== id);
-        saveItems(updated);
+      message: '해당 발주서 파일을 삭제하여 휴지통으로 보내시겠습니까?',
+      onConfirm: async () => {
         const tableName = itemToDelete?.code === 'INJECTION' ? 'Injection_Order' : 'purchase_orders';
-        deleteSingleDoc(tableName, id, itemToDelete);
-        setModal(null);
-        alert('발주서가 삭제되었습니다.');
+        try {
+          await deleteSingleDoc(tableName, id, itemToDelete);
+          const updated = items.filter(i => i.id !== id);
+          saveItems(updated);
+          setModal(null);
+          alert('발주서가 삭제되어 휴지통으로 이동했습니다.');
+        } catch (e) {
+          console.error('[Delete Failed]', e);
+        }
       }
     });
   }, [isMaster, currentUser, items]);

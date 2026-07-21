@@ -1055,7 +1055,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     setActiveItem(null);
   };
 
-  const handleDeleteDocument = (id: string) => {
+  const handleDeleteDocument = async (id: string) => {
     const itemToDelete = items.find(it => it.id === id);
     const isTemp = itemToDelete && itemToDelete.status === VietnamSubCategory.TEMPORARY;
     const isAuthor = itemToDelete && isTemp && (
@@ -1069,11 +1069,17 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       return;
     }
 
-    const updated = items.filter(it => it.id !== id);
-    saveVietnamItems(updated);
-    deleteSingleDoc('vn_purchase_orders', id, itemToDelete);
-    setDeletingId(null);
-    alert('삭제되었습니다.');
+    if (!confirm('정말로 삭제하시겠습니까? 삭제된 문서는 휴지통으로 이동합니다.')) return;
+
+    try {
+      await deleteSingleDoc('vn_purchase_orders', id, itemToDelete);
+      const updated = items.filter(it => it.id !== id);
+      saveVietnamItems(updated);
+      setDeletingId(null);
+      alert('삭제되어 휴지통으로 이동했습니다.');
+    } catch (e) {
+      console.error('[Delete Failed]', e);
+    }
   };
 
   const handleFinalVerify = (item: VietnamOrderItem) => {

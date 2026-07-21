@@ -825,7 +825,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     setView({ type: 'NATIONAL_INVOICE', sub: status });
   };
 
-  const handleDeleteDocument = (id: string) => {
+  const handleDeleteDocument = async (id: string) => {
     const itemToDelete = items.find(it => it.id === id);
     const isAuthor = itemToDelete && itemToDelete.status === NationalInvoiceSubCategory.TEMPORARY && (
       (itemToDelete.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
@@ -836,11 +836,18 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       alert('삭제 권한이 없습니다.');
       return;
     }
-    const updated = items.filter(it => it.id !== id);
-    saveItems(updated);
-    deleteSingleDoc('nationalinvoice', id, itemToDelete);
-    setDeletingId(null);
-    alert('삭제되었습니다.');
+
+    if (!confirm('정말로 삭제하시겠습니까? 삭제된 문서는 휴지통으로 이동합니다.')) return;
+
+    try {
+      await deleteSingleDoc('nationalinvoice', id, itemToDelete);
+      const updated = items.filter(it => it.id !== id);
+      saveItems(updated);
+      setDeletingId(null);
+      alert('삭제되어 휴지통으로 이동했습니다.');
+    } catch (e) {
+      console.error('[Delete Failed]', e);
+    }
   };
 
   const handleEntitySelect = (entity: NationalEntity) => {
