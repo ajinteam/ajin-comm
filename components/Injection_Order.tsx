@@ -413,6 +413,39 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     }
   };
 
+  const handleRestoreFromInbox = async () => {
+    if (!activeItem) return;
+    if (!window.confirm('이 문서를 다시 AJ사출발주서 목록으로 복구하시겠습니까?')) return;
+
+    try {
+      const targetStatus = activeItem.id?.startsWith('inj-') 
+        ? InjectionOrderSubCategory.APPROVED 
+        : InjectionOrderSubCategory.DESTINATION;
+
+      const updatedItem = {
+        ...activeItem,
+        status: targetStatus,
+      };
+
+      // Update Local Storage
+      const allItems = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+      const updatedItems = allItems.map((item: any) => item.id === activeItem.id ? updatedItem : item);
+      localStorage.setItem('ajin_injection_orders', JSON.stringify(updatedItems));
+
+      // Update Supabase
+      const tableName = activeItem.id?.startsWith('inj-') ? 'Injection_Take' : 'Injection_Order';
+      await saveSingleDoc(tableName, updatedItem);
+      
+      alert('AJ사출발주서 목록으로 복구되었습니다.');
+      setActiveItem(null);
+      setView({ type: 'INJECTION_ORDER_MAIN', sub: targetStatus });
+      pushStateToCloud();
+    } catch (err) {
+      console.error('Error restoring from inbox:', err);
+      alert('복구 처리 중 오류가 발생했습니다.');
+    }
+  };
+
   const handleReject = async () => {
     if (!activeItem) return;
     const reason = window.prompt('반송 사유를 입력해 주세요:');
@@ -651,6 +684,9 @@ tr {
             )}
             {sub === InjectionOrderSubCategory.DESTINATION && (
               <button onClick={handleMoveToInbox} className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 font-black text-sm shadow-lg shadow-orange-500/20">수신 (사출 수신함 이동)</button>
+            )}
+            {sub === InjectionOrderSubCategory.INBOX && (
+              <button onClick={handleRestoreFromInbox} className="px-6 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-black text-sm shadow-lg shadow-emerald-500/20">원위치 (AJ사출발주서로 복구)</button>
             )}
             <button onClick={() => {
               const selector = item.id?.startsWith('po-') ? '.injection-order-print-detail-order' : '.injection-order-print-detail-hidden';
