@@ -71,7 +71,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 md:p-1.5 block whitespace-pre-wrap text-xs md:text-sm lg:text-[14px] ${className}`}
       rows={1}
     />
   );
@@ -819,18 +819,18 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const stamps = data?.stamps;
 
     return (
-      <div className={`bg-white border-[1px] border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[210mm] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto`}>
-        <div className="min-w-[768px] lg:min-w-0">
+      <div className={`bg-white border-[1px] border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1600px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto`}>
+        <div className="min-w-[950px] xl:min-w-0 w-full">
           <div className="flex justify-between items-start mb-8">
             <div className="text-3xl md:text-5xl font-bold uppercase tracking-widest">송 장</div>
             <div className="text-right">
               <div className="font-bold text-lg md:text-xl mb-1">AJIN PRECISION MFG., INC.</div>
-              <div className="text-[9px] md:text-[10px] text-slate-500">#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea</div>
-              <div className="text-[9px] md:text-[10px] text-slate-500">TEL : 070-4121-2611</div>
+              <div className="text-[10px] md:text-xs text-slate-500">#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea</div>
+              <div className="text-[10px] md:text-xs text-slate-500">TEL : 070-4121-2611</div>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-x-8 md:gap-x-12 gap-y-2 mb-6 text-xs md:text-sm">
+          <div className="grid grid-cols-2 gap-x-8 md:gap-x-12 gap-y-2 mb-6 text-xs md:text-sm lg:text-base">
             <div className="flex border-b border-slate-900 pb-1 items-center">
               <span className="w-16 font-bold">날짜</span>
               {isReadOnly && !isTempDoc ? <span>{date}</span> : <input type="text" value={date} onChange={(e) => { takeSnapshot(); setFormDate(e.target.value); }} className="flex-1 bg-transparent outline-none"/>}
@@ -840,7 +840,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                 <span className="w-16 font-bold whitespace-nowrap">화물발송</span>
                 {isReadOnly && !isTempDoc ? <span>{cargo}</span> : (
                   <div className="flex flex-1 items-center gap-2">
-                    <select className="bg-slate-50 border rounded px-1 py-0.5 text-[10px] md:text-xs outline-none w-16 md:w-auto" onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} value={cargoOptions.includes(formCargo) ? formCargo : ''}><option value="">직접</option>{cargoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
+                    <select className="bg-slate-50 border rounded px-1 py-0.5 text-xs outline-none w-16 md:w-auto" onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} value={cargoOptions.includes(formCargo) ? formCargo : ''}><option value="">직접</option>{cargoOptions.map(opt => <option key={opt} value={opt}>{opt}</option>)}</select>
                     <input type="text" value={formCargo} onChange={(e) => { takeSnapshot(); setFormCargo(e.target.value); }} onFocus={takeSnapshot} placeholder="정보 입력" className="flex-1 bg-transparent outline-none border-l border-slate-200 pl-2 min-w-0"/>
                   </div>
                 )}
@@ -849,7 +849,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
                 <div className="mt-2 no-print">
                   <button 
                     onClick={handleAllQtyConfirm}
-                    className="bg-blue-600 text-white px-4 py-1 rounded-lg text-[10px] font-bold hover:bg-blue-700 transition-all shadow-sm flex items-center gap-1 w-fit"
+                    className="bg-blue-600 text-white px-4 py-1 rounded-lg text-xs font-bold hover:bg-blue-700 transition-all shadow-sm flex items-center gap-1 w-fit"
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
                     수량 확인 완료
@@ -860,21 +860,21 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
             <div className="flex border-b border-slate-900 pb-1 items-center">
               <span className="w-16 font-bold">수신처</span>
               {isReadOnly && !isTempDoc ? <span className="font-bold text-blue-700">{recipient === 'SEOUL' ? '서울' : recipient === 'DAECHEON' ? '대천' : '베트남'}</span> : (
-                <div className="flex gap-2 md:gap-4 overflow-x-auto">{['SEOUL', 'DAECHEON', 'VIETNAM'].map(loc => (<label key={loc} className="flex items-center gap-1 cursor-pointer text-[10px] md:text-xs whitespace-nowrap"><input type="radio" checked={formRecipient === loc} onChange={() => { takeSnapshot(); setFormRecipient(loc as any); }}/>{loc === 'SEOUL' ? '서울' : loc === 'DAECHEON' ? '대천' : '베트남'}</label>))}</div>
+                <div className="flex gap-2 md:gap-4 overflow-x-auto">{['SEOUL', 'DAECHEON', 'VIETNAM'].map(loc => (<label key={loc} className="flex items-center gap-1 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" checked={formRecipient === loc} onChange={() => { takeSnapshot(); setFormRecipient(loc as any); }}/>{loc === 'SEOUL' ? '서울' : loc === 'DAECHEON' ? '대천' : '베트남'}</label>))}</div>
               )}
             </div>
           </div>
 
-          <table className="w-full border-collapse border border-slate-900 text-[10px] md:text-[11px] select-none">
+          <table className="w-full border-collapse border border-slate-900 text-xs md:text-sm lg:text-[14px] select-none">
             <thead className="bg-slate-50">
               <tr>
-                <th className="border border-slate-900 p-1 md:p-2 w-[11%] text-center">기종</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[10%] text-center">도 번</th>
-                <th className="border border-slate-900 p-1 md:p-2 flex-1 min-w-[120px] text-center">품 목</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[13%] text-center">수 량</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[10%] text-center leading-tight">완료</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-[18%] text-center">비고</th>
-                <th className="border border-slate-900 p-1 md:p-2 w-14 text-center no-print">관리</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 w-[11%] text-center">기종</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 w-[10%] text-center">도 번</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 flex-1 min-w-[120px] text-center">품 목</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 w-[13%] text-center">수 량</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 w-[10%] text-center leading-tight">완료</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 w-[18%] text-center">비고</th>
+                <th className="border border-slate-900 p-1.5 md:p-2 w-14 text-center no-print">관리</th>
               </tr>
             </thead>
             <tbody>
@@ -997,7 +997,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   if (sub === InvoiceSubCategory.CREATE) {
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center max-w-[210mm] mx-auto no-print px-4">
+        <div className="flex justify-between items-center max-w-[1600px] w-full mx-auto no-print px-4">
           <div className="flex items-center gap-4">
             <button 
               onClick={() => setView({ type: 'INVOICE', sub: InvoiceSubCategory.SEOUL })}
@@ -1086,7 +1086,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const isDocCompleted = !!activeInvoice.stamps?.final;
     return (
       <div className={`py-4 md:py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-        <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-center px-4 no-print gap-4">
+        <div className="max-w-[1600px] w-full mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-center px-4 no-print gap-4">
           {isPreviewing ? (<div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>) : (
             <div className="flex gap-2">
               <button onClick={() => setActiveInvoice(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 닫기</button>
