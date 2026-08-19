@@ -88,7 +88,7 @@ const RenderDocumentTable = React.memo(({
   rows, isCreate, order, isPreviewing, formLocation, formTitle, formDate,
   setFormDate, setFormTitle, setFormLocation, updateRowField, handleRowKeyDown,
   handleCreateSubmit, handleRowEdit, handleRowDelete, handleStampAction,
-  handleFinalComplete, userAccounts,
+  handleFinalComplete, suggestionTarget, suggestions, selectSuggestion, userAccounts,
   isVietnameseLabels, translatedLocation,
   selection, setSelection, handleCellMouseDown, handleCellMouseEnter, merges, aligns, borders, handlePaste, takeSnapshot,
   handleInsertRow, handleDeleteTableRow
@@ -161,7 +161,7 @@ const RenderDocumentTable = React.memo(({
   const currentBorders = borders || {};
 
   return (
-    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1600px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
+    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
       <div className="min-w-[700px] md:min-w-0">
         <div className="flex justify-between items-start mb-10">
           <div className="text-3xl md:text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
@@ -361,6 +361,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const [isTranslating, setIsTranslating] = useState(false);
   const [isVietnameseLabels, setIsVietnameseLabels] = useState(false);
   const [translatedLocation, setTranslatedLocation] = useState('');
+  const [suggestions, setSuggestions] = useState<OrderRow[]>([]);
+  const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
   
@@ -576,6 +578,26 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     }
   };
 
+  const approvedLibrary = useMemo(() => {
+    const library: OrderRow[] = [];
+    const seen = new Set<string>();
+    orders.filter(o => 
+      (o.status || '').includes('완료') || o.status === OrderSubCategory.APPROVED
+    ).forEach(order => {
+      order.rows.forEach(row => {
+        const key = row.itemName.trim().toLowerCase();
+        if (key && !seen.has(key) && !row.isDeleted) {
+          library.push({ ...row, id: Math.random().toString(36).substr(2, 9) });
+          seen.add(key);
+        }
+      });
+    });
+    return library;
+  }, [orders]);
+
+  /**
+   * 1. 주문서 작성 완료 및 결재 요청 처리 (잔디 알림 연동)
+   */
   const handleCreateSubmit = () => {
     if (!formTitle.trim()) { alert('제목을 입력해주세요.'); return; }
     const validRows = formRows.filter(r => r.dept.trim() || r.model.trim() || r.itemName.trim() || r.price.trim());
@@ -679,7 +701,18 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       }
       return row;
     }));
-  }, [originalRejectedOrder]);
+    if (field === 'itemName') {
+      const query = value.toLowerCase().trim();
+      if (query.length > 0) {
+        const filtered = approvedLibrary.filter(item => item.itemName.toLowerCase().includes(query)).slice(0, 10);
+        setSuggestions(filtered);
+        setSuggestionTarget({ rowId, field });
+      } else {
+        setSuggestions([]);
+        setSuggestionTarget(null);
+      }
+    }
+  }, [approvedLibrary, originalRejectedOrder]);
 
   const handleRowEdit = useCallback((order: OrderItem, rowId: string, field: keyof OrderRow, value: string) => {
     let processedValue = value;
@@ -706,6 +739,42 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const nextActive = updatedList.find((o: OrderItem) => o.id === order.id);
     if (nextActive) setActiveOrder(nextActive);
   }, [currentUser.initials]);
+
+  const selectSuggestion = (rowId: string, item: OrderRow) => {
+    takeSnapshot();
+    setFormRows(prev => prev.map(row => {
+      let updatedFields = row.changedFields ? [...row.changedFields] : [];
+      const fieldsToCheck: (keyof OrderRow)[] = ['dept', 'model', 'itemName', 'price', 'unitPrice', 'remarks'];
+      
+      if (row.id === rowId) {
+        const newValues: any = { 
+          dept: item.dept || row.dept,
+          model: item.model || row.model,
+          itemName: item.itemName,
+          price: item.price || row.price,
+          unitPrice: item.unitPrice || row.unitPrice,
+          remarks: item.remarks || row.remarks
+        };
+
+        if (originalRejectedOrder) {
+          const oriRow = originalRejectedOrder.rows.find(r => r.id === rowId);
+          fieldsToCheck.forEach(f => {
+            const oriValue = oriRow ? (oriRow[f] || '') : '';
+            if (String(newValues[f]).trim() !== String(oriValue).trim()) {
+              if (!updatedFields.includes(f)) updatedFields.push(f);
+            } else {
+              updatedFields = updatedFields.filter(field => field !== f);
+            }
+          });
+        }
+
+        return { ...row, ...newValues, changedFields: updatedFields };
+      }
+      return row;
+    }));
+    setSuggestions([]);
+    setSuggestionTarget(null);
+  };
 
   const handleMerge = useCallback(() => {
     if (!selection) return;
@@ -1266,7 +1335,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const filename = `${activeOrder?.title || '주문서'}_${activeOrder?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; width: 100%; margin: 0; box-sizing: border-box; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; table-layout: fixed; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; word-break: break-all; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
+      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
       printWindow.document.close();
     } else alert('팝업이 차단되었습니다.');
   };
@@ -1333,7 +1402,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   if (sub === OrderSubCategory.CREATE || editingOrderId) return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center max-w-[1600px] mx-auto no-print px-4">
+      <div className="flex justify-between items-center max-w-[1000px] mx-auto no-print px-4">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => { 
@@ -1540,7 +1609,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   return (
     <div className={`py-4 md:py-8 landscape:py-2 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-      <div className="max-w-[1600px] mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
+      <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
         {isPreviewing ? (
           <div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>
         ) : (
