@@ -840,8 +840,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       win.document.write(`
         <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
         <style>
-          @page { size: A4 portrait; margin: 12mm 15mm; }
-          body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; box-sizing: border-box; }
+          @page { size: A4 portrait; margin: 0; }
+          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; }
           .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
           * { color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
           .font-bold-print { font-weight: 700 !important; }
@@ -1265,7 +1265,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const { subtotal, vat, total } = getTotal(dRows, dVatRate);
 
     return (
-      <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1600px] text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-start lg:items-center">
+      <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-5xl text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-start lg:items-center">
         <div className="min-w-[900px] lg:min-w-0 w-full font-bold">
           <div className="flex justify-between items-start mb-2 font-bold w-full">
             <div className="flex flex-col flex-1 mt-0">
@@ -1727,7 +1727,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center max-w-[1600px] mx-auto no-print px-4">
+        <div className="flex justify-between items-center max-w-5xl mx-auto no-print px-4">
           <div className="flex gap-2 items-center">
             {(editingId || sub === VietnamSubCategory.ORDER || sub === VietnamSubCategory.PAYMENT || sub === VietnamSubCategory.METAL_ORDER) && (
                 <button onClick={() => { 
@@ -2069,7 +2069,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
         {activeItem && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] p-4 md:p-8 overflow-y-auto">
-                <div className="max-w-[1600px] mx-auto">
+                <div className="max-w-[1000px] mx-auto">
                     <div className="flex justify-between mb-4 no-print">
                         <button onClick={() => setActiveItem(null)} className="px-6 py-2 bg-white rounded-xl font-bold shadow-lg">← CLOSE</button>
                         <div className="flex gap-2">

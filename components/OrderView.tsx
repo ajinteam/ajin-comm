@@ -161,7 +161,7 @@ const RenderDocumentTable = React.memo(({
   const currentBorders = borders || {};
 
   return (
-    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1600px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
+    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
       <div className="min-w-[700px] md:min-w-0">
         <div className="flex justify-between items-start mb-10">
           <div className="text-3xl md:text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
@@ -701,7 +701,18 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       }
       return row;
     }));
-  }, [originalRejectedOrder]);
+    if (field === 'itemName') {
+      const query = value.toLowerCase().trim();
+      if (query.length > 0) {
+        const filtered = approvedLibrary.filter(item => item.itemName.toLowerCase().includes(query)).slice(0, 10);
+        setSuggestions(filtered);
+        setSuggestionTarget({ rowId, field });
+      } else {
+        setSuggestions([]);
+        setSuggestionTarget(null);
+      }
+    }
+  }, [approvedLibrary, originalRejectedOrder]);
 
   const handleRowEdit = useCallback((order: OrderItem, rowId: string, field: keyof OrderRow, value: string) => {
     let processedValue = value;
@@ -1324,7 +1335,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const filename = `${activeOrder?.title || '주문서'}_${activeOrder?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; width: 100%; margin: 0; box-sizing: border-box; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; table-layout: fixed; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; word-break: break-all; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
+      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
       printWindow.document.close();
     } else alert('팝업이 차단되었습니다.');
   };
@@ -1391,7 +1402,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   if (sub === OrderSubCategory.CREATE || editingOrderId) return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center max-w-[1600px] mx-auto no-print px-4">
+      <div className="flex justify-between items-center max-w-[1000px] mx-auto no-print px-4">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => { 
@@ -1598,7 +1609,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   return (
     <div className={`py-4 md:py-8 landscape:py-2 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-      <div className="max-w-[1600px] mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
+      <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
         {isPreviewing ? (
           <div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>
         ) : (
@@ -1651,7 +1662,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             <>
               {(activeOrder.status === OrderSubCategory.APPROVED_VIETNAM || activeOrder.location === 'VIETNAM' || (sub || '').includes('(완료)')) && <button onClick={handleTranslateToVietnam} disabled={isTranslating} className={`flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs ${isVietnameseLabels ? 'bg-amber-500 text-white hover:bg-amber-600' : 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50'}`}>{isTranslating ? '...' : (isVietnameseLabels ? '한글' : 'VIET')}</button>}
               {activeOrder.status === OrderSubCategory.PENDING && <button onClick={() => { setRejectingOrder(activeOrder); setRejectReasonText(''); }} className="flex-1 md:flex-none px-4 md:px-6 py-2.5 md:py-3 bg-red-100 text-red-600 rounded-xl font-bold hover:bg-red-600 hover:text-white border border-red-200 transition-all text-[10px] md:text-xs">반송</button>}
-              <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs">PDF 저장 / 인쇄</button>
+              <button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-[10px] md:text-xs">PDF 저장 / 인쇄</button>
             </>
           )}
         </div>
