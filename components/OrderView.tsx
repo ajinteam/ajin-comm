@@ -161,7 +161,7 @@ const RenderDocumentTable = React.memo(({
   const currentBorders = borders || {};
 
   return (
-    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
+    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1400px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
       <div className="min-w-[700px] md:min-w-0">
         <div className="flex justify-between items-start mb-10">
           <div className="text-3xl md:text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
@@ -274,16 +274,6 @@ const RenderDocumentTable = React.memo(({
                           style={{ textAlign }}
                           className={`${row.isDeleted ? 'text-red-600 line-through' : ''} ${isChanged ? 'text-red-600 font-bold' : ''}`}
                         />
-                        {field === 'itemName' && isCreate && suggestionTarget?.rowId === row.id && suggestionTarget?.field === 'itemName' && suggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full bg-white border border-slate-300 shadow-2xl z-50 rounded-b-lg overflow-hidden max-h-48 overflow-y-auto no-print">
-                            {suggestions.map((item: OrderRow, sIdx: number) => (
-                              <button key={sIdx} onClick={() => selectSuggestion(row.id, item)} className="w-full text-left px-3 py-2 text-[10px] md:text-xs hover:bg-blue-50 border-b border-slate-100 last:border-0 flex flex-col">
-                                <span className="font-bold text-blue-700">{item.itemName}</span>
-                                <span className="text-[8px] md:text-[10px] text-slate-500">{item.model} | {item.dept}</span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
                       </td>
                     );
                   })}

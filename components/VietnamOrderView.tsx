@@ -883,7 +883,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           td.text-left div { justify-content: flex-start !important; text-align: left !important; padding-left: 4px !important; }
           td.text-right div { justify-content: flex-end !important; text-align: right !important; padding-right: 4px !important; }
           
-          .document-wrapper { padding: 25mm 10mm 10mm 10mm;}
+          .document-wrapper { padding: 15mm 15mm 15mm 15mm;}
           .info-row { border-bottom: none !important; }
         </style>
         </head><body onload="window.print(); window.close();">
@@ -1265,7 +1265,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     const { subtotal, vat, total } = getTotal(dRows, dVatRate);
 
     return (
-      <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-5xl text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-start lg:items-center">
+      <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1400px] text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-start lg:items-center">
         <div className="min-w-[900px] lg:min-w-0 w-full font-bold">
           <div className="flex justify-between items-start mb-2 font-bold w-full">
             <div className="flex flex-col flex-1 mt-0">
@@ -1727,7 +1727,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center max-w-5xl mx-auto no-print px-4">
+        <div className="flex justify-between items-center max-w-[1400px] mx-auto no-print px-4">
           <div className="flex gap-2 items-center">
             {(editingId || sub === VietnamSubCategory.ORDER || sub === VietnamSubCategory.PAYMENT || sub === VietnamSubCategory.METAL_ORDER) && (
                 <button onClick={() => { 

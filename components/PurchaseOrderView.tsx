@@ -1552,7 +1552,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center max-w-[1000px] mx-auto no-print px-4">
+        <div className="flex justify-between items-center max-w-[1400px] mx-auto no-print px-4">
           <div className="flex gap-2 items-center">
             <button 
               onClick={() => {
@@ -1628,7 +1628,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           </div>
         )}
         <div className="py-4 md:py-8 bg-slate-200 min-h-screen overflow-x-auto overflow-y-auto">
-          <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1000px] text-black font-gulim text-left overflow-x-auto animate-in slide-in-from-bottom-8 duration-500">
+          <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1400px] text-black font-gulim text-left overflow-x-auto animate-in slide-in-from-bottom-8 duration-500">
             <div className="min-w-[800px] md:min-w-0">
               <div className="flex flex-col items-center mb-1">
                 <h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1>
