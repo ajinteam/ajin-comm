@@ -35,7 +35,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 md:p-1.5 block whitespace-pre-wrap break-all text-xs md:text-sm lg:text-[14px] ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-all ${className}`}
       rows={1}
     />
   );
@@ -161,8 +161,8 @@ const RenderDocumentTable = React.memo(({
   const currentBorders = borders || {};
 
   return (
-    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1600px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
-      <div className="min-w-[950px] xl:min-w-0 w-full">
+    <div className="bg-white border border-slate-300 shadow-xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-full md:max-w-[1600px] text-slate-800 font-gulim relative document-print-content text-left overflow-x-auto">
+      <div className="min-w-[700px] md:min-w-0">
         <div className="flex justify-between items-start mb-10">
           <div className="text-3xl md:text-5xl font-bold underline decoration-2 underline-offset-8 uppercase">{labels.mainTitle}</div>
           <table className="border-collapse border border-slate-900 text-center text-[10px] w-auto min-w-[300px]">
@@ -196,7 +196,7 @@ const RenderDocumentTable = React.memo(({
           </table>
         </div>
 
-        <div className="space-y-1 mb-4 text-sm md:text-base w-[450px] max-w-full">
+        <div className="space-y-1 mb-4 text-base w-[400px] max-w-full">
           <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
             <span className="w-24 font-bold">{labels.date}</span>
             {isCreate ? <input type="text" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none font-medium border-b border-transparent hover:border-slate-200 focus:border-blue-500 transition-all py-0.5"/> : <span>{order?.date}</span>}
@@ -217,7 +217,7 @@ const RenderDocumentTable = React.memo(({
           </div>
         </div>
 
-        <table className="w-full border-collapse border border-slate-900 text-xs md:text-sm lg:text-[14px]">
+        <table className="w-full border-collapse border border-slate-900 text-xs md:text-sm">
           <thead className="bg-slate-100">
             <tr>
               <th className="border border-slate-900 p-1 md:p-2 w-[10%]">{labels.dept}</th>
@@ -1335,7 +1335,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const filename = `${activeOrder?.title || '주문서'}_${activeOrder?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
+      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; width: 100%; margin: 0; box-sizing: border-box; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; table-layout: fixed; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; word-break: break-all; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; max-width: 100% !important; box-shadow: none !important; border: none !important; padding: 0 !important; margin: 0 !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
       printWindow.document.close();
     } else alert('팝업이 차단되었습니다.');
   };
@@ -1402,7 +1402,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   if (sub === OrderSubCategory.CREATE || editingOrderId) return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center max-w-[1600px] w-full mx-auto no-print px-4">
+      <div className="flex justify-between items-center max-w-[1600px] mx-auto no-print px-4">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => { 
@@ -1609,7 +1609,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   return (
     <div className={`py-4 md:py-8 landscape:py-2 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-      <div className="max-w-[1600px] w-full mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
+      <div className="max-w-[1600px] mx-auto mb-4 md:mb-6 landscape:mb-2 flex flex-col md:flex-row justify-between items-start md:items-center px-4 no-print gap-4">
         {isPreviewing ? (
           <div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>
         ) : (

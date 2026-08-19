@@ -54,7 +54,7 @@ const AutoExpandingTextarea = React.memo(({
       data-row={dataRow}
       data-col={dataCol}
       style={style}
-      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 md:p-1.5 block whitespace-pre-wrap break-words font-gulim text-xs md:text-sm lg:text-[14px] ${className}`}
+      className={`w-full bg-transparent resize-none overflow-hidden outline-none p-1 block whitespace-pre-wrap break-words font-gulim ${className}`}
       rows={1}
     />
   );
@@ -1266,7 +1266,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     return (
       <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1600px] text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-start lg:items-center">
-        <div className="min-w-[950px] lg:min-w-0 w-full font-bold">
+        <div className="min-w-[900px] lg:min-w-0 w-full font-bold">
           <div className="flex justify-between items-start mb-2 font-bold w-full">
             <div className="flex flex-col flex-1 mt-0">
               <h2 className="text-xl font-black tracking-tight uppercase m-0 leading-tight">CÔNG TY TNHH AJIN TRAIN VINA</h2>
@@ -1727,7 +1727,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     return (
       <div className="space-y-6">
-        <div className="flex justify-between items-center max-w-[1600px] w-full mx-auto no-print px-4">
+        <div className="flex justify-between items-center max-w-[1600px] mx-auto no-print px-4">
           <div className="flex gap-2 items-center">
             {(editingId || sub === VietnamSubCategory.ORDER || sub === VietnamSubCategory.PAYMENT || sub === VietnamSubCategory.METAL_ORDER) && (
                 <button onClick={() => { 
@@ -2069,7 +2069,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
         {activeItem && (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] p-4 md:p-8 overflow-y-auto">
-                <div className="max-w-[1600px] w-full mx-auto">
+                <div className="max-w-[1600px] mx-auto">
                     <div className="flex justify-between mb-4 no-print">
                         <button onClick={() => setActiveItem(null)} className="px-6 py-2 bg-white rounded-xl font-bold shadow-lg">← CLOSE</button>
                         <div className="flex gap-2">

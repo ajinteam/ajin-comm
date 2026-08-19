@@ -826,7 +826,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
 
       {/* PO Form Style Header */}
       <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 w-full max-w-[1600px] text-black font-gulim text-left mt-2 mb-4">
-        <div className="min-w-[950px] xl:min-w-0 w-full">
+        <div className="min-w-[800px] md:min-w-0">
           {/* Company Info */}
           <div className="flex flex-col items-center mb-1">
             <h1 className="text-4xl font-black tracking-[0.5rem] mb-2 uppercase">주 식 회 사 아 진 정 공</h1>
