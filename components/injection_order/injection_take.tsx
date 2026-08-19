@@ -788,7 +788,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
   return (
     <div className="flex flex-col h-full bg-slate-200 overflow-y-auto custom-scrollbar relative">
       {/* Top Action Buttons */}
-      <div className="sticky top-0 z-[110] bg-slate-200/80 backdrop-blur-sm p-4 flex justify-between items-center max-w-[1000px] mx-auto w-full">
+      <div className="sticky top-0 z-[110] bg-slate-200/80 backdrop-blur-sm p-4 flex justify-between items-center max-w-[1600px] mx-auto w-full">
         <div className="flex items-center">
           {onClose && (
             <button 
@@ -825,7 +825,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       </div>
 
       {/* PO Form Style Header */}
-      <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 w-full max-w-[1000px] text-black font-gulim text-left mt-2 mb-4">
+      <div className="bg-white border-[1px] border-slate-200 shadow-2xl mx-auto p-4 md:p-12 w-full max-w-[1600px] text-black font-gulim text-left mt-2 mb-4">
         <div className="min-w-[800px] md:min-w-0">
           {/* Company Info */}
           <div className="flex flex-col items-center mb-1">
