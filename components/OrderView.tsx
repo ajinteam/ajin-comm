@@ -88,7 +88,7 @@ const RenderDocumentTable = React.memo(({
   rows, isCreate, order, isPreviewing, formLocation, formTitle, formDate,
   setFormDate, setFormTitle, setFormLocation, updateRowField, handleRowKeyDown,
   handleCreateSubmit, handleRowEdit, handleRowDelete, handleStampAction,
-  handleFinalComplete, suggestionTarget, suggestions, selectSuggestion, userAccounts,
+  handleFinalComplete, userAccounts,
   isVietnameseLabels, translatedLocation,
   selection, setSelection, handleCellMouseDown, handleCellMouseEnter, merges, aligns, borders, handlePaste, takeSnapshot,
   handleInsertRow, handleDeleteTableRow
@@ -361,8 +361,6 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const [isTranslating, setIsTranslating] = useState(false);
   const [isVietnameseLabels, setIsVietnameseLabels] = useState(false);
   const [translatedLocation, setTranslatedLocation] = useState('');
-  const [suggestions, setSuggestions] = useState<OrderRow[]>([]);
-  const [suggestionTarget, setSuggestionTarget] = useState<{rowId: string, field: string} | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [viewMode, setViewMode] = useState<'ICON' | 'DETAIL'>('ICON');
   
@@ -578,26 +576,6 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     }
   };
 
-  const approvedLibrary = useMemo(() => {
-    const library: OrderRow[] = [];
-    const seen = new Set<string>();
-    orders.filter(o => 
-      (o.status || '').includes('완료') || o.status === OrderSubCategory.APPROVED
-    ).forEach(order => {
-      order.rows.forEach(row => {
-        const key = row.itemName.trim().toLowerCase();
-        if (key && !seen.has(key) && !row.isDeleted) {
-          library.push({ ...row, id: Math.random().toString(36).substr(2, 9) });
-          seen.add(key);
-        }
-      });
-    });
-    return library;
-  }, [orders]);
-
-  /**
-   * 1. 주문서 작성 완료 및 결재 요청 처리 (잔디 알림 연동)
-   */
   const handleCreateSubmit = () => {
     if (!formTitle.trim()) { alert('제목을 입력해주세요.'); return; }
     const validRows = formRows.filter(r => r.dept.trim() || r.model.trim() || r.itemName.trim() || r.price.trim());
@@ -701,18 +679,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       }
       return row;
     }));
-    if (field === 'itemName') {
-      const query = value.toLowerCase().trim();
-      if (query.length > 0) {
-        const filtered = approvedLibrary.filter(item => item.itemName.toLowerCase().includes(query)).slice(0, 10);
-        setSuggestions(filtered);
-        setSuggestionTarget({ rowId, field });
-      } else {
-        setSuggestions([]);
-        setSuggestionTarget(null);
-      }
-    }
-  }, [approvedLibrary, originalRejectedOrder]);
+  }, [originalRejectedOrder]);
 
   const handleRowEdit = useCallback((order: OrderItem, rowId: string, field: keyof OrderRow, value: string) => {
     let processedValue = value;
@@ -739,42 +706,6 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     const nextActive = updatedList.find((o: OrderItem) => o.id === order.id);
     if (nextActive) setActiveOrder(nextActive);
   }, [currentUser.initials]);
-
-  const selectSuggestion = (rowId: string, item: OrderRow) => {
-    takeSnapshot();
-    setFormRows(prev => prev.map(row => {
-      let updatedFields = row.changedFields ? [...row.changedFields] : [];
-      const fieldsToCheck: (keyof OrderRow)[] = ['dept', 'model', 'itemName', 'price', 'unitPrice', 'remarks'];
-      
-      if (row.id === rowId) {
-        const newValues: any = { 
-          dept: item.dept || row.dept,
-          model: item.model || row.model,
-          itemName: item.itemName,
-          price: item.price || row.price,
-          unitPrice: item.unitPrice || row.unitPrice,
-          remarks: item.remarks || row.remarks
-        };
-
-        if (originalRejectedOrder) {
-          const oriRow = originalRejectedOrder.rows.find(r => r.id === rowId);
-          fieldsToCheck.forEach(f => {
-            const oriValue = oriRow ? (oriRow[f] || '') : '';
-            if (String(newValues[f]).trim() !== String(oriValue).trim()) {
-              if (!updatedFields.includes(f)) updatedFields.push(f);
-            } else {
-              updatedFields = updatedFields.filter(field => field !== f);
-            }
-          });
-        }
-
-        return { ...row, ...newValues, changedFields: updatedFields };
-      }
-      return row;
-    }));
-    setSuggestions([]);
-    setSuggestionTarget(null);
-  };
 
   const handleMerge = useCallback(() => {
     if (!selection) return;

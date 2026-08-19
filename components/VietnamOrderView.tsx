@@ -883,7 +883,9 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           td.text-left div { justify-content: flex-start !important; text-align: left !important; padding-left: 4px !important; }
           td.text-right div { justify-content: flex-end !important; text-align: right !important; padding-right: 4px !important; }
           
-          .document-wrapper { padding: 25mm 10mm 10mm 10mm;}
+          .document-wrapper { padding: 15mm 8mm 8mm 8mm; width: 210mm; box-sizing: border-box; }
+          .min-w-\[900px\], .min-w-\[800px\], .min-w-\[700px\] { min-width: 0 !important; width: 100% !important; max-width: 100% !important; }
+          table { width: 100% !important; max-width: 100% !important; table-layout: fixed !important; box-sizing: border-box !important; }
           .info-row { border-bottom: none !important; }
         </style>
         </head><body onload="window.print(); window.close();">
