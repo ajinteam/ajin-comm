@@ -1131,7 +1131,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
               <button onClick={() => setSelection(null)} className="p-1 text-slate-400 hover:text-slate-900 ml-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
           )}
-          <div className="flex gap-2 md:gap-3 w-full md:w-auto">{isPreviewing ? (<><button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">← 닫기</button><button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">저장 / 인쇄</button></>) : (<button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-sm">PDF 저장 / 인쇄</button>)}</div>
+          <div className="flex gap-2 md:gap-3 w-full md:w-auto">
+            <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-sm">PDF 저장 / 인쇄</button>
+          </div>
         </div>
         <div className="print-area">{renderInvoiceForm(true, activeInvoice)}</div>
       </div>

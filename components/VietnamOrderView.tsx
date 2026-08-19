@@ -840,8 +840,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       win.document.write(`
         <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
         <style>
-          @page { size: A4 portrait; margin: 0; }
-          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; }
+          @page { size: A4 portrait; margin: 12mm 15mm; }
+          body { font-family: 'Inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; box-sizing: border-box; }
           .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
           * { color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
           .font-bold-print { font-weight: 700 !important; }
