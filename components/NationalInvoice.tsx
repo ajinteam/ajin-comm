@@ -1113,10 +1113,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const plTotalGrossWeight = formData.plTotalGrossWeight || '';
       const plTotalCbm = formData.plTotalCbm || '';
 
+      const consignee = formData.consigneeName || 'Client';
+      const docDate = formData.invoiceDate || '';
+      const filename = `${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
+
       const html = `
   <html>
     <head>
-      <title>${formData.invoiceNo || 'NoNumber'}_${formData.consigneeName || 'Client'}_INVOICE</title>
+      <title>${filename}</title>
       <style>
         /* 1. 굵기 데이터(700, 900)를 명시적으로 모두 호출 */
         @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');

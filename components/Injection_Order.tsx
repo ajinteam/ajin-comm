@@ -573,10 +573,25 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
     if (!content) return;
     const win = window.open('', '_blank');
     if (win) {
+      const isInbox = sub === InjectionOrderSubCategory.INBOX || (activeItem && activeItem.status === InjectionOrderSubCategory.INBOX);
+      const isPartner = activeItem?.id?.startsWith('inj-');
+      let titleStr = '';
+      if (isInbox || isPartner) {
+        const modelStr = activeItem?.item || fileName || '사출';
+        const dateStr = activeItem?.date || new Date().toISOString().split('T')[0];
+        const recipientStr = activeItem?.recipient || activeItem?.title || '';
+        titleStr = `${modelStr}${dateStr ? `_${dateStr}` : ''}${recipientStr ? `_${recipientStr}` : ''}`;
+      } else {
+        const fileStr = fileName || activeItem?.title || 'AJ사출발주';
+        const dateStr = activeItem?.date || new Date().toISOString().split('T')[0];
+        titleStr = `${fileStr}${dateStr ? `_${dateStr}` : ''}`;
+      }
+      const printFileName = titleStr.replace(/[/\\?%*:|"<>]/g, '-');
+
       win.document.write(`
         <html>
           <head>
-            <title>Injection_Order_${fileName || 'Document'}</title>
+            <title>${printFileName}</title>
             <script src="https://cdn.tailwindcss.com"></script>
             <style>
               @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
@@ -632,7 +647,7 @@ tr {
           <body onload="window.print(); window.close();">
             <div class="document-wrapper">${content}</div>
             <div class="footer">
-              ${fileName}
+              ${printFileName}
             </div>
           </body>
         </html>
@@ -640,7 +655,7 @@ tr {
       win.document.close();
   
     }
-  }, [fileName]);
+  }, [fileName, sub, activeItem]);
 
   const renderDetail = (item: any) => {
     const data = item.rows || [];
@@ -694,10 +709,25 @@ tr {
               if (!content) return;
               const win = window.open('', '_blank');
               if (win) {
+                const isInbox = sub === InjectionOrderSubCategory.INBOX || item.status === InjectionOrderSubCategory.INBOX;
+                const isPartner = item.id?.startsWith('inj-');
+                let titleStr = '';
+                if (isInbox || isPartner) {
+                  const modelStr = item.item || item.title || '사출';
+                  const dateStr = item.date || '';
+                  const recipientStr = item.recipient || (item.id?.startsWith('inj-') ? item.title : '') || '';
+                  titleStr = `${modelStr}${dateStr ? `_${dateStr}` : ''}${recipientStr ? `_${recipientStr}` : ''}`;
+                } else {
+                  const fileStr = item.title || item.item || 'AJ사출발주';
+                  const dateStr = item.date || '';
+                  titleStr = `${fileStr}${dateStr ? `_${dateStr}` : ''}`;
+                }
+                const printFileName = titleStr.replace(/[/\\?%*:|"<>]/g, '-');
+
                 win.document.write(`
                   <html>
                     <head>
-                      <title>Injection_Order_${item.item || item.title || 'Document'}</title>
+                      <title>${printFileName}</title>
                       <script src="https://cdn.tailwindcss.com"></script>
                       <style>
                         @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
@@ -752,7 +782,7 @@ tr {
                     <body onload="window.print(); window.close();">
                       <div class="document-wrapper">${content}</div>
                       <div class="footer">
-                        ${item.item || item.title} 
+                        ${printFileName} 
                       </div>
                     </body>
                   </html>

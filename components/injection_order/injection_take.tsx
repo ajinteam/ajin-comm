@@ -552,12 +552,15 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
     const win = window.open('', '_blank');
     if (!win) return;
 
-    const title = `${searchTerm}`.trim();
+    const modelName = searchTerm.trim() || '사출';
+    const docDate = po2Date.trim() || '';
+    const recipient = vendorSearch.trim() || '';
+    const printFileName = `${modelName}${docDate ? `_${docDate}` : ''}${recipient ? `_${recipient}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
     win.document.write(`
       <html>
         <head>
-          <title>사출발주서_${title}</title>
+          <title>${printFileName}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @page { size: A4 portrait; margin: 10mm; }

@@ -798,7 +798,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   const handlePrint = () => {
     const printContent = document.querySelector('.document-print-content')?.innerHTML;
     if (!printContent) return;
-    const filename = `${activeInvoice?.title || '송장'}_${activeInvoice?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
+    const recipientName = activeInvoice?.recipient || formRecipient || '송장';
+    const docDate = activeInvoice?.date || formDate || '';
+    const filename = `${recipientName}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const html = `
       <!DOCTYPE html>
       <html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 portrait; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body><div>${printContent}</div></body></html>

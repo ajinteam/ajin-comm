@@ -823,17 +823,13 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
     let printTitle = '';
     if (activeItem) {
-      printTitle = activeItem.type === 'METAL' ? `${activeItem.clientName}_${activeItem.modelName}` : `VN_${activeItem.type}_${activeItem.date}`;
+      const recipient = activeItem.clientName || 'KhachHang';
+      const docDate = activeItem.date || '';
+      printTitle = `${recipient}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     } else {
-      let docType: 'ORDER' | 'PAYMENT' | 'METAL' = 'ORDER';
-      if (editingId) {
-        docType = items.find(it => it.id === editingId)?.type || 'ORDER';
-      } else {
-        if (sub === VietnamSubCategory.PAYMENT) docType = 'PAYMENT';
-        else if (sub === VietnamSubCategory.METAL_ORDER) docType = 'METAL';
-        else if (sub === VietnamSubCategory.ORDER) docType = 'ORDER';
-      }
-      printTitle = docType === 'METAL' ? `${vClientName}_${vModelName}` : `VN_${docType}_${vDate}`;
+      const recipient = vClientName || 'KhachHang';
+      const docDate = vDate || '';
+      printTitle = `${recipient}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     }
 
     const printHtml = `

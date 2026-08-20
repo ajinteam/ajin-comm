@@ -504,11 +504,15 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
 
     const totalQty = printableRows.reduce((acc, r) => acc + (parseFloat(r.qty.replace(/,/g, '')) || 0), 0);
 
+    const modelName = formData.model || 'Report';
+    const docDate = formData.dataDate || '';
+    const filename = `${modelName}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
+
     const html = `
       <!DOCTYPE html>
       <html>
         <head>
-          <title>Shipping Report - ${formData.model}</title>
+          <title>${filename}</title>
           <script src="https://cdn.tailwindcss.com"></script>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Nanum+Gothic&display=swap');
