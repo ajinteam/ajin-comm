@@ -1250,25 +1250,30 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
         /* Chrome specific: counter(pages) is not always reliable in body, we'll use JS for total */
       </style>
+      <script>
+        window.addEventListener('load', function() {
+          const invoice = document.getElementById('invoice-content');
+          if (invoice) {
+            const invoiceTotal = Math.ceil(invoice.scrollHeight / 1050); 
+            invoice.querySelectorAll('.page-total').forEach(function(el) { el.textContent = invoiceTotal; });
+          }
+          
+          const pl = document.getElementById('packing-list-content');
+          if (pl) {
+            const plTotal = Math.ceil(pl.scrollHeight / 1050); 
+            pl.querySelectorAll('.page-total').forEach(function(el) { el.textContent = plTotal; });
+          }
+          
+          setTimeout(function() {
+            window.print();
+          }, 250);
+        });
+        window.addEventListener('afterprint', function() {
+          window.close();
+        });
+      </script>
           </head>
-          <body onload="
-            // Calculate Invoice Pages
-            const invoice = document.getElementById('invoice-content');
-            if (invoice) {
-              const invoiceTotal = Math.ceil(invoice.scrollHeight / 1050); 
-              invoice.querySelectorAll('.page-total').forEach(el => el.textContent = invoiceTotal);
-            }
-            
-            // Calculate Packing List Pages
-            const pl = document.getElementById('packing-list-content');
-            if (pl) {
-              const plTotal = Math.ceil(pl.scrollHeight / 1050); 
-              pl.querySelectorAll('.page-total').forEach(el => el.textContent = plTotal);
-            }
-            
-            window.print(); 
-            window.close();
-          ">
+          <body>
             <div id="invoice-content" style="display: flex; flex-direction: column; min-height: 260mm;">
               <div class="header-title">${formData.invoiceType} INVOICE</div>
               

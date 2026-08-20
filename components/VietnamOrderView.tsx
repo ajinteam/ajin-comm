@@ -840,14 +840,17 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       win.document.write(`
         <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
         <style>
-          @page { size: A4 portrait; margin: 0; }
-          body { font-family: 'Inter', sans-serif; background: white; width: 210mm; margin: 0; padding: 0; }
+          @page { size: A4 portrait; margin: 12mm 12mm 12mm 12mm; }
+          * { box-sizing: border-box !important; color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
+          body { font-family: 'Inter', sans-serif; background: white; width: 100% !important; margin: 0 !important; padding: 0 !important; }
           .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
-          * { color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
           .font-bold-print { font-weight: 700 !important; }
           .font-normal-print { font-weight: 400 !important; }
           .no-print { display: none !important; }
-          table { border-collapse: collapse; width: 100%; table-layout: fixed; }
+          .document-wrapper { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+          .vietnam-order-print { width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+          [class*="min-w-"], .min-w-\[900px\], .min-w-\[800px\], .min-w-\[700px\] { min-width: 0 !important; width: 100% !important; }
+          table { border-collapse: collapse !important; width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }
           th { 
             border: 1px solid black !important; 
             padding: 2px 4px; 
@@ -883,10 +886,19 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
           td.text-left div { justify-content: flex-start !important; text-align: left !important; padding-left: 4px !important; }
           td.text-right div { justify-content: flex-end !important; text-align: right !important; padding-right: 4px !important; }
           
-          .document-wrapper { padding: 15mm 15mm 15mm 15mm;}
           .info-row { border-bottom: none !important; }
         </style>
-        </head><body onload="window.print(); window.close();">
+        <script>
+          window.addEventListener('load', function() {
+            setTimeout(function() {
+              window.print();
+            }, 300);
+          });
+          window.addEventListener('afterprint', function() {
+            window.close();
+          });
+        </script>
+        </head><body>
           <div class="document-wrapper">${contentWithColgroup}</div>
         </body></html>
       `);

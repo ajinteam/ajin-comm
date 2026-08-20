@@ -1278,8 +1278,18 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                 content: "Page " counter(page);
               }
             </style>
+            <script>
+              window.addEventListener('load', function() {
+                setTimeout(function() {
+                  window.print();
+                }, 250);
+              });
+              window.addEventListener('afterprint', function() {
+                window.close();
+              });
+            </script>
           </head>
-          <body onload="window.print(); window.close();">
+          <body>
             <div class="document-print-content">${printContent}</div>
             <div class="footer">
               ${activeItem?.title || ''} - <span class="page-number"></span>

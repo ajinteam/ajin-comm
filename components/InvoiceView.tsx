@@ -800,7 +800,7 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const filename = `${activeInvoice?.title || '송장'}_${activeInvoice?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const printWindow = window.open('', '_blank');
     if (printWindow) {
-      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 portrait; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body onload="window.print(); window.close();"><div>${printContent}</div></body></html>`);
+      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 portrait; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style><script>window.addEventListener('load', function() { setTimeout(function() { window.print(); }, 250); }); window.addEventListener('afterprint', function() { window.close(); });</script></head><body><div>${printContent}</div></body></html>`);
       printWindow.document.close();
     } else alert('팝업이 차단되었습니다.');
   };
@@ -1085,17 +1085,15 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
   if (activeInvoice) {
     const isDocCompleted = !!activeInvoice.stamps?.final;
     return (
-      <div className={`py-4 md:py-8 bg-slate-200 min-h-screen ${isPreviewing ? 'fixed inset-0 z-[100] bg-slate-900 overflow-y-auto' : ''}`}>
-        <div className="max-w-[1000px] mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-center px-4 no-print gap-4">
-          {isPreviewing ? (<div><h2 className="text-xl md:text-2xl font-black text-white">PDF 저장 미리보기</h2></div>) : (
-            <div className="flex gap-2">
-              <button onClick={() => setActiveInvoice(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 닫기</button>
-              {(isMaster || (activeInvoice.isTemporary && (activeInvoice.authorId || '').toUpperCase() === (currentUser?.initials || '').toUpperCase())) && (
-                <button onClick={() => setModal({ type: 'DELETE_FILE', message: '해당 송장 파일을 영구 삭제하시겠습니까? (복구 불가)', onConfirm: () => handleFileDelete(activeInvoice.id) })} className="bg-red-50 text-red-600 px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-red-600 hover:text-white transition-all flex items-center gap-2 text-sm">삭제</button>
-              )}
-              <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs shadow-xl transition-all ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Undo ({undoStack.length})</button>
-            </div>
-          )}
+      <div className="py-4 md:py-8 bg-slate-200 min-h-screen">
+        <div className="max-w-[1400px] mx-auto mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-center px-4 no-print gap-4">
+          <div className="flex gap-2">
+            <button onClick={() => setActiveInvoice(null)} className="bg-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-slate-50 border border-slate-300 transition-all flex items-center gap-2 text-sm">← 닫기</button>
+            {(isMaster || (activeInvoice.isTemporary && (activeInvoice.authorId || '').toUpperCase() === (currentUser?.initials || '').toUpperCase())) && (
+              <button onClick={() => setModal({ type: 'DELETE_FILE', message: '해당 송장 파일을 영구 삭제하시겠습니까? (복구 불가)', onConfirm: () => handleFileDelete(activeInvoice.id) })} className="bg-red-50 text-red-600 px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold shadow-lg hover:bg-red-600 hover:text-white transition-all flex items-center gap-2 text-sm">삭제</button>
+            )}
+            <button onClick={handleUndo} disabled={undoStack.length === 0} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl font-black text-xs shadow-xl transition-all ${undoStack.length > 0 ? 'bg-slate-700 text-white hover:bg-slate-900' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}>Undo ({undoStack.length})</button>
+          </div>
           {selection && (activeInvoice.isTemporary || !isDocCompleted) && (
             <div 
               style={{ transform: `translate(calc(-50% + ${toolPos.x}px), ${toolPos.y}px)` }}
@@ -1131,7 +1129,9 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
               <button onClick={() => setSelection(null)} className="p-1 text-slate-400 hover:text-slate-900 ml-2"><svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12"/></svg></button>
             </div>
           )}
-          <div className="flex gap-2 md:gap-3 w-full md:w-auto">{isPreviewing ? (<><button onClick={() => setIsPreviewing(false)} className="flex-1 md:flex-none bg-slate-700 text-white px-4 md:px-6 py-2.5 md:py-3 rounded-xl font-bold hover:bg-slate-600 transition-all text-sm">← 닫기</button><button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-500 text-white px-6 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-2xl hover:bg-blue-400 flex items-center justify-center gap-2 transition-all text-sm">저장 / 인쇄</button></>) : (<button onClick={() => setIsPreviewing(true)} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-sm">PDF 저장 / 인쇄</button>)}</div>
+          <div className="flex gap-2 md:gap-3 w-full md:w-auto">
+            <button onClick={handlePrint} className="flex-1 md:flex-none bg-blue-600 text-white px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-black shadow-lg hover:bg-blue-700 flex items-center justify-center gap-2 transition-all text-sm">PDF 저장 / 인쇄</button>
+          </div>
         </div>
         <div className="print-area">{renderInvoiceForm(true, activeInvoice)}</div>
       </div>
