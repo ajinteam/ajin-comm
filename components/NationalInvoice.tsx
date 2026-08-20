@@ -12,6 +12,7 @@ import {
   NationalEntity
 } from '../types';
 import { saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
+import { printHtmlContent } from '../utils/printHelper';
 
 const normalizeSub = (s: string): string => {
   if (s === '인보이스임시' || s === 'invoice_draft') return 'invoice_draft';
@@ -977,9 +978,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   };
 
   const handlePrint = useCallback(() => {
-    const win = window.open('', '_blank');
-    if (win) {
-      const getShippingMarkHtml = (type: string) => {
+    const getShippingMarkHtml = (type: string) => {
         const markText = type === 'TOMY' ? 'TOMY' : 'LEMKE';
         return `
           <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; margin-bottom: 5px;">
@@ -1114,7 +1113,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const plTotalGrossWeight = formData.plTotalGrossWeight || '';
       const plTotalCbm = formData.plTotalCbm || '';
 
-     win.document.write(`
+      const html = `
   <html>
     <head>
       <title>${formData.invoiceNo || 'NoNumber'}_${formData.consigneeName || 'Client'}_INVOICE</title>
@@ -1546,9 +1545,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             </div>
           </body>
         </html>
-      `);
-      win.document.close();
-    }
+      `;
+      printHtmlContent(html);
   }, [formData, formatNumber]);
 
   const handleExportExcel = useCallback(async () => {

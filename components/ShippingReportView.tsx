@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { FileText, Search, X, Loader2, Save, Printer, ArrowLeft, Plus, Trash2, Image as ImageIcon } from 'lucide-react';
 import { ShippingReportSubCategory, ShippingReportItem, ShippingReportRow, ViewState, UserAccount } from '../types';
 import { saveSingleDoc, pushStateToCloud, deleteSingleDoc, uploadImageToStorage } from '../supabase';
+import { printHtmlContent } from '../utils/printHelper';
 
 const normalizeSub = (s: string): string => {
   if (s === '출하보고서작성' || s === 'shipment_create') return 'shipment_create';
@@ -496,9 +497,6 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
   };
 
   const handlePrint = () => {
-    const win = window.open('', '_blank');
-    if (!win) return;
-    
     // Filter rows to only show those with at least one field filled
     const printableRows = formData.rows.filter(r => 
       r.hsCode || r.itemNo || r.itemName || r.qty || r.size || r.remarks || r.boxInfo || r.boxQty || r.image
@@ -506,7 +504,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
 
     const totalQty = printableRows.reduce((acc, r) => acc + (parseFloat(r.qty.replace(/,/g, '')) || 0), 0);
 
-    win.document.write(`
+    const html = `
+      <!DOCTYPE html>
       <html>
         <head>
           <title>Shipping Report - ${formData.model}</title>
@@ -533,15 +532,6 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
             .font-black { font-weight: 900; }
             .font-bold { font-weight: 700; }
           </style>
-          <script>
-            window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 100);
-            };
-            window.onafterprint = function() {
-              window.close();
-            };
-          </script>
         </head>
         <body>
           <div class="p-4">
@@ -590,8 +580,8 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
           </div>
         </body>
       </html>
-    `);
-    win.document.close();
+    `;
+    printHtmlContent(html);
   };
 
   const isCompleted = normalizeSub(formData.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED);

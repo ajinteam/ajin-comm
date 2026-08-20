@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InvoiceSubCategory, InvoiceItem, InvoiceRow, UserAccount, ViewState, MainCategory } from '../types';
 import { saveSingleDoc, deleteSingleDoc } from '../supabase';
+import { printHtmlContent } from '../utils/printHelper';
 
 interface InvoiceViewProps {
   sub: InvoiceSubCategory;
@@ -798,11 +799,11 @@ const InvoiceView: React.FC<InvoiceViewProps> = ({ sub, currentUser, setView, da
     const printContent = document.querySelector('.document-print-content')?.innerHTML;
     if (!printContent) return;
     const filename = `${activeInvoice?.title || '송장'}_${activeInvoice?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`<html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 portrait; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style><script>window.addEventListener('load', function() { setTimeout(function() { window.print(); }, 250); }); window.addEventListener('afterprint', function() { window.close(); });</script></head><body><div>${printContent}</div></body></html>`);
-      printWindow.document.close();
-    } else alert('팝업이 차단되었습니다.');
+    const html = `
+      <!DOCTYPE html>
+      <html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 portrait; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body><div>${printContent}</div></body></html>
+    `;
+    printHtmlContent(html);
   };
 
   const renderInvoiceForm = (isReadOnly: boolean = false, data?: InvoiceItem) => {

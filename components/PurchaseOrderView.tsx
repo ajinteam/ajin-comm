@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { PurchaseOrderSubCategory, PurchaseOrderItem, OrderRow, UserAccount, ViewState, PurchaseOrderNote } from '../types';
 import { supabase, sendJandiNotification, saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
+import { printHtmlContent } from '../utils/printHelper';
 
 interface PurchaseOrderViewProps {
   sub: PurchaseOrderSubCategory;
@@ -1201,104 +1202,92 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     const printContent = document.querySelector('.document-print-content')?.innerHTML;
     if (!printContent) return;
     const filename = `${activeItem?.title || '발주서'}_${activeItem?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
-    const printWindow = window.open('', '_blank');
-    if (printWindow) {
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>${filename}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-              @page { 
-                size: A4 portrait; 
-                margin: 10mm; 
-              }
-              body { 
-                font-family: 'Gulim', sans-serif; 
-                padding: 0; 
-                margin: 0;
-                background: white; 
-                width: 100%;
-              }
-              /* Force basic content to be black for professional printing */
-              * {
-                color: black !important;
-                border-color: black !important;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-              }
-              .no-print { display: none !important; }
-              table { 
-                border-collapse: collapse; 
-                width: 100%; 
-                border: 1px solid black;
-                table-layout: fixed;
-              }
-              th, td { 
-                border: 0px solid black; 
-                padding: 2px 4px; 
-                vertical-align: middle;
-                word-break: break-all;
-                overflow: hidden;
-              }
-              /* Ensure tailwind border classes work in print */
-              .border { border-width: 1px !important; }
-              .border-x { border-left-width: 1px !important; border-right-width: 1px !important; }
-              .border-t-2 { border-top-width: 2px !important; }
-              .border-b-2 { border-bottom-width: 2px !important; }
-              .total-row { 
-                background-color: white !important; 
-              }
-              .print-table-row { display: table-row !important; }
-              .document-print-content { 
-                width: 100% !important; 
-                box-shadow: none !important; 
-                border: none !important; 
-                padding: 0 !important;
-                margin: 0 auto !important;
-                box-sizing: border-box;
-              }
+    const html = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${filename}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @page { 
+              size: A4 portrait; 
+              margin: 10mm; 
+            }
+            body { 
+              font-family: 'Gulim', sans-serif; 
+              padding: 0; 
+              margin: 0;
+              background: white; 
+              width: 100%;
+            }
+            /* Force basic content to be black for professional printing */
+            * {
+              color: black !important;
+              border-color: black !important;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .no-print { display: none !important; }
+            table { 
+              border-collapse: collapse; 
+              width: 100%; 
+              border: 1px solid black;
+              table-layout: fixed;
+            }
+            th, td { 
+              border: 0px solid black; 
+              padding: 2px 4px; 
+              vertical-align: middle;
+              word-break: break-all;
+              overflow: hidden;
+            }
+            /* Ensure tailwind border classes work in print */
+            .border { border-width: 1px !important; }
+            .border-x { border-left-width: 1px !important; border-right-width: 1px !important; }
+            .border-t-2 { border-top-width: 2px !important; }
+            .border-b-2 { border-bottom-width: 2px !important; }
+            .total-row { 
+              background-color: white !important; 
+            }
+            .print-table-row { display: table-row !important; }
+            .document-print-content { 
+              width: 100% !important; 
+              box-shadow: none !important; 
+              border: none !important; 
+              padding: 0 !important;
+              margin: 0 auto !important;
+              box-sizing: border-box;
+            }
 
-              /* Page numbering footer */
-              .footer {
-                position: fixed;
-                bottom: 0;
-                left: 0;
-                right: 0;
-                text-align: center;
-                font-size: 10px;
-                padding: 10px 0;
-                display: none;
-              }
-              @media print {
-                .footer { display: block; }
-                @page { margin-bottom: 20mm; }
-              }
-              .page-number:after {
-                content: "Page " counter(page);
-              }
-            </style>
-            <script>
-              window.addEventListener('load', function() {
-                setTimeout(function() {
-                  window.print();
-                }, 250);
-              });
-              window.addEventListener('afterprint', function() {
-                window.close();
-              });
-            </script>
-          </head>
-          <body>
-            <div class="document-print-content">${printContent}</div>
-            <div class="footer">
-              ${activeItem?.title || ''} - <span class="page-number"></span>
-            </div>
-          </body>
-        </html>
-      `);
-      printWindow.document.close();
-    }
+            /* Page numbering footer */
+            .footer {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              text-align: center;
+              font-size: 10px;
+              padding: 10px 0;
+              display: none;
+            }
+            @media print {
+              .footer { display: block; }
+              @page { margin-bottom: 20mm; }
+            }
+            .page-number:after {
+              content: "Page " counter(page);
+            }
+          </style>
+        </head>
+        <body>
+          <div class="document-print-content">${printContent}</div>
+          <div class="footer">
+            ${activeItem?.title || ''} - <span class="page-number"></span>
+          </div>
+        </body>
+      </html>
+    `;
+    printHtmlContent(html);
   };
 
   const handleEditItem = (item: PurchaseOrderItem) => {

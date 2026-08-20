@@ -2,6 +2,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { VietnamSubCategory, VietnamOrderItem, VietnamOrderRow, UserAccount, ViewState, VnVendorInfo, VnBankVendorInfo } from '../types';
 import { sendJandiNotification, saveSingleDoc, deleteSingleDoc, supabase, saveRecipient, deleteRecipient, uploadImageToStorage } from '../supabase';
+import { printHtmlContent } from '../utils/printHelper';
 
 interface StorageFile {
   name: string;
@@ -835,75 +836,94 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       printTitle = docType === 'METAL' ? `${vClientName}_${vModelName}` : `VN_${docType}_${vDate}`;
     }
 
-    const win = window.open('', '_blank');
-    if (win) {
-      win.document.write(`
-        <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
-        <style>
-          @page { size: A4 portrait; margin: 12mm 12mm 12mm 12mm; }
-          * { box-sizing: border-box !important; color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
-          body { font-family: 'Inter', sans-serif; background: white; width: 100% !important; margin: 0 !important; padding: 0 !important; }
-          .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
-          .font-bold-print { font-weight: 700 !important; }
-          .font-normal-print { font-weight: 400 !important; }
-          .no-print { display: none !important; }
-          .document-wrapper { padding: 0 !important; margin: 0 !important; width: 100% !important; }
-          .vietnam-order-print { width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
-          [class*="min-w-"], .min-w-\[900px\], .min-w-\[800px\], .min-w-\[700px\] { min-width: 0 !important; width: 100% !important; }
-          table { border-collapse: collapse !important; width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }
-          th { 
-            border: 1px solid black !important; 
-            padding: 2px 4px; 
-            vertical-align: middle; 
-            font-size: 11px;
-            text-align: center !important;
-          }
-
-          td { 
-            border: 1px solid black !important; 
-            padding: 0 !important; /* Move padding to div for perfect vertical centering */
-            vertical-align: middle !important; 
-            word-break: normal !important; 
-            overflow-wrap: break-word !important;
-            overflow: hidden; 
-            font-size: 10px;
-            height: 1px; /* Force cell to wrap content tightly */
-          }
-          
-          /* Ensure the flex container inside td centers content vertically */
-          td div {
-            display: flex !important;
-            align-items: center !important;
-            min-height: 12px; /* Reduced from 18px */
-            width: 100%;
-            padding: 0.5px 2px !important; /* Reduced to absolute minimum */
-            box-sizing: border-box !important;
-            line-height: 1.0 !important; /* Tight line height */
-          }
-          
-          /* Horizontal alignment rules for print */
-          td.text-center div { justify-content: center !important; text-align: center !important; }
-          td.text-left div { justify-content: flex-start !important; text-align: left !important; padding-left: 4px !important; }
-          td.text-right div { justify-content: flex-end !important; text-align: right !important; padding-right: 4px !important; }
-          
-          .info-row { border-bottom: none !important; }
-        </style>
-        <script>
-          window.addEventListener('load', function() {
-            setTimeout(function() {
-              window.print();
-            }, 300);
-          });
-          window.addEventListener('afterprint', function() {
-            window.close();
-          });
-        </script>
-        </head><body>
-          <div class="document-wrapper">${contentWithColgroup}</div>
-        </body></html>
-      `);
-      win.document.close();
-    }
+    const printHtml = `
+      <!DOCTYPE html>
+      <html><head><title>${printTitle}</title><script src="https://cdn.tailwindcss.com"></script>
+      <style>
+        @page { size: A4 portrait; margin: 10mm 10mm 10mm 10mm; }
+        * { box-sizing: border-box !important; color: black !important; border-color: black !important; opacity: 1 !important; print-color-adjust: exact; }
+        body { font-family: 'Inter', sans-serif; background: white; width: 100% !important; margin: 0 !important; padding: 0 !important; }
+        .font-gulim { font-family: 'Gulim', 'Dotum', sans-serif; }
+        .font-bold-print { font-weight: 700 !important; }
+        .font-normal-print { font-weight: 400 !important; }
+        .no-print { display: none !important; }
+        .document-wrapper { padding: 0 !important; margin: 0 !important; width: 100% !important; }
+        .vietnam-order-print { width: 100% !important; max-width: 100% !important; min-width: 0 !important; padding: 0 !important; margin: 0 !important; border: none !important; box-shadow: none !important; }
+        [class*="min-w-"], .min-w-\[900px\], .min-w-\[800px\], .min-w-\[700px\] { min-width: 0 !important; width: 100% !important; }
+        
+        /* Main Vietnam Order Data Table */
+        table.vietnam-order-table { border-collapse: collapse !important; width: 100% !important; max-width: 100% !important; table-layout: fixed !important; }
+        table.vietnam-order-table th { 
+          border: 1px solid black !important; 
+          padding: 2px 4px; 
+          vertical-align: middle; 
+          font-size: 11px;
+          text-align: center !important;
+        }
+        table.vietnam-order-table td { 
+          border: 1px solid black !important; 
+          padding: 0 !important; 
+          vertical-align: middle !important; 
+          word-break: normal !important; 
+          overflow-wrap: break-word !important;
+          overflow: hidden; 
+          font-size: 10px;
+          height: 1px; 
+        }
+        table.vietnam-order-table td div {
+          display: flex !important;
+          align-items: center !important;
+          min-height: 12px; 
+          width: 100%;
+          padding: 0.5px 2px !important; 
+          box-sizing: border-box !important;
+          line-height: 1.0 !important; 
+        }
+        table.vietnam-order-table td.text-center div { justify-content: center !important; text-align: center !important; }
+        table.vietnam-order-table td.text-left div { justify-content: flex-start !important; text-align: left !important; padding-left: 4px !important; }
+        table.vietnam-order-table td.text-right div { justify-content: flex-end !important; text-align: right !important; padding-right: 4px !important; }
+        
+        /* Approval Stamp Table - Keep compact on top right */
+        table.stamp-table {
+          border-collapse: collapse !important;
+          width: 160px !important;
+          min-width: 160px !important;
+          max-width: 160px !important;
+          margin-left: auto !important;
+          flex-shrink: 0 !important;
+        }
+        table.stamp-table td {
+          border: 1px solid black !important;
+          padding: 2px !important;
+          text-align: center !important;
+          vertical-align: middle !important;
+        }
+        table.stamp-table td div {
+          display: flex !important;
+          flex-direction: column !important;
+          align-items: center !important;
+          justify-content: center !important;
+          width: 100% !important;
+          line-height: 1.1 !important;
+          white-space: normal !important;
+        }
+        
+        .header-section {
+          display: flex !important;
+          flex-direction: row !important;
+          justify-content: space-between !important;
+          align-items: flex-start !important;
+          width: 100% !important;
+          margin-bottom: 8px !important;
+        }
+        
+        .info-row { border-bottom: none !important; }
+      </style>
+      </head><body>
+        <div class="document-wrapper">${contentWithColgroup}</div>
+      </body></html>
+    `;
+    printHtmlContent(printHtml);
   };
 
   const handleSubmit = async (isTemp: boolean = false) => {
@@ -1279,7 +1299,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     return (
       <div className="bg-white border border-slate-300 shadow-2xl mx-auto p-4 md:p-12 min-h-[297mm] w-full max-w-[1400px] text-black font-gulim relative vietnam-order-print text-left overflow-x-auto font-bold flex flex-col items-start lg:items-center">
         <div className="min-w-[900px] lg:min-w-0 w-full font-bold">
-          <div className="flex justify-between items-start mb-2 font-bold w-full">
+          <div className="flex justify-between items-start mb-2 font-bold w-full header-section">
             <div className="flex flex-col flex-1 mt-0">
               <h2 className="text-xl font-black tracking-tight uppercase m-0 leading-tight">CÔNG TY TNHH AJIN TRAIN VINA</h2>
               {isMetalDoc && <p className="text-[11px] font-bold text-black">LÔ 2 KCN BÌNH XUYÊN - XÃ BÌNH NGUYÊN - TỈNH PHÚ THỌ <br /> TEL: 070-4121-6200 / E-MAIL : phungthekhanh10011982@gmail.com </p>}
@@ -1292,7 +1312,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
               </div>
             </div>
             
-            <table className="border-collapse border border-black text-center text-[10px] w-auto shrink-0">
+            <table className="border-collapse border border-black text-center text-[10px] w-auto shrink-0 stamp-table">
                 <tbody className="font-bold">
                     <tr className="bg-slate-50 font-black text-[11px]">
                         <td className="border border-black w-20 py-1">

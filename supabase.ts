@@ -513,6 +513,29 @@ export const pullStateFromCloud = async () => {
       remarks: item.remark
     }));
 
+    // 4. 발주서 수신처(업체) 매핑
+    const cloudPoVendors = recipients.filter(r => r.category === 'PO_RECIPIENT').map(item => ({
+      name: item.name,
+      tel: item.tel || '',
+      remarks: item.remark || ''
+    }));
+
+    // 5. 베트남 수신처 매핑
+    const cloudVnVendors = recipients.filter(r => r.category === 'VN_RECIPIENT').map(item => ({
+      name: item.name,
+      address: item.remark || '',
+      taxId: item.fax || '',
+      tel: item.tel || ''
+    }));
+
+    // 6. 베트남 은행 수신처 매핑
+    const cloudVnBankVendors = recipients.filter(r => r.category === 'VN_BANK').map(item => ({
+      beneficiary: item.name,
+      accountNo: item.tel || '',
+      bank: item.fax || '',
+      bankAddr: item.remark || ''
+    }));
+
     const cloudInvoices = getCloudData(invoices);
     const editingInvoiceId = typeof window !== 'undefined' ? localStorage.getItem('ajin_editing_invoice_id') : null;
     let finalInvoices = cloudInvoices;
@@ -549,6 +572,9 @@ export const pullStateFromCloud = async () => {
       notices: cloudNotices,
       national_entities: cloudNationalEntities,
       injection_recipients: cloudInjectionRecipients,
+      vendors: cloudPoVendors,
+      vn_vendors: cloudVnVendors,
+      vn_bank_vendors: cloudVnBankVendors,
       updatedAt: new Date().toISOString()
     };
 
@@ -711,6 +737,44 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
                 else recipients.push(mapped);
                 localStorage.setItem('ajin_injection_recipients', JSON.stringify(recipients));
               }
+              else if (item.category === 'PO_RECIPIENT') {
+                let vendors = JSON.parse(localStorage.getItem('ajin_vendors') || '[]');
+                const mapped = {
+                  name: item.name,
+                  tel: item.tel || '',
+                  remarks: item.remark || ''
+                };
+                const idx = vendors.findIndex((v: any) => v.name === mapped.name);
+                if (idx > -1) vendors[idx] = mapped;
+                else vendors.push(mapped);
+                localStorage.setItem('ajin_vendors', JSON.stringify(vendors));
+              }
+              else if (item.category === 'VN_RECIPIENT') {
+                let vnVendors = JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]');
+                const mapped = {
+                  name: item.name,
+                  address: item.remark || '',
+                  taxId: item.fax || '',
+                  tel: item.tel || ''
+                };
+                const idx = vnVendors.findIndex((v: any) => v.name === mapped.name);
+                if (idx > -1) vnVendors[idx] = mapped;
+                else vnVendors.push(mapped);
+                localStorage.setItem('ajin_vn_vendors', JSON.stringify(vnVendors));
+              }
+              else if (item.category === 'VN_BANK') {
+                let vnBankVendors = JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]');
+                const mapped = {
+                  beneficiary: item.name,
+                  accountNo: item.tel || '',
+                  bank: item.fax || '',
+                  bankAddr: item.remark || ''
+                };
+                const idx = vnBankVendors.findIndex((v: any) => v.beneficiary === mapped.beneficiary);
+                if (idx > -1) vnBankVendors[idx] = mapped;
+                else vnBankVendors.push(mapped);
+                localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(vnBankVendors));
+              }
             } else if (eventType === 'DELETE') {
               const id = (oldRecord as any).id;
               // Recipients는 ID 패턴으로 구분
@@ -718,6 +782,21 @@ export const subscribeToRealtime = (onUpdate: () => void) => {
                 let notices = JSON.parse(localStorage.getItem('ajin_notices') || '[]');
                 notices = notices.filter((n: any) => n.id !== id.replace('notice-', ''));
                 localStorage.setItem('ajin_notices', JSON.stringify(notices));
+              } else if (id.startsWith('po-vendor-')) {
+                const name = id.replace('po-vendor-', '');
+                let vendors = JSON.parse(localStorage.getItem('ajin_vendors') || '[]');
+                vendors = vendors.filter((v: any) => v.name !== name);
+                localStorage.setItem('ajin_vendors', JSON.stringify(vendors));
+              } else if (id.startsWith('vn-vendor-')) {
+                const name = id.replace('vn-vendor-', '');
+                let vnVendors = JSON.parse(localStorage.getItem('ajin_vn_vendors') || '[]');
+                vnVendors = vnVendors.filter((v: any) => v.name !== name);
+                localStorage.setItem('ajin_vn_vendors', JSON.stringify(vnVendors));
+              } else if (id.startsWith('vn-bank-')) {
+                const beneficiary = id.replace('vn-bank-', '');
+                let vnBankVendors = JSON.parse(localStorage.getItem('ajin_vn_bank_vendors') || '[]');
+                vnBankVendors = vnBankVendors.filter((v: any) => v.beneficiary !== beneficiary);
+                localStorage.setItem('ajin_vn_bank_vendors', JSON.stringify(vnBankVendors));
               } else {
                 // 다른 카테고리들은 ID로 직접 필터링 (중복 가능성이 낮으므로 모든 리스트에서 제거 시도)
                 ['ajin_accounts', 'ajin_national_entities', 'ajin_injection_recipients'].forEach(key => {
