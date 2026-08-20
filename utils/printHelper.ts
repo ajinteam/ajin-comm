@@ -3,8 +3,34 @@
  * Uses a hidden iframe attached to the main window so that Chrome's
  * native "Save As" / "다른 이름으로 저장" dialog receives immediate OS focus
  * without getting stuck on "저장 중..." until another tab is clicked.
+ * 
+ * Also temporarily sets document.title on the top-level window during print
+ * so that Chrome/Edge automatically suggests the correct filename in the "Save As" dialog.
  */
-export function printHtmlContent(fullHtml: string) {
+export function printHtmlContent(fullHtml: string, suggestedTitle?: string) {
+  // Extract title from HTML if not explicitly provided
+  let titleToUse = suggestedTitle;
+  if (!titleToUse) {
+    const match = fullHtml.match(/<title>([^<]*)<\/title>/i);
+    if (match && match[1]) {
+      titleToUse = match[1].trim();
+    }
+  }
+
+  const originalDocTitle = document.title;
+  if (titleToUse) {
+    document.title = titleToUse;
+  }
+
+  let restored = false;
+  const restoreTitle = () => {
+    if (restored) return;
+    restored = true;
+    setTimeout(() => {
+      document.title = originalDocTitle;
+    }, 500);
+  };
+
   // Remove any previous print iframes if present
   const oldFrame = document.getElementById('erp-print-frame');
   if (oldFrame) {
@@ -39,7 +65,12 @@ export function printHtmlContent(fullHtml: string) {
           console.error(e);
         }
       }, 300);
-      win.addEventListener('afterprint', () => win.close());
+      win.addEventListener('afterprint', () => {
+        win.close();
+        restoreTitle();
+      });
+    } else {
+      restoreTitle();
     }
     return;
   }
@@ -62,6 +93,7 @@ export function printHtmlContent(fullHtml: string) {
 
   // Listen for afterprint to clean up
   const cleanup = () => {
+    restoreTitle();
     setTimeout(() => {
       const el = document.getElementById('erp-print-frame');
       if (el) {
@@ -73,9 +105,16 @@ export function printHtmlContent(fullHtml: string) {
   if (iframe.contentWindow) {
     iframe.contentWindow.addEventListener('afterprint', cleanup);
   }
+  window.addEventListener('afterprint', cleanup, { once: true });
+
+  // Fallback timer to restore title even if afterprint is not fired by browser
+  setTimeout(() => {
+    restoreTitle();
+  }, 10000);
 
   // Allow scripts and stylesheets (like Tailwind CDN) in the iframe to execute
   setTimeout(() => {
     doPrint();
   }, 400);
 }
+

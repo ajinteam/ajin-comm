@@ -1323,12 +1323,12 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
   const handlePrint = () => {
     const printContent = document.querySelector('.document-print-content')?.innerHTML;
     if (!printContent) return;
-    const filename = `${activeOrder?.title || '주문서'}_${activeOrder?.date || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
+    const filename = `${activeOrder?.title || formTitle || '주문서'}_${activeOrder?.date || formDate || ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const html = `
       <!DOCTYPE html>
       <html><head><title>${filename}</title><script src="https://cdn.tailwindcss.com"></script><style>body { font-family: 'Gulim', sans-serif; padding: 20px; background: white; } .no-print { display: none !important; } .bg-red-50 { background-color: #fef2f2 !important; } .text-red-600 { color: #dc2626 !important; } .line-through { text-decoration: line-through !important; } table { border-collapse: collapse; width: 100%; border: 1px solid black !important; } th, td { border: 1px solid black !important; padding: 6px; vertical-align: top; } @page { size: A4 landscape; margin: 10mm; } .document-print-content { width: 100% !important; box-shadow: none !important; border: none !important; }</style></head><body><div>${printContent}</div></body></html>
     `;
-    printHtmlContent(html);
+    printHtmlContent(html, filename);
   };
 
   const getLocationColor = (location: 'SEOUL' | 'DAECHEON' | 'VIETNAM') => {

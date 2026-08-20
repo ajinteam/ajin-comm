@@ -4,6 +4,7 @@ import { FileText, Search, X, Loader2 } from 'lucide-react';
 import { pushStateToCloud, saveSingleDoc, supabase, sendJandiNotification, deleteSingleDoc } from '../supabase';
 import { OrderRow, UserAccount, ViewState, InjectionOrderSubCategory, StampInfo } from '../types';
 import InjectionTake from './injection_order/injection_take';
+import { printHtmlContent } from '../utils/printHelper';
 
 interface StorageFile {
   name: string;
@@ -571,90 +572,84 @@ const InjectionOrderView: React.FC<InjectionOrderViewProps> = ({ sub, currentUse
   const handlePrint = useCallback(() => {
     const content = document.querySelector('.injection-order-print')?.innerHTML;
     if (!content) return;
-    const win = window.open('', '_blank');
-    if (win) {
-      const isInbox = sub === InjectionOrderSubCategory.INBOX || (activeItem && activeItem.status === InjectionOrderSubCategory.INBOX);
-      const isPartner = activeItem?.id?.startsWith('inj-');
-      let titleStr = '';
-      if (isInbox || isPartner) {
-        const modelStr = activeItem?.item || fileName || '사출';
-        const dateStr = activeItem?.date || new Date().toISOString().split('T')[0];
-        const recipientStr = activeItem?.recipient || activeItem?.title || '';
-        titleStr = `${modelStr}${dateStr ? `_${dateStr}` : ''}${recipientStr ? `_${recipientStr}` : ''}`;
-      } else {
-        const fileStr = fileName || activeItem?.title || 'AJ사출발주';
-        const dateStr = activeItem?.date || new Date().toISOString().split('T')[0];
-        titleStr = `${fileStr}${dateStr ? `_${dateStr}` : ''}`;
-      }
-      const printFileName = titleStr.replace(/[/\\?%*:|"<>]/g, '-');
-
-      win.document.write(`
-        <html>
-          <head>
-            <title>${printFileName}</title>
-            <script src="https://cdn.tailwindcss.com"></script>
-            <style>
-              @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
-              body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
-              * { color: black !important; border-color: black !important; print-color-adjust: exact; }
-              .no-print { display: none !important; }
-              table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-              th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
-              td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 600; }
-              .document-wrapper { padding: 0; box-sizing: border-box; }
-              .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-              .border-t-bold { border-top: 1.5px solid black !important; }
-              .border-b-bold { border-bottom: 1.5px solid black !important; }
-              .border-t-thin { border-top: 0.5px solid black !important; }
-              .border-b-thin { border-bottom: 0.5px solid black !important; }
-              
-              /* Page numbering footer */
-.footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 9px;
-  padding: 0;
-  background: white;
-  display: none;
-}
-
-.document-wrapper {
-  width: 100%;
-  padding-bottom: 4mm;
-}
-
-@media print {
-  .footer {
-    display: block;
-  }
-}
-
-table { 
-  page-break-inside: auto; 
-}
-
-tr { 
-  page-break-inside: avoid; 
-  page-break-after: auto; 
-}
-              }
-              
-            </style>
-          </head>
-          <body onload="window.print(); window.close();">
-            <div class="document-wrapper">${content}</div>
-            <div class="footer">
-              ${printFileName}
-            </div>
-          </body>
-        </html>
-      `);
-      win.document.close();
-  
+    const isInbox = sub === InjectionOrderSubCategory.INBOX || (activeItem && activeItem.status === InjectionOrderSubCategory.INBOX);
+    const isPartner = activeItem?.id?.startsWith('inj-');
+    let titleStr = '';
+    if (isInbox || isPartner) {
+      const modelStr = activeItem?.item || fileName || '사출';
+      const dateStr = activeItem?.date || new Date().toISOString().split('T')[0];
+      const recipientStr = activeItem?.recipient || activeItem?.title || '';
+      titleStr = `${modelStr}${dateStr ? `_${dateStr}` : ''}${recipientStr ? `_${recipientStr}` : ''}`;
+    } else {
+      const fileStr = fileName || activeItem?.title || 'AJ사출발주';
+      const dateStr = activeItem?.date || new Date().toISOString().split('T')[0];
+      titleStr = `${fileStr}${dateStr ? `_${dateStr}` : ''}`;
     }
+    const printFileName = titleStr.replace(/[/\\?%*:|"<>]/g, '-');
+
+    const html = `
+      <html>
+        <head>
+          <title>${printFileName}</title>
+          <script src="https://cdn.tailwindcss.com"></script>
+          <style>
+            @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
+            body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+            * { color: black !important; border-color: black !important; print-color-adjust: exact; }
+            .no-print { display: none !important; }
+            table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
+            th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
+            td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 600; }
+            .document-wrapper { padding: 0; box-sizing: border-box; }
+            .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+            .border-t-bold { border-top: 1.5px solid black !important; }
+            .border-b-bold { border-bottom: 1.5px solid black !important; }
+            .border-t-thin { border-top: 0.5px solid black !important; }
+            .border-b-thin { border-bottom: 0.5px solid black !important; }
+            
+            /* Page numbering footer */
+            .footer {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              text-align: center;
+              font-size: 9px;
+              padding: 0;
+              background: white;
+              display: none;
+            }
+
+            .document-wrapper {
+              width: 100%;
+              padding-bottom: 4mm;
+            }
+
+            @media print {
+              .footer {
+                display: block;
+              }
+            }
+
+            table { 
+              page-break-inside: auto; 
+            }
+
+            tr { 
+              page-break-inside: avoid; 
+              page-break-after: auto; 
+            }
+          </style>
+        </head>
+        <body>
+          <div class="document-wrapper">${content}</div>
+          <div class="footer">
+            ${printFileName}
+          </div>
+        </body>
+      </html>
+    `;
+    printHtmlContent(html, printFileName);
   }, [fileName, sub, activeItem]);
 
   const renderDetail = (item: any) => {
@@ -707,88 +702,84 @@ tr {
               const selector = item.id?.startsWith('po-') ? '.injection-order-print-detail-order' : '.injection-order-print-detail-hidden';
               const content = document.querySelector(selector)?.innerHTML;
               if (!content) return;
-              const win = window.open('', '_blank');
-              if (win) {
-                const isInbox = sub === InjectionOrderSubCategory.INBOX || item.status === InjectionOrderSubCategory.INBOX;
-                const isPartner = item.id?.startsWith('inj-');
-                let titleStr = '';
-                if (isInbox || isPartner) {
-                  const modelStr = item.item || item.title || '사출';
-                  const dateStr = item.date || '';
-                  const recipientStr = item.recipient || (item.id?.startsWith('inj-') ? item.title : '') || '';
-                  titleStr = `${modelStr}${dateStr ? `_${dateStr}` : ''}${recipientStr ? `_${recipientStr}` : ''}`;
-                } else {
-                  const fileStr = item.title || item.item || 'AJ사출발주';
-                  const dateStr = item.date || '';
-                  titleStr = `${fileStr}${dateStr ? `_${dateStr}` : ''}`;
-                }
-                const printFileName = titleStr.replace(/[/\\?%*:|"<>]/g, '-');
-
-                win.document.write(`
-                  <html>
-                    <head>
-                      <title>${printFileName}</title>
-                      <script src="https://cdn.tailwindcss.com"></script>
-                      <style>
-                        @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
-                        body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
-                        * { color: black !important; border-color: black !important; print-color-adjust: exact; }
-                        .no-print { display: none !important; }
-                        table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
-                        th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
-                        td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 600; }
-                        .document-wrapper { padding: 0; box-sizing: border-box; }
-                        .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-                        .border-t-bold { border-top: 1.5px solid black !important; }
-                        .border-b-bold { border-bottom: 1.5px solid black !important; }
-                        .border-t-thin { border-top: 0.5px solid black !important; }
-                        .border-b-thin { border-bottom: 0.5px solid black !important; }
-                        
-                        /* Page numbering footer */
-                    .footer {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  text-align: center;
-  font-size: 9px;
-  padding: 0;
-  background: white;
-  display: none;
-}
-
-.document-wrapper {
-  width: 100%;
-  padding-bottom: 4mm;
-}
-
-@media print {
-  .footer {
-    display: block;
-  }
-}
-
-table { 
-  page-break-inside: auto; 
-}
-
-tr { 
-  page-break-inside: avoid; 
-  page-break-after: auto; 
-}
-                       }
-                      </style>
-                    </head>
-                    <body onload="window.print(); window.close();">
-                      <div class="document-wrapper">${content}</div>
-                      <div class="footer">
-                        ${printFileName} 
-                      </div>
-                    </body>
-                  </html>
-                `);
-                win.document.close();
+              const isInbox = sub === InjectionOrderSubCategory.INBOX || item.status === InjectionOrderSubCategory.INBOX;
+              const isPartner = item.id?.startsWith('inj-');
+              let titleStr = '';
+              if (isInbox || isPartner) {
+                const modelStr = item.item || item.title || '사출';
+                const dateStr = item.date || '';
+                const recipientStr = item.recipient || (item.id?.startsWith('inj-') ? item.title : '') || '';
+                titleStr = `${modelStr}${dateStr ? `_${dateStr}` : ''}${recipientStr ? `_${recipientStr}` : ''}`;
+              } else {
+                const fileStr = item.title || item.item || 'AJ사출발주';
+                const dateStr = item.date || '';
+                titleStr = `${fileStr}${dateStr ? `_${dateStr}` : ''}`;
               }
+              const printFileName = titleStr.replace(/[/\\?%*:|"<>]/g, '-');
+
+              const html = `
+                <html>
+                  <head>
+                    <title>${printFileName}</title>
+                    <script src="https://cdn.tailwindcss.com"></script>
+                    <style>
+                      @page { size: A4 portrait; margin: 20mm 10mm 10mm 10mm; }
+                      body { font-family: 'inter', sans-serif; background: white; width: 100%; margin: 0; padding: 0; }
+                      * { color: black !important; border-color: black !important; print-color-adjust: exact; }
+                      .no-print { display: none !important; }
+                      table { border-collapse: collapse; width: 100%; border: 1.5px solid black; table-layout: fixed; }
+                      th { border: 0.5px solid black; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 900; background-color: #f8fafc !important; }
+                      td { border-left: 0.5px solid black; border-right: 0.5px solid black; border-top: none; border-bottom: none; padding: 4px 2px; vertical-align: middle; word-break: break-word; font-size: 9px; font-weight: 600; }
+                      .document-wrapper { padding: 0; box-sizing: border-box; }
+                      .approval-box { width: 80px; height: 80px; border: 1px solid black; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+                      .border-t-bold { border-top: 1.5px solid black !important; }
+                      .border-b-bold { border-bottom: 1.5px solid black !important; }
+                      .border-t-thin { border-top: 0.5px solid black !important; }
+                      .border-b-thin { border-bottom: 0.5px solid black !important; }
+                      
+                      /* Page numbering footer */
+                      .footer {
+                        position: fixed;
+                        bottom: 0;
+                        left: 0;
+                        right: 0;
+                        text-align: center;
+                        font-size: 9px;
+                        padding: 0;
+                        background: white;
+                        display: none;
+                      }
+
+                      .document-wrapper {
+                        width: 100%;
+                        padding-bottom: 4mm;
+                      }
+
+                      @media print {
+                        .footer {
+                          display: block;
+                        }
+                      }
+
+                      table { 
+                        page-break-inside: auto; 
+                      }
+
+                      tr { 
+                        page-break-inside: avoid; 
+                        page-break-after: auto; 
+                      }
+                    </style>
+                  </head>
+                  <body>
+                    <div class="document-wrapper">${content}</div>
+                    <div class="footer">
+                      ${printFileName} 
+                    </div>
+                  </body>
+                </html>
+              `;
+              printHtmlContent(html, printFileName);
             }} className="px-4 py-2 bg-white border border-slate-200 text-slate-700 rounded-lg hover:bg-slate-50 font-bold text-sm flex items-center shadow-sm">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M5 4v3H4a2 2 0 00-2 2v3a2 2 0 002 2h1v2a2 2 0 002 2h6a2 2 0 002-2v-2h1a2 2 0 002-2V9a2 2 0 00-2-2h-1V4a2 2 0 00-2-2H7a2 2 0 00-2 2zm8 0H7v3h6V4zm0 8H7v4h6v-4z" clipRule="evenodd" />

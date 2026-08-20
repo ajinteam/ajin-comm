@@ -1210,9 +1210,9 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
   const handlePrint = () => {
     const printContent = document.querySelector('.document-print-content')?.innerHTML;
     if (!printContent) return;
-    const modelOrTitle = activeItem?.title || '발주서';
-    const docDate = activeItem?.date || '';
-    const recipient = activeItem?.recipient || '';
+    const modelOrTitle = activeItem?.title || po2Title || '발주서';
+    const docDate = activeItem?.date || po2Date || '';
+    const recipient = activeItem?.recipient || po2Recipient || '';
     const filename = `${modelOrTitle}${docDate ? `_${docDate}` : ''}${recipient ? `_${recipient}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
     const html = `
       <!DOCTYPE html>
@@ -1299,7 +1299,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
         </body>
       </html>
     `;
-    printHtmlContent(html);
+    printHtmlContent(html, filename);
   };
 
   const handleEditItem = (item: PurchaseOrderItem) => {

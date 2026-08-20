@@ -585,7 +585,7 @@ const ShippingReportView: React.FC<ShippingReportViewProps> = ({ sub, currentUse
         </body>
       </html>
     `;
-    printHtmlContent(html);
+    printHtmlContent(html, filename);
   };
 
   const isCompleted = normalizeSub(formData.status || '') === normalizeSub(ShippingReportSubCategory.COMPLETED);

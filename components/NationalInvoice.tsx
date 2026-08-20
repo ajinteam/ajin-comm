@@ -1550,7 +1550,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           </body>
         </html>
       `;
-      printHtmlContent(html);
+      printHtmlContent(html, filename);
   }, [formData, formatNumber]);
 
   const handleExportExcel = useCallback(async () => {

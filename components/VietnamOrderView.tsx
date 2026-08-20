@@ -919,7 +919,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
         <div class="document-wrapper">${contentWithColgroup}</div>
       </body></html>
     `;
-    printHtmlContent(printHtml);
+    printHtmlContent(printHtml, printTitle);
   };
 
   const handleSubmit = async (isTemp: boolean = false) => {

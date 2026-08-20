@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Undo2, Redo2 } from 'lucide-react';
 import { UserAccount, ViewState, InjectionOrderSubCategory, PurchaseOrderSubCategory, PurchaseOrderItem } from '../../types';
 import { saveSingleDoc, pushStateToCloud, sendJandiNotification, saveRecipient as supabaseSaveRecipient, deleteRecipient as supabaseDeleteRecipient } from '../../supabase';
+import { printHtmlContent } from '../../utils/printHelper';
 
 interface Recipient {
   id: string;
@@ -549,15 +550,12 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
       return;
     }
 
-    const win = window.open('', '_blank');
-    if (!win) return;
-
     const modelName = searchTerm.trim() || '사출';
     const docDate = po2Date.trim() || '';
     const recipient = vendorSearch.trim() || '';
     const printFileName = `${modelName}${docDate ? `_${docDate}` : ''}${recipient ? `_${recipient}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
-    win.document.write(`
+    const html = `
       <html>
         <head>
           <title>${printFileName}</title>
@@ -572,7 +570,7 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
             tr:not(.mold-end) td { border-bottom: none !important; }
           </style>
         </head>
-        <body onload="window.print(); window.close();">
+        <body>
           <div class="p-4">
             <div class="flex flex-col items-center mb-4">
               <h1 class="text-3xl font-bold tracking-widest mb-1">주 식 회 사 아 진 정 공</h1>
@@ -716,9 +714,9 @@ const InjectionTake: React.FC<InjectionTakeProps> = ({ currentUser, setView, dat
           </div>
         </body>
       </html>
-    `);
-    win.document.close();
-  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText]);
+    `;
+    printHtmlContent(html, printFileName);
+  }, [loadedRows, searchTerm, vendorSearch, po2Reference, po2TelFax, po2SenderName, po2SenderPerson, po2Date, currentUser, footerText, totalAmount, extraTotalAmount, vat, extraVat, grandTotal, extraGrandTotal, loadedHeaders]);
 
   const saveRecipient = async (r: Partial<Recipient>) => {
     let updated;
