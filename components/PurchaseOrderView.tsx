@@ -459,7 +459,7 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       return parts.join('.');
     };
 
-    const finalValue = (field === 'price' || field === 'orderQty') ? formatNumberWithCommas(value) : value;
+    const finalValue = (field === 'price' || field === 'orderQty' || field === 'unitPrice') ? formatNumberWithCommas(value) : value;
 
     setPo2Rows(prev => prev.map(row => {
       if (row.id === rowId) {
@@ -625,17 +625,26 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
               const targetColIdx = validCols[currentValidIdx];
               const field = colToField[targetColIdx];
               if (field) {
+                const formatNumberWithCommas = (valStr: string) => {
+                  const clean = String(valStr).replace(/,/g, '');
+                  if (!clean) return '';
+                  if (isNaN(Number(clean))) return String(valStr);
+                  const parts = clean.split('.');
+                  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                  return parts.join('.');
+                };
+                const valToSet = (field === 'price' || field === 'orderQty' || field === 'unitPrice') ? formatNumberWithCommas(pCell) : pCell;
                 let updatedFields = newRows[rIdx].changedFields ? [...newRows[rIdx].changedFields] : [];
                 if (originalRejectedItem && originalRejectedItem.status === PurchaseOrderSubCategory.REJECTED) {
                   const oriRow = originalRejectedItem.rows.find(or => or.id === newRows[rIdx].id);
                   const oriValue = oriRow ? (oriRow[field] || '') : '';
-                  if (String(pCell).trim() !== String(oriValue).trim()) {
+                  if (String(valToSet).trim() !== String(oriValue).trim()) {
                     if (!updatedFields.includes(field)) updatedFields.push(field);
                   } else {
                     updatedFields = updatedFields.filter(f => f !== field);
                   }
                 }
-                newRows[rIdx] = { ...newRows[rIdx], [field]: pCell, changedFields: updatedFields };
+                newRows[rIdx] = { ...newRows[rIdx], [field]: valToSet, changedFields: updatedFields };
               }
             }
           });
@@ -2130,7 +2139,15 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                                   (parseFloat(String(row.extraAmount || '0').replace(/,/g, '')) || 0).toLocaleString()
                                 ) : (
                                   <div className="whitespace-pre-wrap relative group/activefile">
-                                    {row[cell.f]}
+                                    {cell.f === 'unitPrice' && row[cell.f] && !isNaN(Number(String(row[cell.f]).replace(/,/g, '')))
+                                      ? (function(valStr: string) {
+                                          const clean = String(valStr).replace(/,/g, '');
+                                          if (!clean || isNaN(Number(clean))) return valStr;
+                                          const parts = clean.split('.');
+                                          parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+                                          return parts.join('.');
+                                        })(row[cell.f])
+                                      : row[cell.f]}
                                     {cell.f === 'itemName' && row.fileUrl && (
                                       <button 
                                         onClick={(e) => { e.stopPropagation(); if (row.fileUrl) window.open(row.fileUrl, '_blank'); }}
