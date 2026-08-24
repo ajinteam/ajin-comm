@@ -25,6 +25,21 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
   const [newNotice, setNewNotice] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  // 내 결재 대기 상태 관리
+  const [myApprovals, setMyApprovals] = useState<{
+    injection: number;
+    order: number;
+    purchase: number;
+    vietnam: number;
+    total: number;
+  }>({
+    injection: 0,
+    order: 0,
+    purchase: 0,
+    vietnam: 0,
+    total: 0
+  });
+
   // 카운트 상태 관리
   const [counts, setCounts] = useState({
     order: { pending: 0, rejected: 0, approved: 0 },
@@ -60,6 +75,62 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
     const pOrders = JSON.parse(localStorage.getItem('ajin_purchase_orders') || '[]');
     const vOrders = JSON.parse(localStorage.getItem('ajin_vietnam_orders') || '[]');
     const injectionOrders = JSON.parse(localStorage.getItem('ajin_injection_orders') || '[]');
+
+    const userInit = (user.initials || '').toUpperCase().trim();
+    const isMasterUser = user.loginId === 'AJ5200' || userInit === 'MASTER';
+
+    // 1. 사출 발주서 결재 대기 건수 계산 (로그인 사용자 맞춤)
+    const pendingInjCount = injectionOrders.filter((o: any) => {
+      if (o.status !== InjectionOrderSubCategory.PENDING) return false;
+      if (isMasterUser) return true;
+      const stamps = o.stamps || {};
+      const isInj = o.id?.startsWith('inj-');
+      if (userInit === '형춘') return !stamps.design;
+      if (userInit === '무연') return stamps.design && !stamps.director;
+      if (userInit === 'DAVID') return !isInj && stamps.director && !stamps.ceo;
+      return false;
+    }).length;
+
+    // 2. 주문서 결재 대기 건수 계산 (로그인 사용자 맞춤)
+    const pendingOrdCount = orders.filter((o: any) => {
+      if (o.status !== OrderSubCategory.PENDING) return false;
+      if (isMasterUser) return true;
+      const stamps = o.stamps || {};
+      const isSeoul = o.location === 'SEOUL';
+      if (userInit === '의순') return !stamps.head;
+      if (userInit === '재성') return isSeoul ? (stamps.head && !stamps.manager) : !stamps.manager;
+      if (userInit === '무연') return isSeoul ? (stamps.manager && !stamps.director) : (stamps.head && !stamps.director);
+      return false;
+    }).length;
+
+    // 3. 발주서 결재 대기 건수 계산 (로그인 사용자 맞춤)
+    const pendingPurCount = pOrders.filter((o: any) => {
+      if (o.code === 'INJECTION') return false;
+      if (o.status !== PurchaseOrderSubCategory.PENDING) return false;
+      if (isMasterUser) return true;
+      const stamps = o.stamps || {};
+      if (userInit === '형춘') return !stamps.design;
+      if (userInit === '무연') return stamps.design && !stamps.director;
+      if (userInit === 'DAVID') return stamps.director && !stamps.ceo;
+      return false;
+    }).length;
+
+    // 4. VN베트남 결재 대기 건수 계산 (로그인 사용자 맞춤)
+    const pendingVnCount = vOrders.filter((o: any) => {
+      if (o.status !== VietnamSubCategory.PENDING) return false;
+      if (isMasterUser) return true;
+      const stamps = o.stamps || {};
+      if (userInit === '의순') return !stamps.head;
+      return false;
+    }).length;
+
+    setMyApprovals({
+      injection: pendingInjCount,
+      order: pendingOrdCount,
+      purchase: pendingPurCount,
+      vietnam: pendingVnCount,
+      total: pendingInjCount + pendingOrdCount + pendingPurCount + pendingVnCount
+    });
 
     setCounts({
       order: {
@@ -99,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
         completed: vOrders.filter((o: any) => o.status === VietnamSubCategory.COMPLETED_ROOT).length
       },
     });
-  }, [dataVersion]);
+  }, [dataVersion, user]);
 
   const isVisible = (menuName: string) => {
     if (isMaster) return true;
@@ -220,12 +291,89 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
 
   return (
     <div className="space-y-4 md:space-y-12 animate-in fade-in duration-700">
-      <div className="flex flex-col landscape:flex-row md:flex-row justify-between items-start gap-4 mb-4 md:mb-10">
-        <div className="space-y-1">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 mb-4 md:mb-10">
+        <div className="space-y-1 shrink-0">
           <h2 className="text-xl md:text-4xl font-black text-slate-900 tracking-tight">대시보드</h2>
           <p className="text-slate-500 text-[9px] md:text-sm font-medium uppercase tracking-wider">System Status & Announcements</p>
         </div>
-        <div className={`w-full md:w-auto px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl border flex items-center justify-between md:justify-start gap-2 md:gap-3 ${isMaster ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
+
+        {/* Area A: 내 결재 대기 문서 위젯 */}
+        <div className="w-full xl:flex-1 xl:max-w-2xl xl:mx-4">
+          <div className={`p-3 md:py-2.5 md:px-5 rounded-2xl border transition-all ${
+            myApprovals.total > 0 
+              ? 'bg-rose-50/70 border-rose-200 shadow-sm' 
+              : 'bg-white border-slate-200 shadow-sm'
+          }`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <div className="flex items-center gap-2">
+                  {myApprovals.total > 0 ? (
+                    <span className="flex h-2.5 w-2.5 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  )}
+                  <span className="text-xs md:text-sm font-black text-slate-800">
+                    내 결재 대기 문서 : <span className={`text-sm md:text-base font-black ${myApprovals.total > 0 ? 'text-rose-600' : 'text-slate-600'}`}>총 {myApprovals.total}건</span>
+                  </span>
+                </div>
+                <p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 ml-4.5">
+                  {myApprovals.total > 0 ? '승인이 필요한 문서 대기 중 - 클릭하여 이동' : '현재 결재 대기 중인 문서가 없습니다.'}
+                </p>
+              </div>
+
+              {/* 결재를 해야하는 카테고리만 표기 */}
+              {myApprovals.total > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5 pt-1 sm:pt-0">
+                  {myApprovals.injection > 0 && (
+                    <button 
+                      onClick={() => setView({ type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory.PENDING })}
+                      className="px-2.5 py-1 bg-orange-600 hover:bg-orange-700 active:scale-95 text-white rounded-lg text-[11px] md:text-xs font-black shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                      title="사출 발주서 결재대기로 이동"
+                    >
+                      <span>사출 발주서 {myApprovals.injection}건</span>
+                      <span className="text-[9px] opacity-90">→</span>
+                    </button>
+                  )}
+                  {myApprovals.order > 0 && (
+                    <button 
+                      onClick={() => setView({ type: 'ORDER', sub: OrderSubCategory.PENDING })}
+                      className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-lg text-[11px] md:text-xs font-black shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                      title="주문서 결재대기로 이동"
+                    >
+                      <span>주문서 {myApprovals.order}건</span>
+                      <span className="text-[9px] opacity-90">→</span>
+                    </button>
+                  )}
+                  {myApprovals.purchase > 0 && (
+                    <button 
+                      onClick={() => setView({ type: 'PURCHASE', sub: PurchaseOrderSubCategory.PENDING })}
+                      className="px-2.5 py-1 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-[11px] md:text-xs font-black shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                      title="발주서 결재대기로 이동"
+                    >
+                      <span>발주서 {myApprovals.purchase}건</span>
+                      <span className="text-[9px] opacity-90">→</span>
+                    </button>
+                  )}
+                  {myApprovals.vietnam > 0 && (
+                    <button 
+                      onClick={() => setView({ type: 'VIETNAM', sub: VietnamSubCategory.PENDING })}
+                      className="px-2.5 py-1 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-lg text-[11px] md:text-xs font-black shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                      title="VN 베트남 결재대기로 이동"
+                    >
+                      <span>VN 베트남 {myApprovals.vietnam}건</span>
+                      <span className="text-[9px] opacity-90">→</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className={`shrink-0 w-full md:w-auto px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl border flex items-center justify-between md:justify-start gap-2 md:gap-3 ${isMaster ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
             <div className={`w-1 h-1 md:w-2 md:h-2 rounded-full ${isMaster ? 'bg-amber-500 animate-ping' : 'bg-emerald-500 animate-pulse'}`}></div>
             <span className="text-[9px] md:text-xs font-black text-slate-700 uppercase tracking-tight">{user.initials} {isMaster && '(MASTER)'}</span>
