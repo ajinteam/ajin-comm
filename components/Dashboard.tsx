@@ -297,35 +297,27 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
           <p className="text-slate-500 text-[9px] md:text-sm font-medium uppercase tracking-wider">System Status & Announcements</p>
         </div>
 
-        {/* Area A: 내 결재 대기 문서 위젯 */}
-        <div className="w-full xl:flex-1 xl:max-w-2xl xl:mx-4">
-          <div className={`p-3 md:py-2.5 md:px-5 rounded-2xl border transition-all ${
-            myApprovals.total > 0 
-              ? 'bg-rose-50/70 border-rose-200 shadow-sm' 
-              : 'bg-white border-slate-200 shadow-sm'
-          }`}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div>
-                <div className="flex items-center gap-2">
-                  {myApprovals.total > 0 ? (
+        {/* Area A: 내 결재 대기 문서 위젯 (결재할 문서가 1건 이상 있을 때만 짠! 하고 표시) */}
+        {myApprovals.total > 0 && (
+          <div className="w-full xl:flex-1 xl:max-w-2xl xl:mx-4 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="p-3 md:py-2.5 md:px-5 rounded-2xl border bg-rose-50/80 border-rose-200 shadow-sm transition-all">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                <div>
+                  <div className="flex items-center gap-2">
                     <span className="flex h-2.5 w-2.5 relative">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-600"></span>
                     </span>
-                  ) : (
-                    <span className="inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  )}
-                  <span className="text-xs md:text-sm font-black text-slate-800">
-                    내 결재 대기 문서 : <span className={`text-sm md:text-base font-black ${myApprovals.total > 0 ? 'text-rose-600' : 'text-slate-600'}`}>총 {myApprovals.total}건</span>
-                  </span>
+                    <span className="text-xs md:text-sm font-black text-slate-800">
+                      내 결재 대기 문서 : <span className="text-sm md:text-base font-black text-rose-600">총 {myApprovals.total}건</span>
+                    </span>
+                  </div>
+                  <p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 ml-4.5">
+                    승인이 필요한 문서 대기 중 - 클릭하여 이동
+                  </p>
                 </div>
-                <p className="text-[10px] md:text-xs text-slate-500 font-bold mt-0.5 ml-4.5">
-                  {myApprovals.total > 0 ? '승인이 필요한 문서 대기 중 - 클릭하여 이동' : '현재 결재 대기 중인 문서가 없습니다.'}
-                </p>
-              </div>
 
-              {/* 결재를 해야하는 카테고리만 표기 */}
-              {myApprovals.total > 0 && (
+                {/* 결재를 해야하는 카테고리만 표기 */}
                 <div className="flex flex-wrap items-center gap-1.5 pt-1 sm:pt-0">
                   {myApprovals.injection > 0 && (
                     <button 
@@ -368,10 +360,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, setView, dataVersion }) => 
                     </button>
                   )}
                 </div>
-              )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         <div className={`shrink-0 w-full md:w-auto px-3 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl border flex items-center justify-between md:justify-start gap-2 md:gap-3 ${isMaster ? 'bg-amber-50 border-amber-200' : 'bg-white border-slate-200'}`}>
           <div className="flex items-center gap-2">
