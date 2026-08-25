@@ -24,6 +24,7 @@ import Dashboard from './components/Dashboard';
 import { NoticeBoardView } from './components/NoticeBoardView';
 import { TrashView } from './components/TrashView';
 import { pullStateFromCloud, pushStateToCloud, supabase, subscribeToRealtime, cleanExpiredTrash } from './supabase';
+import { runTenDayAutoArchive } from './utils/autoArchive';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(null);
@@ -40,6 +41,9 @@ const App: React.FC = () => {
       setIsSyncing(true);
       await pullStateFromCloud();
       
+      // 10일 경과 결재완료/작성완료 문서 자동 이동/저장 실행
+      await runTenDayAutoArchive().catch(err => console.error('[Auto Archive Failed]', err));
+
       // 2일 경과 휴지통 아이템 자동 삭제 실행
       cleanExpiredTrash().catch(err => console.error('[Trash Auto Cleanup Failed]', err));
       
@@ -79,7 +83,8 @@ const App: React.FC = () => {
       setIsSyncing(false);
 
       // 실시간 구독 설정
-      channel = subscribeToRealtime(() => {
+      channel = subscribeToRealtime(async () => {
+        await runTenDayAutoArchive().catch(err => console.error('[Auto Archive Failed]', err));
         setDataVersion(v => v + 1);
         // 계정 정보가 바뀌었을 수 있으므로 다시 로드
         const updatedAccounts = JSON.parse(localStorage.getItem('ajin_accounts') || '[]');
@@ -99,7 +104,8 @@ const App: React.FC = () => {
       if (!currentUser) return;
       setIsSyncing(true);
       const updated = await pullStateFromCloud();
-      if (updated) setDataVersion(v => v + 1);
+      const autoRes = await runTenDayAutoArchive().catch(() => ({ updated: false, count: 0 }));
+      if (updated || autoRes?.updated) setDataVersion(v => v + 1);
       setIsSyncing(false);
     };
 
