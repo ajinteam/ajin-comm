@@ -623,8 +623,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     if (!formTitle.trim()) { alert('제목을 입력해주세요.'); return; }
     const validRows = formRows.filter(r => r.dept.trim() || r.model.trim() || r.itemName.trim() || r.price.trim());
     
-    // 구매처에 따른 채널 및 지역 텍스트 설정
-    const channel: 'KR' | 'VN' = formLocation === 'SEOUL' ? 'KR' : 'VN';
+    // 구매처에 따른 채널 및 지역 텍스트 설정 (서울 및 대천은 KR, 베트남은 VN)
+    const channel: 'KR' | 'VN' = (formLocation === 'SEOUL' || formLocation === 'DAECHEON') ? 'KR' : 'VN';
     const locText = formLocation === 'SEOUL' ? '서울' : formLocation === 'DAECHEON' ? '대천' : '베트남';
     const notifyTitle = `[${locText}] ${formTitle}`;
 
@@ -1169,8 +1169,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     });
     saveOrders(updatedOrders, updatedDoc);
 
-    // 잔디 알림 채널 분기 및 제목 접두사
-    const channel: 'KR' | 'VN' = order.location === 'SEOUL' ? 'KR' : 'VN';
+    // 잔디 알림 채널 분기 및 제목 접두사 (서울 및 대천은 KR, 베트남은 VN)
+    const channel: 'KR' | 'VN' = (order.location === 'SEOUL' || order.location === 'DAECHEON') ? 'KR' : 'VN';
     const locText = order.location === 'SEOUL' ? '서울' : order.location === 'DAECHEON' ? '대천' : '베트남';
     const notifyTitle = `[${locText}] ${order.title}`;
 
@@ -1251,8 +1251,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     
     saveOrders(updatedOrders, updatedDoc);
 
-    // JANDI 알림: 반송 알림 (작성자에게)
-    const channel: 'KR' | 'VN' = rejectingOrder.location === 'SEOUL' ? 'KR' : 'VN';
+    // JANDI 알림: 반송 알림 (작성자에게, 서울 및 대천은 KR, 베트남은 VN)
+    const channel: 'KR' | 'VN' = (rejectingOrder.location === 'SEOUL' || rejectingOrder.location === 'DAECHEON') ? 'KR' : 'VN';
     const locText = rejectingOrder.location === 'SEOUL' ? '서울' : rejectingOrder.location === 'DAECHEON' ? '대천' : '베트남';
     sendJandiNotification(channel, 'REJECT', `[${locText}] ${rejectingOrder.title}`, rejectingOrder.authorId, rejectingOrder.date);
 
