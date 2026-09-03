@@ -173,6 +173,7 @@ export interface OrderItem {
   id: string;
   title: string;
   location: 'SEOUL' | 'DAECHEON' | 'VIETNAM';
+  usageLocation?: string;
   status: OrderSubCategory;
   authorId: string;
   date: string;

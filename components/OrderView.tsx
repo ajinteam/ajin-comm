@@ -86,8 +86,8 @@ const getCellBorderStyle = (r: number, c: number, borderData: any) => {
 
 // Added setSelection to the props destructuring to fix "Cannot find name 'setSelection'" error
 const RenderDocumentTable = React.memo(({ 
-  rows, isCreate, order, isPreviewing, formLocation, formTitle, formDate,
-  setFormDate, setFormTitle, setFormLocation, updateRowField, handleRowKeyDown,
+  rows, isCreate, order, isPreviewing, formLocation, formUsageLocation, formTitle, formDate,
+  setFormDate, setFormTitle, setFormLocation, setFormUsageLocation, updateRowField, handleRowKeyDown,
   handleCreateSubmit, handleRowEdit, handleRowDelete, handleStampAction,
   handleFinalComplete, suggestionTarget, suggestions, selectSuggestion, userAccounts,
   isVietnameseLabels, translatedLocation,
@@ -120,7 +120,8 @@ const RenderDocumentTable = React.memo(({
     head: 'Giám đốc',
     director: 'Giám đốc ĐH',
     date: 'Ngày',
-    location: 'Nơi mua',
+    location: 'Chủ thể mua',
+    usageLocation: 'Nơi sử dụng/Thực tế',
     title: 'Tiêu đề',
     dept: 'Bộ phận',
     model: 'Model/Sử dụng',
@@ -137,7 +138,8 @@ const RenderDocumentTable = React.memo(({
     head: '법인장',
     director: '이사',
     date: '날짜',
-    location: '구매처',
+    location: '구매 주체',
+    usageLocation: '사용처/실사용',
     title: '제목',
     dept: '부서',
     model: '기종/사용',
@@ -197,20 +199,45 @@ const RenderDocumentTable = React.memo(({
           </table>
         </div>
 
-        <div className="space-y-1 mb-4 text-base w-[400px] max-w-full">
-          <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
+        <div className="space-y-1 mb-4 text-base w-full max-w-[850px]">
+          <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8 w-[400px] max-w-full">
             <span className="w-24 font-bold">{labels.date}</span>
             {isCreate ? <input type="text" value={formDate} onChange={(e) => setFormDate(e.target.value)} className="flex-1 bg-transparent outline-none font-medium border-b border-transparent hover:border-slate-200 focus:border-blue-500 transition-all py-0.5"/> : <span>{order?.date}</span>}
           </div>
-          <div className="flex border-b-2 border-slate-900 pb-0.5 items-center gap-4 md:gap-8 h-8">
-            <span className="w-24 font-bold">{labels.location}</span>
-            {isCreate ? (
-              <div className="flex gap-2 md:gap-4 overflow-x-auto">
-                <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'SEOUL'} onChange={() => setFormLocation('SEOUL')} />서울</label>
-                <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'DAECHEON'} onChange={() => setFormLocation('DAECHEON')} />대천</label>
-                <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'VIETNAM'} onChange={() => setFormLocation('VIETNAM')} />베트남</label>
-              </div>
-            ) : <span className="font-bold text-blue-800">{displayLocation}</span>}
+          <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1 border-b-2 border-slate-900 pb-0.5 min-h-[32px]">
+            <div className="flex items-center gap-3 md:gap-6 h-8">
+              <span className="w-24 font-bold">{labels.location}</span>
+              {isCreate ? (
+                <div className="flex gap-2 md:gap-4 overflow-x-auto">
+                  <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'SEOUL'} onChange={() => { setFormLocation('SEOUL'); if (!formUsageLocation || formUsageLocation === '대천' || formUsageLocation === '베트남') setFormUsageLocation('서울'); }} />서울</label>
+                  <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'DAECHEON'} onChange={() => { setFormLocation('DAECHEON'); if (!formUsageLocation || formUsageLocation === '서울' || formUsageLocation === '베트남') setFormUsageLocation('대천'); }} />대천</label>
+                  <label className="flex items-center gap-1 md:gap-1.5 cursor-pointer text-xs md:text-sm whitespace-nowrap"><input type="radio" className="w-3 h-3 md:w-4 md:h-4" checked={formLocation === 'VIETNAM'} onChange={() => { setFormLocation('VIETNAM'); if (!formUsageLocation || formUsageLocation === '서울' || formUsageLocation === '대천') setFormUsageLocation('베트남'); }} />베트남</label>
+                </div>
+              ) : <span className="font-bold text-blue-800">{displayLocation}</span>}
+            </div>
+
+            {/* A 부위: 사용처/실사용 */}
+            <div className="flex items-center gap-2 md:gap-3 h-8 pl-0 md:pl-4">
+              <span className="font-bold text-xs md:text-sm text-slate-800 whitespace-nowrap">{labels.usageLocation}</span>
+              {isCreate ? (
+                <div className="flex items-center gap-2 md:gap-3 text-xs md:text-sm">
+                  <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" className="accent-red-600 cursor-pointer" name="order_usage_location_radio" checked={formUsageLocation === '서울'} onChange={() => setFormUsageLocation('서울')} />서울</label>
+                  <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" className="accent-red-600 cursor-pointer" name="order_usage_location_radio" checked={formUsageLocation === '대천'} onChange={() => setFormUsageLocation('대천')} />대천</label>
+                  <label className="flex items-center gap-1 cursor-pointer whitespace-nowrap"><input type="radio" className="accent-red-600 cursor-pointer" name="order_usage_location_radio" checked={formUsageLocation === '베트남'} onChange={() => setFormUsageLocation('베트남')} />베트남</label>
+                  <input 
+                    type="text" 
+                    value={formUsageLocation || ''} 
+                    onChange={(e) => setFormUsageLocation(e.target.value)} 
+                    placeholder="직접 입력" 
+                    className="px-2 py-0.5 text-xs bg-slate-50 border border-slate-300 rounded hover:bg-white focus:bg-white focus:border-blue-500 outline-none w-24 md:w-32 font-medium"
+                  />
+                </div>
+              ) : (
+                <span className="font-bold text-emerald-800 text-xs md:text-sm">
+                  {order?.usageLocation || displayLocation}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex border-b-2 border-slate-900 pb-0.5 items-center h-8">
             <span className="w-24 font-bold">{labels.title}</span>
@@ -315,7 +342,7 @@ const RenderDocumentTable = React.memo(({
         {!isCreate && order?.status === OrderSubCategory.APPROVED && !order.stamps?.final && (
           <div className="mt-8 md:mt-12 flex flex-col items-center justify-center no-print pt-10 border-t border-slate-100 pb-8">
             <button onClick={() => handleFinalComplete(order)} className="px-10 md:px-16 py-4 md:py-5 bg-blue-600 text-white rounded-2xl font-black text-xl md:text-2xl hover:bg-blue-700 shadow-2xl transition-all active:scale-95">완 료</button>
-            <p className="mt-4 text-blue-500 text-xs md:sm font-bold tracking-tight text-center px-4">지정된 구매처({location === 'SEOUL' ? '서울' : location === 'DAECHEON' ? '대천' : '베트남'}) 폴더로 보관됩니다.</p>
+            <p className="mt-4 text-blue-500 text-xs md:sm font-bold tracking-tight text-center px-4">지정된 구매 주체({location === 'SEOUL' ? '서울' : location === 'DAECHEON' ? '대천' : '베트남'}) 폴더로 보관됩니다.</p>
           </div>
         )}
 
@@ -362,6 +389,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
 
   const isMaster = currentUser.loginId === 'AJ5200';
   const [formLocation, setFormLocation] = useState<'SEOUL' | 'DAECHEON' | 'VIETNAM'>('SEOUL');
+  const [formUsageLocation, setFormUsageLocation] = useState<string>('서울');
   const [formTitle, setFormTitle] = useState('');
   const [formDate, setFormDate] = useState(new Date().toLocaleDateString('ko-KR'));
   const [formRows, setFormRows] = useState<OrderRow[]>(createInitialRows(6));
@@ -420,13 +448,14 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       borders,
       formTitle,
       formDate,
-      formLocation
+      formLocation,
+      formUsageLocation
     });
     setUndoStack(prev => {
       if (prev.length > 0 && prev[0] === data) return prev;
       return [data, ...prev].slice(0, 50);
     });
-  }, [activeOrder, formRows, merges, aligns, borders, formTitle, formDate, formLocation, editingOrderId, sub]);
+  }, [activeOrder, formRows, merges, aligns, borders, formTitle, formDate, formLocation, formUsageLocation, editingOrderId, sub]);
 
   const handleUndo = useCallback(() => {
     if (undoStack.length === 0) return;
@@ -447,6 +476,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         setFormTitle(data.formTitle || '');
         setFormDate(data.formDate || '');
         setFormLocation(data.formLocation || 'SEOUL');
+        setFormUsageLocation(data.formUsageLocation || '서울');
       }
       setMerges(data.merges || {});
       setAligns(data.aligns || {});
@@ -607,6 +637,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
             ...item,
             title: formTitle,
             location: formLocation,
+            usageLocation: formUsageLocation,
             date: formDate,
             rows: validRows,
             status: OrderSubCategory.PENDING,
@@ -633,6 +664,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       setOriginalRejectedOrder(null);
       setFormRows(createInitialRows(6));
       setFormTitle('');
+      setFormUsageLocation('서울');
       setMerges({});
       setAligns({});
       setBorders({});
@@ -643,6 +675,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
         id: `ORD-${Date.now()}`, 
         title: formTitle, 
         location: formLocation, 
+        usageLocation: formUsageLocation,
         status: OrderSubCategory.PENDING, 
         authorId: currentUser.initials, 
         date: formDate, 
@@ -664,6 +697,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       alert('작성이 완료되었습니다.');
       setFormRows(createInitialRows(6));
       setFormTitle('');
+      setFormUsageLocation('서울');
       setMerges({});
       setAligns({});
       setBorders({});
@@ -1234,6 +1268,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
     setOriginalRejectedOrder(order);
     setFormTitle(order.title);
     setFormLocation(order.location);
+    setFormUsageLocation(order.usageLocation || (order.location === 'SEOUL' ? '서울' : order.location === 'DAECHEON' ? '대천' : '베트남'));
     setFormDate(order.date);
     setFormRows(order.rows.length >= 6 ? order.rows : [...order.rows, ...createInitialRows(6 - order.rows.length)]);
     setMerges((order as any).merges || {});
@@ -1398,7 +1433,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
           <button 
             onClick={() => { 
               if (editingOrderId) {
-                setEditingOrderId(null); setOriginalRejectedOrder(null); setFormTitle(''); setFormRows(createInitialRows(6)); setMerges({}); setAligns({}); setBorders({}); setView({ type: 'ORDER', sub: OrderSubCategory.REJECTED }); 
+                setEditingOrderId(null); setOriginalRejectedOrder(null); setFormTitle(''); setFormRows(createInitialRows(6)); setFormUsageLocation('서울'); setMerges({}); setAligns({}); setBorders({}); setView({ type: 'ORDER', sub: OrderSubCategory.REJECTED }); 
               } else {
                 setView({ type: 'DASHBOARD' });
               }
@@ -1451,8 +1486,8 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
       )}
       <div className="py-4 md:py-8 bg-slate-200 min-h-screen overflow-x-auto">
         <RenderDocumentTable 
-          rows={formRows} isCreate={true} formLocation={formLocation} formTitle={formTitle} formDate={formDate} 
-          setFormDate={setFormDate} setFormTitle={setFormTitle} setFormLocation={setFormLocation} 
+          rows={formRows} isCreate={true} formLocation={formLocation} formUsageLocation={formUsageLocation} formTitle={formTitle} formDate={formDate} 
+          setFormDate={setFormDate} setFormTitle={setFormTitle} setFormLocation={setFormLocation} setFormUsageLocation={setFormUsageLocation}
           updateRowField={updateRowField} handleRowKeyDown={handleRowKeyDown} handleCreateSubmit={handleCreateSubmit} 
           suggestionTarget={suggestionTarget} suggestions={suggestions} selectSuggestion={selectSuggestion} 
           userAccounts={userAccounts} isVietnameseLabels={false} order={originalRejectedOrder}
@@ -1550,7 +1585,7 @@ const OrderView: React.FC<OrderViewProps> = ({ sub, currentUser, userAccounts, s
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">날짜</th>
                   <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">제목</th>
-                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">구매처</th>
+                  <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">구매 주체</th>
                   <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">작성자</th>
                   <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">상태</th>
                   <th className="px-4 md:px-6 py-3 md:py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">관리</th>

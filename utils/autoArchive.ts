@@ -326,9 +326,8 @@ export const runTenDayAutoArchive = async (): Promise<{ updated: boolean; count:
       let vnChanged = false;
 
       const updatedVnOrders = vnOrders.map(vn => {
-        // VN 결재완료 상태(APPROVED 또는 COMPLETED_ROOT 또는 '결재완료')인 문서 중 10일 경과 건
+        // VN 결재완료 상태(COMPLETED_ROOT 또는 '결재완료')인 문서 중 10일 경과 건
         const isApprovedPendingMove =
-          vn.status === VietnamSubCategory.APPROVED ||
           vn.status === VietnamSubCategory.COMPLETED_ROOT ||
           (vn.status as string) === '결재완료' ||
           (vn.status as string) === 'VN결재완료';
