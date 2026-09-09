@@ -44,6 +44,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const [isEntityModalOpen, setIsEntityModalOpen] = useState(false);
   const [editingEntity, setEditingEntity] = useState<Partial<NationalEntity> | null>(null);
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
+  const [selectedPackingRowId, setSelectedPackingRowId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'ICON' | 'LIST'>('ICON');
   const [searchTerm, setSearchTerm] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
@@ -52,8 +53,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const isMaster = currentUser.loginId === 'AJ5200';
   const remarksRef = useRef<HTMLTextAreaElement>(null);
   
-  const getInitialFormData = (): Partial<NationalInvoiceItem> => ({
-    rows: [
+  const getInitialFormData = (): Partial<NationalInvoiceItem> => {
+    const initialRows: NationalInvoiceRow[] = [
       { id: 'h1', type: 'HEADER', headerLeft: 'TOY TRAIN PARTS SAMPLE', headerRight: 'EX.FACTORY', fontSize: 11, isBold: true, pkgNo: 'ADDRESS', plPkgNo: '' },
       { id: '1', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
       { id: '2', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
@@ -61,51 +62,56 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       { id: '4', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
       { id: '5', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
       { id: 't1', type: 'TOTAL', description: 'TOTAL', quantity: '0', unit: 'UNIT', proc: '', procAmount: '', price: '', amount: '0', fontSize: 11, isBold: true }
-    ],
-    invoiceType: 'COMMERCIAL',
-    currency: 'USD',
-    currencySymbol: '$',
-    shipperName: 'AJIN PRECISION MFG., INC.',
-    shipperAddress: '#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea',
-    idCode: 'KRAJIPRE333SEO',
-    invoiceNo: '',
-    invoiceDate: new Date().toISOString().split('T')[0],
-    pageNo: 'PAGE #1 OF 1',
-    consigneeName: '',
-    consigneeAddress: '',
-    consigneeTaxId: '',
-    consigneeTel: '',
-    consigneeAttn: '',
-    plShipperAddress: '',
-    plConsigneeAddress: '',
-    plRemarks: '',
-    poNo: '',
-    factoryOutDate: new Date().toISOString().split('T')[0],
-    buyer: 'SAME AS CONSIGNEE',
-    otherRef: '',
-    departureDate: new Date().toISOString().split('T')[0],
-    vesselFlight: 'FEDEX',
-    from: 'SEOUL, KOREA',
-    to: '',
-    deliveryTerms: 'TOY TRAIN PARTS SAMPLE\nCOMMERCIAL VALUE',
-    totalQuantity: '0',
-    totalAmount: '0',
-    totalProcAmount: '0',
-    plTotalCtQty: '0',
-    plTotalNetWeight: '0',
-    plTotalGrossWeight: '0',
-    plTotalCbm: '0',
-    footerTel: '(82-2) 894-2611',
-    footerFax: '(82-2) 802-9941',
-    signedBy: 'AJIN PRECISION MFG., INC.',
-    signedTitle: 'MANAGING DIRECTOR CHO, MOO-YEON.',
-    signatureName: 'MOO YEUN-CHO',
-    showTrackingNo: true,
-    showRemarks: true,
-    showPlRemarks: true,
-    showPlExtraRemarks: true,
-    shippingMarkType: ''
-  });
+    ];
+
+    return {
+      rows: JSON.parse(JSON.stringify(initialRows)),
+      packingRows: JSON.parse(JSON.stringify(initialRows)),
+      invoiceType: 'COMMERCIAL',
+      currency: 'USD',
+      currencySymbol: '$',
+      shipperName: 'AJIN PRECISION MFG., INC.',
+      shipperAddress: '#806 Star Valley 99, Digital-ro 9-gil, Geumcheon-Ku, Seoul, Korea',
+      idCode: 'KRAJIPRE333SEO',
+      invoiceNo: '',
+      invoiceDate: new Date().toISOString().split('T')[0],
+      pageNo: 'PAGE #1 OF 1',
+      consigneeName: '',
+      consigneeAddress: '',
+      consigneeTaxId: '',
+      consigneeTel: '',
+      consigneeAttn: '',
+      plShipperAddress: '',
+      plConsigneeAddress: '',
+      plRemarks: '',
+      poNo: '',
+      factoryOutDate: new Date().toISOString().split('T')[0],
+      buyer: 'SAME AS CONSIGNEE',
+      otherRef: '',
+      departureDate: new Date().toISOString().split('T')[0],
+      vesselFlight: 'FEDEX',
+      from: 'SEOUL, KOREA',
+      to: '',
+      deliveryTerms: 'TOY TRAIN PARTS SAMPLE\nCOMMERCIAL VALUE',
+      totalQuantity: '0',
+      totalAmount: '0',
+      totalProcAmount: '0',
+      plTotalCtQty: '0',
+      plTotalNetWeight: '0',
+      plTotalGrossWeight: '0',
+      plTotalCbm: '0',
+      footerTel: '(82-2) 894-2611',
+      footerFax: '(82-2) 802-9941',
+      signedBy: 'AJIN PRECISION MFG., INC.',
+      signedTitle: 'MANAGING DIRECTOR CHO, MOO-YEON.',
+      signatureName: 'MOO YEUN-CHO',
+      showTrackingNo: true,
+      showRemarks: true,
+      showPlRemarks: true,
+      showPlExtraRemarks: true,
+      shippingMarkType: ''
+    };
+  };
 
   const [formData, setFormData] = useState<Partial<NationalInvoiceItem>>(getInitialFormData());
   const [originalData, setOriginalData] = useState<Partial<NationalInvoiceItem> | null>(null);
@@ -166,8 +172,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       if (editId) {
         const item = items.find(i => i.id === editId);
         if (item && formData.id !== editId) {
-          setFormData(item);
-          setOriginalData(JSON.parse(JSON.stringify(item)));
+          const loadedItem: NationalInvoiceItem = {
+            ...item,
+            packingRows: item.packingRows && item.packingRows.length > 0 
+              ? JSON.parse(JSON.stringify(item.packingRows)) 
+              : JSON.parse(JSON.stringify(item.rows || []))
+          };
+          setFormData(loadedItem);
+          setOriginalData(JSON.parse(JSON.stringify(loadedItem)));
         }
       } else {
         // No editId means "New Invoice"
@@ -281,6 +293,192 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     return `${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
   };
 
+  const recalculateInvoiceTotals = (rows: NationalInvoiceRow[]) => {
+    let runningAmt = 0;
+    let runningQty = 0;
+    let runningProc = 0;
+    let runningProcAmt = 0;
+    let runningPrice = 0;
+    let runningUnits: { [unit: string]: number } = {};
+
+    const updatedRows = rows.map((r) => {
+      if (r.type === 'ITEM') {
+        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+        runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
+        runningQty += q;
+        runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
+        runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
+        runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
+
+        const u = (r.unit || 'PCS').toUpperCase();
+        runningUnits[u] = (runningUnits[u] || 0) + q;
+        return r;
+      } else if (r.type === 'TOTAL') {
+        const unitEntries = Object.entries(runningUnits).filter(([_, val]) => val > 0);
+        let finalUnit = 'UNIT';
+        let unitBreakdown = '';
+        if (unitEntries.length > 0) {
+          unitBreakdown = unitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+        }
+        if (unitEntries.length === 1) {
+          finalUnit = unitEntries[0][0];
+        }
+
+        const updated = {
+          ...r,
+          amount: runningAmt.toFixed(2),
+          quantity: runningQty.toString(),
+          unit: finalUnit,
+          unitBreakdown: unitBreakdown,
+          proc: runningProc.toString(),
+          procAmount: runningProcAmt.toFixed(2),
+          price: runningPrice.toFixed(2),
+        };
+
+        runningAmt = 0;
+        runningQty = 0;
+        runningProc = 0;
+        runningProcAmt = 0;
+        runningPrice = 0;
+        runningUnits = {};
+        return updated;
+      }
+      return r;
+    });
+
+    const grandTotalAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
+    const grandTotalQty = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
+    const grandTotalProcAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.procAmount || '0')) || 0), 0);
+
+    const totalUnits: { [unit: string]: number } = {};
+    updatedRows.filter(r => r.type === 'ITEM').forEach(r => {
+      const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+      const u = (r.unit || 'PCS').toUpperCase();
+      totalUnits[u] = (totalUnits[u] || 0) + q;
+    });
+
+    const totalUnitEntries = Object.entries(totalUnits).filter(([_, val]) => val > 0);
+    let totalQuantityBreakdown = '';
+    if (totalUnitEntries.length > 0) {
+      totalQuantityBreakdown = totalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+    }
+
+    return {
+      rows: updatedRows,
+      totalAmount: grandTotalAmt.toFixed(2),
+      totalQuantity: grandTotalQty.toString(),
+      totalProcAmount: grandTotalProcAmt.toFixed(2),
+      totalQuantityBreakdown
+    };
+  };
+
+  const recalculatePackingTotals = (packingRows: NationalInvoiceRow[]) => {
+    let plRunningAmt = 0;
+    let plRunningProc = 0;
+    let plRunningProcAmt = 0;
+    let plRunningPrice = 0;
+    let plRunningQty = 0;
+    let plRunningUnits: { [unit: string]: number } = {};
+
+    let blockHasPlProc = false;
+    let blockHasPlNet = false;
+    let blockHasPlGross = false;
+    let blockHasPlCbm = false;
+
+    const updatedPackingRows = packingRows.map((r) => {
+      if (r.type === 'ITEM') {
+        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+        plRunningQty += q;
+        const u = (r.unit || 'PCS').toUpperCase();
+        plRunningUnits[u] = (plRunningUnits[u] || 0) + q;
+
+        plRunningAmt += parseFloat(parseNumber(r.plAmount || '0')) || 0;
+        const currentPlProc = extractLastNumber(r.plProc || '0');
+        if (currentPlProc > 0) {
+          plRunningProc = Math.max(plRunningProc, currentPlProc);
+        }
+        plRunningProcAmt += parseFloat(parseNumber(r.plProcAmount || '0')) || 0;
+        plRunningPrice += parseFloat(parseNumber(r.plPrice || '0')) || 0;
+
+        if (r.plProc) blockHasPlProc = true;
+        if (r.plProcAmount) blockHasPlNet = true;
+        if (r.plPrice) blockHasPlGross = true;
+        if (r.plAmount) blockHasPlCbm = true;
+
+        return r;
+      } else if (r.type === 'TOTAL') {
+        const unitEntries = Object.entries(plRunningUnits).filter(([_, val]) => val > 0);
+        let finalUnit = 'UNIT';
+        let unitBreakdown = '';
+        if (unitEntries.length > 0) {
+          unitBreakdown = unitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+        }
+        if (unitEntries.length === 1) {
+          finalUnit = unitEntries[0][0];
+        }
+
+        const updated: NationalInvoiceRow = {
+          ...r,
+          quantity: plRunningQty.toString(),
+          unit: finalUnit,
+          unitBreakdown: unitBreakdown,
+          plProc: blockHasPlProc ? plRunningProc.toString() : '',
+          plProcAmount: blockHasPlNet ? plRunningProcAmt.toFixed(2) : '',
+          plPrice: blockHasPlGross ? plRunningPrice.toFixed(2) : '',
+          plAmount: blockHasPlCbm ? plRunningAmt.toFixed(2) : '',
+        };
+
+        plRunningAmt = 0;
+        plRunningProc = 0;
+        plRunningProcAmt = 0;
+        plRunningPrice = 0;
+        plRunningQty = 0;
+        plRunningUnits = {};
+        blockHasPlProc = false;
+        blockHasPlNet = false;
+        blockHasPlGross = false;
+        blockHasPlCbm = false;
+
+        return updated;
+      }
+      return r;
+    });
+
+    const hasPlProc = updatedPackingRows.some(r => r.type === 'ITEM' && r.plProc);
+    const hasPlNet = updatedPackingRows.some(r => r.type === 'ITEM' && r.plProcAmount);
+    const hasPlGross = updatedPackingRows.some(r => r.type === 'ITEM' && r.plPrice);
+    const hasPlCbm = updatedPackingRows.some(r => r.type === 'ITEM' && r.plAmount);
+
+    let plTotalCtQty = '';
+    let plTotalNetWeight = '';
+    let plTotalGrossWeight = '';
+    let plTotalCbm = '';
+
+    if (hasPlProc) {
+      plTotalCtQty = updatedPackingRows.filter(r => r.type === 'ITEM').reduce((last, r) => {
+        const val = extractLastNumber(r.plProc || '0');
+        return val > 0 ? Math.max(last, val) : last;
+      }, 0).toString();
+    }
+    if (hasPlNet) {
+      plTotalNetWeight = updatedPackingRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0).toFixed(2);
+    }
+    if (hasPlGross) {
+      plTotalGrossWeight = updatedPackingRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0).toFixed(2);
+    }
+    if (hasPlCbm) {
+      plTotalCbm = updatedPackingRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0).toFixed(2);
+    }
+
+    return {
+      packingRows: updatedPackingRows,
+      plTotalCtQty,
+      plTotalNetWeight,
+      plTotalGrossWeight,
+      plTotalCbm
+    };
+  };
+
   const handleAddRow = (type: 'ITEM' | 'HEADER' | 'TOTAL' = 'ITEM', index?: number) => {
     const newRow: NationalInvoiceRow = {
       id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
@@ -316,24 +514,25 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       } else {
         rows.push(newRow);
       }
-      return { ...prev, rows };
+      const recalculated = recalculateInvoiceTotals(rows);
+      return { ...prev, ...recalculated };
     });
     setSelectedRowId(newRow.id);
   };
 
   const handleRemoveRow = (id: string) => {
-    setFormData(prev => ({
-      ...prev,
-      rows: (prev.rows || []).filter(r => r.id !== id)
-    }));
+    setFormData(prev => {
+      const rows = (prev.rows || []).filter(r => r.id !== id);
+      const recalculated = recalculateInvoiceTotals(rows);
+      return { ...prev, ...recalculated };
+    });
   };
 
   const handleRowChange = (id: string, field: keyof NationalInvoiceRow | keyof NationalInvoiceItem, value: any) => {
     setFormData(prev => {
-      // If no ID is provided, we assume it's a top-level field update
       if (!id) {
         let val = value;
-        if (field === 'totalQuantity' || field === 'totalAmount' || field === 'plTotalCtQty' || field === 'plTotalNetWeight' || field === 'plTotalGrossWeight' || field === 'plTotalCbm') {
+        if (field === 'totalQuantity' || field === 'totalAmount' || field === 'totalProcAmount') {
           val = parseNumber(value);
         }
         return { ...prev, [field]: val };
@@ -342,23 +541,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       let newRows = (prev.rows || []).map(r => {
         if (r.id === id) {
           let val = value;
-          if (field === 'quantity' || field === 'price' || field === 'amount' || field === 'proc' || field === 'procAmount' || 
-              field === 'plProc' || field === 'plProcAmount' || field === 'plPrice' || field === 'plAmount') {
+          if (field === 'quantity' || field === 'price' || field === 'amount' || field === 'proc' || field === 'procAmount') {
             val = parseNumber(value);
           }
           const updated = { ...r, [field]: val };
-          if (r.type === 'ITEM' && (field === 'quantity' || field === 'price' || field === 'proc')) {
+          if (r.type === 'ITEM' && (field === 'quantity' || field === 'price' || field === 'proc' || field === 'unit')) {
             const q = parseFloat(parseNumber(updated.quantity || '0')) || 0;
             const p = parseFloat(parseNumber(updated.price || '0')) || 0;
             const prStr = parseNumber(updated.proc || '');
             const pr = parseFloat(prStr) || 0;
             
-            // QUANTITY 단위(unit)가 있을 때만 자동 계산
             if (updated.unit && updated.unit.trim() !== '') {
               updated.amount = (q * p).toFixed(2);
             }
-            
-            // Only show procAmount if proc is entered (PROC를 입력해야 값이 표시되게)
             if (prStr === '') {
               updated.procAmount = '';
             } else {
@@ -369,187 +564,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
         return r;
       });
-      
-      // Recalculate subtotals (TOTAL rows)
-      // A TOTAL row sums all ITEM values above it since the previous TOTAL row (or start)
-      let runningAmt = 0;
-      let runningQty = 0;
-      let runningProc = 0;
-      let runningProcAmt = 0;
-      let runningPrice = 0;
-      let runningUnits: { [unit: string]: number } = {};
 
-      let plRunningAmt = 0;
-      let plRunningProc = 0;
-      let plRunningProcAmt = 0;
-      let plRunningPrice = 0;
-      
-      let blockHasPlProc = false;
-      let blockHasPlNet = false;
-      let blockHasPlGross = false;
-      let blockHasPlCbm = false;
-
-      newRows = newRows.map((r, idx) => {
-        if (r.type === 'ITEM') {
-          const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
-          runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
-          runningQty += q;
-          runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
-          runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
-          runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
-
-          const u = (r.unit || 'PCS').toUpperCase();
-          runningUnits[u] = (runningUnits[u] || 0) + q;
-
-          plRunningAmt += parseFloat(parseNumber(r.plAmount || '0')) || 0;
-          const currentPlProc = extractLastNumber(r.plProc || '0');
-          if (currentPlProc > 0) {
-            plRunningProc = Math.max(plRunningProc, currentPlProc);
-          }
-          plRunningProcAmt += parseFloat(parseNumber(r.plProcAmount || '0')) || 0;
-          plRunningPrice += parseFloat(parseNumber(r.plPrice || '0')) || 0;
-
-          if (r.plProc) blockHasPlProc = true;
-          if (r.plProcAmount) blockHasPlNet = true;
-          if (r.plPrice) blockHasPlGross = true;
-          if (r.plAmount) blockHasPlCbm = true;
-
-          return r;
-        } else if (r.type === 'TOTAL') {
-          const unitEntries = Object.entries(runningUnits).filter(([_, val]) => val > 0);
-          let finalUnit = 'UNIT';
-          let unitBreakdown = '';
-          
-          // Always calculate breakdown to include units
-          if (unitEntries.length > 0) {
-            unitBreakdown = unitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
-          }
-          
-          if (unitEntries.length === 1) {
-            finalUnit = unitEntries[0][0];
-          }
-
-          const updated = { 
-            ...r, 
-            amount: runningAmt.toFixed(2), 
-            quantity: runningQty.toString(),
-            unit: finalUnit,
-            unitBreakdown: unitBreakdown,
-            proc: runningProc.toString(),
-            procAmount: runningProcAmt.toFixed(2),
-            price: runningPrice.toFixed(2),
-          };
-
-          // PL independent totals - only update if there's content in specific columns for this block
-          if (blockHasPlProc) updated.plProc = plRunningProc.toString();
-          else if (r.id !== id) updated.plProc = '';
-
-          if (blockHasPlNet) updated.plProcAmount = plRunningProcAmt.toFixed(2);
-          else if (r.id !== id) updated.plProcAmount = '';
-
-          if (blockHasPlGross) updated.plPrice = plRunningPrice.toFixed(2);
-          else if (r.id !== id) updated.plPrice = '';
-
-          if (blockHasPlCbm) updated.plAmount = plRunningAmt.toFixed(2);
-          else if (r.id !== id) updated.plAmount = '';
-          
-          // Reset running totals after each subtotal
-          runningAmt = 0;
-          runningQty = 0;
-          runningProc = 0;
-          runningProcAmt = 0;
-          runningPrice = 0;
-          runningUnits = {};
-
-          plRunningAmt = 0;
-          plRunningProc = 0;
-          plRunningProcAmt = 0;
-          plRunningPrice = 0;
-          blockHasPlProc = false;
-          blockHasPlNet = false;
-          blockHasPlGross = false;
-          blockHasPlCbm = false;
-
-          return updated;
-        }
-        return r;
-      });
-
-      const grandTotalAmt = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
-      const grandTotalQty = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
-      const grandTotalProcAmt = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.procAmount || '0')) || 0), 0);
-      
-      const totalUnits: { [unit: string]: number } = {};
-      newRows.filter(r => r.type === 'ITEM').forEach(r => {
-        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
-        const u = (r.unit || 'PCS').toUpperCase();
-        totalUnits[u] = (totalUnits[u] || 0) + q;
-      });
-
-      const totalUnitEntries = Object.entries(totalUnits).filter(([_, val]) => val > 0);
-      let totalQuantityBreakdown = '';
-      if (totalUnitEntries.length > 0) {
-        totalQuantityBreakdown = totalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
-      }
-      
-      let plTotalCtQty = prev.plTotalCtQty;
-      let plTotalNetWeight = prev.plTotalNetWeight;
-      let plTotalGrossWeight = prev.plTotalGrossWeight;
-      let plTotalCbm = prev.plTotalCbm;
-
-      const hasPlProc = newRows.some(r => r.type === 'ITEM' && r.plProc);
-      const hasPlNet = newRows.some(r => r.type === 'ITEM' && r.plProcAmount);
-      const hasPlGross = newRows.some(r => r.type === 'ITEM' && r.plPrice);
-      const hasPlCbm = newRows.some(r => r.type === 'ITEM' && r.plAmount);
-
-      // Grand totals per column
-      if (hasPlProc) {
-        plTotalCtQty = newRows.filter(r => r.type === 'ITEM').reduce((last, r) => {
-          const val = extractLastNumber(r.plProc || '0');
-          return val > 0 ? Math.max(last, val) : last;
-        }, 0).toString();
-      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
-        plTotalCtQty = '';
-      }
-
-      if (hasPlNet) {
-        plTotalNetWeight = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plProcAmount || '0')) || 0), 0).toFixed(2);
-      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
-        plTotalNetWeight = '';
-      }
-
-      if (hasPlGross) {
-        plTotalGrossWeight = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plPrice || '0')) || 0), 0).toFixed(2);
-      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
-        plTotalGrossWeight = '';
-      }
-
-      if (hasPlCbm) {
-        plTotalCbm = newRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.plAmount || '0')) || 0), 0).toFixed(2);
-      } else if (!['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
-        plTotalCbm = '';
-      }
-
-      // Manual override handling if currently editing grand totals
-      if (['plTotalCtQty', 'plTotalNetWeight', 'plTotalGrossWeight', 'plTotalCbm'].includes(field as string)) {
-        const val = parseNumber(value);
-        if (field === 'plTotalCtQty') plTotalCtQty = val;
-        if (field === 'plTotalNetWeight') plTotalNetWeight = val;
-        if (field === 'plTotalGrossWeight') plTotalGrossWeight = val;
-        if (field === 'plTotalCbm') plTotalCbm = val;
-      }
-
-      return { 
-        ...prev, 
-        rows: newRows, 
-        totalAmount: grandTotalAmt.toFixed(2), 
-        totalQuantity: grandTotalQty.toString(),
-        totalProcAmount: grandTotalProcAmt.toFixed(2),
-        totalQuantityBreakdown,
-        plTotalCtQty,
-        plTotalNetWeight,
-        plTotalGrossWeight,
-        plTotalCbm
+      const recalculated = recalculateInvoiceTotals(newRows);
+      return {
+        ...prev,
+        ...recalculated
       };
     });
   };
@@ -606,7 +625,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           }
         });
 
-        // Recalculate row amounts
         const q = parseFloat(parseNumber(row.quantity || '0')) || 0;
         const p = parseFloat(parseNumber(row.price || '0')) || 0;
         const pr = parseFloat(parseNumber(row.proc || '0')) || 0;
@@ -619,80 +637,173 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         currentPtr++;
       });
 
-      // Recalculate all subtotals and grand totals
-      let runningAmt = 0;
-      let runningQty = 0;
-      let runningProc = 0;
-      let runningProcAmt = 0;
-      let runningPrice = 0;
-      let runningUnits: { [unit: string]: number } = {};
+      const recalculated = recalculateInvoiceTotals(rows);
+      return { ...prev, ...recalculated };
+    });
+  };
 
-      const updatedRows = rows.map((r) => {
-        if (r.type === 'ITEM') {
-          const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
-          runningAmt += parseFloat(parseNumber(r.amount || '0')) || 0;
-          runningQty += q;
-          runningProc += parseFloat(parseNumber(r.proc || '0')) || 0;
-          runningProcAmt += parseFloat(parseNumber(r.procAmount || '0')) || 0;
-          runningPrice += parseFloat(parseNumber(r.price || '0')) || 0;
+  // Packing List Specific Handlers
+  const handleAddPackingRow = (type: 'ITEM' | 'HEADER' | 'TOTAL' = 'ITEM', index?: number) => {
+    const newRow: NationalInvoiceRow = {
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+      type,
+      description: type === 'TOTAL' ? 'TOTAL' : '',
+      pkgNo: '',
+      plPkgNo: type === 'HEADER' ? 'ADDRESS' : '',
+      quantity: '',
+      unit: type === 'ITEM' ? 'PCS' : (type === 'TOTAL' ? 'UNIT' : ''),
+      proc: '',
+      procAmount: '',
+      price: '',
+      amount: '',
+      plProc: '',
+      plProcAmount: '',
+      plPrice: '',
+      plAmount: '',
+      headerLeft: type === 'HEADER' ? '' : undefined,
+      headerRight: type === 'HEADER' ? '' : undefined,
+      fontSize: type === 'HEADER' || type === 'TOTAL' ? 11 : 10.5,
+      isBold: type === 'HEADER' || type === 'TOTAL'
+    };
+    setFormData(prev => {
+      const pRows = [...(prev.packingRows || prev.rows || [])];
+      let insertIndex = index;
+      
+      if (insertIndex === undefined && selectedPackingRowId) {
+        insertIndex = pRows.findIndex(r => r.id === selectedPackingRowId);
+      }
 
-          const u = (r.unit || 'PCS').toUpperCase();
-          runningUnits[u] = (runningUnits[u] || 0) + q;
+      if (insertIndex !== undefined && insertIndex !== -1) {
+        pRows.splice(insertIndex + 1, 0, newRow);
+      } else {
+        pRows.push(newRow);
+      }
+      const recalculated = recalculatePackingTotals(pRows);
+      return { ...prev, ...recalculated };
+    });
+    setSelectedPackingRowId(newRow.id);
+  };
 
-          return r;
-        } else if (r.type === 'TOTAL') {
-          const unitEntries = Object.entries(runningUnits).filter(([_, val]) => val > 0);
-          let finalUnit = 'UNIT';
-          let unitBreakdown = '';
-          
-          // Always calculate breakdown to include units
-          if (unitEntries.length > 0) {
-            unitBreakdown = unitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+  const handleRemovePackingRow = (id: string) => {
+    setFormData(prev => {
+      const pRows = (prev.packingRows || prev.rows || []).filter(r => r.id !== id);
+      const recalculated = recalculatePackingTotals(pRows);
+      return { ...prev, ...recalculated };
+    });
+  };
+
+  const handlePackingRowChange = (id: string, field: keyof NationalInvoiceRow | keyof NationalInvoiceItem, value: any) => {
+    setFormData(prev => {
+      if (!id) {
+        let val = value;
+        if (field === 'plTotalCtQty' || field === 'plTotalNetWeight' || field === 'plTotalGrossWeight' || field === 'plTotalCbm') {
+          val = parseNumber(value);
+        }
+        return { ...prev, [field]: val };
+      }
+
+      let pRows = (prev.packingRows || prev.rows || []).map(r => {
+        if (r.id === id) {
+          let val = value;
+          if (field === 'quantity' || field === 'plProc' || field === 'plProcAmount' || field === 'plPrice' || field === 'plAmount') {
+            val = parseNumber(value);
           }
-          
-          if (unitEntries.length === 1) {
-            finalUnit = unitEntries[0][0];
-          }
-
-          const updated = { 
-            ...r, 
-            amount: runningAmt.toFixed(2), 
-            quantity: runningQty.toString(),
-            unit: finalUnit,
-            unitBreakdown: unitBreakdown,
-            proc: runningProc.toString(),
-            procAmount: runningProcAmt.toFixed(2),
-            price: runningPrice.toFixed(2)
-          };
-          runningAmt = 0;
-          runningQty = 0;
-          runningProc = 0;
-          runningProcAmt = 0;
-          runningPrice = 0;
-          runningUnits = {};
-          return updated;
+          return { ...r, [field]: val };
         }
         return r;
       });
 
-      const grandTotalAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.amount || '0')) || 0), 0);
-      const grandTotalQty = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.quantity || '0')) || 0), 0);
-      const grandTotalProcAmt = updatedRows.filter(r => r.type === 'ITEM').reduce((acc, r) => acc + (parseFloat(parseNumber(r.procAmount || '0')) || 0), 0);
+      const recalculated = recalculatePackingTotals(pRows);
+      return {
+        ...prev,
+        ...recalculated
+      };
+    });
+  };
 
-      const totalUnits: { [unit: string]: number } = {};
-      updatedRows.filter(r => r.type === 'ITEM').forEach(r => {
-        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
-        const u = (r.unit || 'PCS').toUpperCase();
-        totalUnits[u] = (totalUnits[u] || 0) + q;
+  const handlePackingPaste = (e: React.ClipboardEvent, rowId: string, startField: string) => {
+    const clipboardData = e.clipboardData.getData('Text');
+    if (!clipboardData.includes('\t') && !clipboardData.includes('\n')) return;
+
+    e.preventDefault();
+    const lines = clipboardData.split(/\r?\n/).filter(line => line.length > 0);
+    if (lines.length === 0) return;
+
+    const fieldsOrder: (keyof NationalInvoiceRow)[] = ['plPkgNo', 'description', 'quantity', 'plProc', 'plProcAmount', 'plPrice', 'plAmount'];
+    const startIndex = fieldsOrder.indexOf(startField as keyof NationalInvoiceRow);
+    if (startIndex === -1) return;
+
+    setFormData(prev => {
+      const pRows = [...(prev.packingRows || prev.rows || [])];
+      let startIdx = pRows.findIndex(r => r.id === rowId);
+      if (startIdx === -1) return prev;
+
+      let currentPtr = startIdx;
+      lines.forEach((line) => {
+        const columns = line.split('\t');
+        
+        if (currentPtr >= pRows.length || pRows[currentPtr].type !== 'ITEM') {
+          const newRow: NationalInvoiceRow = {
+            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            type: 'ITEM',
+            description: '',
+            pkgNo: '',
+            plPkgNo: '',
+            quantity: '',
+            unit: 'PCS',
+            proc: '',
+            procAmount: '',
+            price: '',
+            amount: '',
+            plProc: '',
+            plProcAmount: '',
+            plPrice: '',
+            plAmount: '',
+            fontSize: 10.5,
+            isBold: false
+          };
+          pRows.splice(currentPtr, 0, newRow);
+        }
+
+        const row = { ...pRows[currentPtr] };
+        columns.forEach((val, colOffset) => {
+          const fieldIdx = startIndex + colOffset;
+          if (fieldIdx < fieldsOrder.length) {
+            const field = fieldsOrder[fieldIdx];
+            if (['quantity', 'plProc', 'plProcAmount', 'plPrice', 'plAmount'].includes(field as string)) {
+              (row as any)[field] = parseNumber(val.trim());
+            } else {
+              (row as any)[field] = val.trim();
+            }
+          }
+        });
+
+        pRows[currentPtr] = row;
+        currentPtr++;
       });
 
-      const totalUnitEntries = Object.entries(totalUnits).filter(([_, val]) => val > 0);
-      let totalQuantityBreakdown = '';
-      if (totalUnitEntries.length > 0) {
-        totalQuantityBreakdown = totalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
-      }
+      const recalculated = recalculatePackingTotals(pRows);
+      return {
+        ...prev,
+        ...recalculated
+      };
+    });
+  };
 
-      return { ...prev, rows: updatedRows, totalAmount: grandTotalAmt.toFixed(2), totalQuantity: grandTotalQty.toString(), totalProcAmount: grandTotalProcAmt.toFixed(2), totalQuantityBreakdown };
+  const handleSyncPackingFromInvoice = () => {
+    if (!confirm('인보이스의 품목과 수량을 패킹리스트로 복사하시겠습니까? 기존 패킹리스트의 내용이 인보이스 기준으로 갱신됩니다.')) return;
+    setFormData(prev => {
+      const sourceRows = prev.rows || [];
+      const clonedRows = JSON.parse(JSON.stringify(sourceRows)).map((r: NationalInvoiceRow) => ({
+        ...r,
+        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+        plPkgNo: r.pkgNo || '',
+      }));
+      const recalculated = recalculatePackingTotals(clonedRows);
+      return {
+        ...prev,
+        ...recalculated
+      };
     });
   };
 
@@ -772,22 +883,24 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       t.style.height = 'auto';
       t.style.height = `${t.scrollHeight}px`;
     });
-  }, [formData.rows]);
+  }, [formData.rows, formData.packingRows]);
 
-  const isEdited = (field: string, rowId?: string) => {
+  const isEdited = (field: string, rowId?: string, isPL: boolean = false) => {
     const trackingData = formData.originalData || originalData;
     if (normalizeSub(formData.status || '') !== normalizeSub(NationalInvoiceSubCategory.COMPLETED) || !trackingData) return false;
     if (rowId) {
-      const currentRow = (formData.rows || []).find(r => r.id === rowId);
-      const originalRow = (trackingData.rows || []).find(r => r.id === rowId);
+      const rowList = isPL ? (formData.packingRows || formData.rows || []) : (formData.rows || []);
+      const origList = isPL ? (trackingData.packingRows || trackingData.rows || []) : (trackingData.rows || []);
+      const currentRow = rowList.find(r => r.id === rowId);
+      const originalRow = origList.find(r => r.id === rowId);
       if (!originalRow) return true;
       return JSON.stringify((currentRow as any)?.[field]) !== JSON.stringify((originalRow as any)?.[field]);
     }
     return JSON.stringify((formData as any)[field]) !== JSON.stringify((trackingData as any)[field]);
   };
 
-  const getEditedColor = (field: string, rowId?: string) => {
-    return isEdited(field, rowId) ? 'text-red-500 print:text-black' : '';
+  const getEditedColor = (field: string, rowId?: string, isPL: boolean = false) => {
+    return isEdited(field, rowId, isPL) ? 'text-red-500 print:text-black' : '';
   };
 
   const handleCurrencyChange = (curr: 'USD' | 'EUR' | 'KRW' | 'JPY' | 'VND') => {
@@ -1052,7 +1165,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         `;
       }).join('');
 
-      const packingRowsHtml = (formData.rows || []).map((row, idx) => {
+      const plRowsList = formData.packingRows || formData.rows || [];
+      const packingRowsHtml = plRowsList.map((row, idx) => {
         const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
         const borderStyle = `none;`; 
         
@@ -1060,7 +1174,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
         const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
         const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
-        const plPkgNo = row.plPkgNo !== undefined ? row.plPkgNo : row.pkgNo;
+        const plPkgNo = row.plPkgNo !== undefined && row.plPkgNo !== '' ? row.plPkgNo : row.pkgNo;
         const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 1px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
 
         if (row.type === 'HEADER') {
@@ -1078,7 +1192,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           `;
         } else if (row.type === 'TOTAL') {
           const totalBorderStyle = `border: none; border-top: 1px solid black;`;
-          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity, false, 'quantity') || '0'} ${row.unit || 'UNIT'}`;
+          const qtyText = row.unitBreakdown || (row.quantity && row.quantity !== '0' ? `${formatNumber(row.quantity, false, 'quantity')} ${row.unit || 'UNIT'}` : '');
 
           return `
             <tr style="${rowStyle}">
@@ -1112,6 +1226,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const plTotalNetWeight = formData.plTotalNetWeight || '';
       const plTotalGrossWeight = formData.plTotalGrossWeight || '';
       const plTotalCbm = formData.plTotalCbm || '';
+
+      const plTotalUnits: { [unit: string]: number } = {};
+      let plTotalQtySum = 0;
+      plRowsList.filter(r => r.type === 'ITEM').forEach(r => {
+        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+        plTotalQtySum += q;
+        const u = (r.unit || 'PCS').toUpperCase();
+        plTotalUnits[u] = (plTotalUnits[u] || 0) + q;
+      });
+      const plTotalUnitEntries = Object.entries(plTotalUnits).filter(([_, val]) => val > 0);
+      let plTotalQtyText = '';
+      if (plTotalUnitEntries.length > 0) {
+        plTotalQtyText = plTotalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+      } else if (plTotalQtySum > 0) {
+        plTotalQtyText = `${formatNumber(plTotalQtySum)} UNIT`;
+      }
 
       const consignee = formData.consigneeName || 'Client';
       const docDate = formData.invoiceDate || '';
@@ -1360,53 +1490,56 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
               </div>
 
-              <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
-                <thead>
-                  <tr>
-                    <th style="width: 20%;">SHIPPING MARK</th>
-                    <th style="width: 35%;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                    <th style="width: 10%;">QUANTITY</th>
-                    <th style="width: 10%;">PROC (${formData.currencySymbol})</th>
-                    <th style="width: 10%;">PROC AMT (${formData.currencySymbol})</th>
-                    <th style="width: 7%;">PRICE (${formData.currencySymbol})</th>
-                    <th style="width: 8%;">AMOUNT (${formData.currencySymbol})</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rowsHtml}
-                  <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                    <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
-                      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>GRAND TOTAL</span>
-                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
-                      </div>
-                    </td>
-                    <td style="padding: 11px 8px;"></td>
-                    <td style="padding: 11px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
-                    <td style="padding: 11px 8px;"></td>
-                    <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <!-- Outer Enclosed Border Container for Table, Remarks, and Signature -->
+              <div style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
+                  <thead>
+                    <tr>
+                      <th style="width: 20%; border-bottom: 1px solid black;">SHIPPING MARK</th>
+                      <th style="width: 35%; border-bottom: 1px solid black;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                      <th style="width: 10%; border-bottom: 1px solid black;">QUANTITY</th>
+                      <th style="width: 10%; border-bottom: 1px solid black;">PROC (${formData.currencySymbol})</th>
+                      <th style="width: 10%; border-bottom: 1px solid black;">PROC AMT (${formData.currencySymbol})</th>
+                      <th style="width: 7%; border-bottom: 1px solid black;">PRICE (${formData.currencySymbol})</th>
+                      <th style="width: 8%; border-bottom: 1px solid black;">AMOUNT (${formData.currencySymbol})</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rowsHtml}
+                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
+                      <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                          <span>GRAND TOTAL</span>
+                          <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
+                        </div>
+                      </td>
+                      <td style="padding: 11px 8px;"></td>
+                      <td style="padding: 11px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
+                      <td style="padding: 11px 8px;"></td>
+                      <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
 
-              ${formData.showTrackingNo !== false ? `<div style="margin-top: 15px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0;">${formData.trackingNo || ''}</div>` : ''}
-              
-              ${formData.showRemarks !== false ? `<div style="margin-top: 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks || ''}</div>` : ''}
+                ${formData.showTrackingNo !== false ? `<div style="margin-top: 10px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 6px 0;">${formData.trackingNo || ''}</div>` : ''}
+                
+                ${formData.showRemarks !== false ? `<div style="margin-top: 6px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks || ''}</div>` : ''}
 
-              <div style="margin-top: auto; padding-top: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; border-top: 1px solid black; padding-top: 10px;">
-                  <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
-                    <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
-                    <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
-                  </div>
-                  
-                  <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
-                    <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
-                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                      <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
-                        ${formData.signedTitle || ''}
+                <div style="margin-top: auto; border-top: 1px solid black; padding: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                    <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                      <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                      <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                    </div>
+                    
+                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
+                      <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
+                      <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                        <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
+                          ${formData.signedTitle || ''}
+                        </div>
+                        <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                       </div>
-                      <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                     </div>
                   </div>
                 </div>
@@ -1495,53 +1628,56 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
               </div>
 
-              <table style="width: 100%; border-collapse: collapse;">
-                <thead>
-                  <tr>
-                    <th style="width: 20%; font-size: 10.5px; vertical-align: middle;">SHIPPING MARK</th>
-                    <th style="width: 35%; font-size: 10.5px; vertical-align: middle;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                    <th style="width: 10%; font-size: 10.5px; vertical-align: middle;">QUANTITY</th>
-                    <th style="width: 10%; font-size: 10.5px; vertical-align: middle;">C/T Q'TY</th>
-                    <th style="width: 10%; font-size: 10.5px; vertical-align: middle;">NET WEIGHT (kg)</th>
-                    <th style="width: 8%; font-size: 10.5px; vertical-align: middle;">GROSS WEIGHT (kg)</th>
-                    <th style="width: 7%; font-size: 10.5px; vertical-align: middle;">CBM (M3)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${packingRowsHtml}
-                  <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                    <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
-                      <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                        <span>GRAND TOTAL</span>
-                        <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
-                      </div>
-                    </td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty, false, 'quantity') || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight, false, 'decimal') || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight, false, 'decimal') || ''}</td>
-                    <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm, false, 'decimal') || ''}</td>
-                  </tr>
-                </tbody>
-              </table>
+              <!-- Outer Enclosed Border Container for Table, Remarks, and Signature -->
+              <div style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
+                <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
+                  <thead>
+                    <tr>
+                      <th style="width: 20%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">SHIPPING MARK</th>
+                      <th style="width: 35%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">QUANTITY</th>
+                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">C/T</th>
+                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">NET WEIGHT (kg)</th>
+                      <th style="width: 8%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">GROSS WEIGHT (kg)</th>
+                      <th style="width: 7%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">CBM (M3)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${packingRowsHtml}
+                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
+                      <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                          <span>GRAND TOTAL</span>
+                          <span style="flex-grow: 1; text-align: right;">${plTotalQtyText || formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
+                        </div>
+                      </td>
+                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty, false, 'quantity') || ''}</td>
+                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight, false, 'decimal') || ''}</td>
+                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight, false, 'decimal') || ''}</td>
+                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm, false, 'decimal') || ''}</td>
+                    </tr>
+                  </tbody>
+                </table>
 
-              ${formData.showPlExtraRemarks !== false ? `<div style="margin-top: 15px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 8px 0; white-space: pre-wrap;">${formData.plExtraRemarks || ''}</div>` : ''}
-              
-              ${formData.showPlRemarks !== false ? `<div style="margin-top: 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks || ''}</div>` : ''}
+                ${formData.showPlExtraRemarks !== false ? `<div style="margin-top: 10px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 6px 8px; white-space: pre-wrap;">${formData.plExtraRemarks || ''}</div>` : ''}
+                
+                ${formData.showPlRemarks !== false ? `<div style="margin-top: 6px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks || ''}</div>` : ''}
 
-              <div style="margin-top: auto; padding-top: 10px;">
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%; border-top: 1px solid black; padding-top: 10px;">
-                  <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
-                    <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
-                    <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
-                  </div>
-                  
-                  <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
-                    <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
-                    <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                      <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
-                        ${formData.signedTitle || ''}
+                <div style="margin-top: auto; border-top: 1px solid black; padding: 8px;">
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                    <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                      <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                      <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                    </div>
+                    
+                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
+                      <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
+                      <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                        <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
+                          ${formData.signedTitle || ''}
+                        </div>
+                        <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                       </div>
-                      <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                     </div>
                   </div>
                 </div>
@@ -1701,7 +1837,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const hRowIdx = 22;
       sheet.getRow(hRowIdx).height = 35;
       const headers = isPL 
-        ? ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", "C/T Q'TY", "NET WEI (kg)", "GROSS WEI (kg)", "CBM (M3)"]
+        ? ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", "C/T", "NET WEI (kg)", "GROSS WEI (kg)", "CBM (M3)"]
         : ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", `PROC (${formData.currencySymbol})`, `PROC AMT (${formData.currencySymbol})`, `PRICE (${formData.currencySymbol})`, `AMOUNT (${formData.currencySymbol})`];
 
       headers.forEach((h, i) => {
@@ -1712,7 +1848,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
       // 4. Data Rows
       let currentRowIdx = hRowIdx + 1;
-      (formData.rows || []).forEach(row => {
+      const targetRows = isPL ? (formData.packingRows || formData.rows || []) : (formData.rows || []);
+      targetRows.forEach(row => {
         const r = sheet.getRow(currentRowIdx);
         r.height = 20;
         
@@ -1785,7 +1922,21 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       gtRow.getCell(2).value = "GRAND TOTAL";
       applyStyle(gtRow.getCell(2), { bold: true, size: 10, align: 'left', border: false });
       
-      gtRow.getCell(3).value = formData.totalQuantityBreakdown || formatNumber(formData.totalQuantity, false, 'quantity');
+      let plTotalQuantityBreakdown = '';
+      if (isPL) {
+        const plUnits: { [unit: string]: number } = {};
+        targetRows.filter(r => r.type === 'ITEM').forEach(r => {
+          const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+          const u = (r.unit || 'PCS').toUpperCase();
+          plUnits[u] = (plUnits[u] || 0) + q;
+        });
+        const entries = Object.entries(plUnits).filter(([_, val]) => val > 0);
+        if (entries.length > 0) {
+          plTotalQuantityBreakdown = entries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
+        }
+      }
+
+      gtRow.getCell(3).value = (isPL && plTotalQuantityBreakdown) ? plTotalQuantityBreakdown : (formData.totalQuantityBreakdown || formatNumber(formData.totalQuantity, false, 'quantity'));
       gtRow.getCell(3).alignment = { horizontal: 'right', vertical: 'middle', wrapText: true };
       gtRow.getCell(3).font = { bold: true };
       
@@ -1797,7 +1948,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           applyStyle(gtRow.getCell(cNum), { bold: true, align: 'right', border: false });
         });
       } else {
-        gtRow.getCell(5).value = formatNumber(formData.totalProcAmount);
+        gtRow.getCell(5).value = (parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : '';
         applyStyle(gtRow.getCell(5), { bold: true, align: 'right', border: false });
         gtRow.getCell(7).value = `${formData.currencySymbol}${formatNumber(formData.totalAmount)}`;
         applyStyle(gtRow.getCell(7), { bold: true, align: 'right', border: false });
@@ -2933,11 +3084,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       onChange={(e) => {
                         const newType = e.target.value;
                         setFormData(prev => {
-                          const newRows = [...(prev.rows || [])];
-                          if (newType && newRows[0]?.pkgNo === 'ADDRESS') {
-                            newRows[0] = { ...newRows[0], pkgNo: '' };
+                          const newPackingRows = [...(prev.packingRows || prev.rows || [])];
+                          if (newType && newPackingRows[0]?.pkgNo === 'ADDRESS') {
+                            newPackingRows[0] = { ...newPackingRows[0], pkgNo: '' };
                           }
-                          return { ...prev, shippingMarkType: newType, rows: newRows };
+                          return { ...prev, shippingMarkType: newType, packingRows: newPackingRows };
                         });
                       }}
                     >
@@ -2949,14 +3100,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </th>
                 <th className="border border-black p-2 text-[10.5px] font-black">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-32">QUANTITY</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-20">C/T Q'TY</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-20">C/T</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">NET WEIGHT (kg)</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">GROSS WEIGHT (kg)</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-24">CBM (M3)</th>
               </tr>
             </thead>
             <tbody>
-              {(formData.rows || []).map((row, idx) => {
+              {(formData.packingRows || formData.rows || []).map((row, idx) => {
                 const isFirstRow = idx === 0;
                 const hasMark = !!formData.shippingMarkType;
                 const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
@@ -2986,30 +3137,30 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <>
                         <td colSpan={3} className={`border border-black border-t-2 p-1 font-black text-[10.5px] align-middle text-left`}>
                           <div className="flex items-center justify-between w-full">
-                            <input className={`invoice-table-input invoice-input font-black text-left w-24 ${getEditedColor('description', row.id)}`} value={row.description || 'TOTAL'} onChange={(e) => handleRowChange(row.id, 'description', e.target.value)} />
+                            <input className={`invoice-table-input invoice-input font-black text-left w-24 ${getEditedColor('description', row.id, true)}`} value={row.description || 'TOTAL'} onChange={(e) => handlePackingRowChange(row.id, 'description', e.target.value)} />
                             <div className="flex items-center justify-end gap-1 flex-grow">
                               {row.unitBreakdown ? (
                                 <div className="text-right font-black whitespace-nowrap leading-tight">{row.unitBreakdown}</div>
                               ) : (
                                 <>
-                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id)}`} value={formatNumber(row.quantity, true, 'quantity') || ''} onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)} />
-                                  <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
+                                  <input className={`invoice-table-input invoice-input text-right font-black flex-grow ${getEditedColor('quantity', row.id, true)}`} value={formatNumber(row.quantity, true, 'quantity') || ''} onChange={(e) => handlePackingRowChange(row.id, 'quantity', e.target.value)} />
+                                  <span className={`${getEditedColor('unit', row.id, true)}`}>{row.unit}</span>
                                 </>
                               )}
                             </div>
                           </div>
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true, 'quantity') || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProc', row.id, true)}`} value={formatNumber(row.plProc, true, 'quantity') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plProc', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plProcAmount', row.id, true)}`} value={formatNumber(row.plProcAmount, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plProcAmount', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plPrice', row.id, true)}`} value={formatNumber(row.plPrice, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plPrice', e.target.value)} />
                         </td>
                         <td className="border border-black border-t-2 p-1 text-right font-black text-[10.5px] align-middle">
-                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} />
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plAmount', row.id, true)}`} value={formatNumber(row.plAmount, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plAmount', e.target.value)} />
                         </td>
                       </>
                     ) : (
@@ -3020,11 +3171,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                             rowSpan={(isFirstRow && hasMark) ? 3 : 1}
                           >
                             <textarea 
-                              className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('plPkgNo', row.id)}`} 
+                              className={`invoice-table-input invoice-textarea text-center focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('plPkgNo', row.id, true)}`} 
                               style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
-                              value={row.plPkgNo !== undefined ? row.plPkgNo : ''} 
-                              onChange={(e) => handleRowChange(row.id, 'plPkgNo', e.target.value)}
+                              value={row.plPkgNo !== undefined ? row.plPkgNo : (row.pkgNo !== undefined ? row.pkgNo : '')} 
+                              onChange={(e) => handlePackingRowChange(row.id, 'plPkgNo', e.target.value)}
                               onKeyDown={(e) => handleKeyDown(e, row.id, 'plPkgNo')}
+                              onPaste={(e) => handlePackingPaste(e, row.id, 'plPkgNo')}
                               onInput={(e) => {
                                 const target = e.target as HTMLTextAreaElement;
                                 target.style.height = 'auto';
@@ -3035,12 +3187,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         )}
                         <td className="border border-black p-1 text-[10.5px] align-middle">
                         <textarea 
-                          className={`invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('description', row.id)}`} 
+                          className={`invoice-table-input invoice-textarea focus:bg-sky-100 overflow-hidden resize-none p-0 ${getEditedColor('description', row.id, true)}`} 
                           style={{ fontSize: `${row.fontSize}px`, fontWeight: row.isBold ? 'bold' : 'normal' }}
                           value={row.description} 
-                          onChange={(e) => handleRowChange(row.id, 'description', e.target.value)}
+                          onChange={(e) => handlePackingRowChange(row.id, 'description', e.target.value)}
                           onKeyDown={(e) => handleKeyDown(e, row.id, 'description')}
-                          onFocus={() => setSelectedRowId(row.id)}
+                          onFocus={() => setSelectedPackingRowId(row.id)}
+                          onPaste={(e) => handlePackingPaste(e, row.id, 'description')}
                           onInput={(e) => {
                             const target = e.target as HTMLTextAreaElement;
                             target.style.height = 'auto';
@@ -3051,32 +3204,33 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
                         <div className="flex items-center justify-end min-h-[22px] w-full">
                           <input 
-                            className={`invoice-table-input invoice-input text-right flex-grow ${getEditedColor('quantity', row.id)}`} 
+                            className={`invoice-table-input invoice-input text-right flex-grow ${getEditedColor('quantity', row.id, true)}`} 
                             value={formatNumber(row.quantity, true, 'quantity') || ''} 
-                            onChange={(e) => handleRowChange(row.id, 'quantity', e.target.value)}
+                            onChange={(e) => handlePackingRowChange(row.id, 'quantity', e.target.value)}
                             onKeyDown={(e) => handleKeyDown(e, row.id, 'quantity')} 
-                            onFocus={() => setSelectedRowId(row.id)}
-                          /> <span className={`${getEditedColor('unit', row.id)}`}>{row.unit}</span>
+                            onFocus={() => setSelectedPackingRowId(row.id)}
+                            onPaste={(e) => handlePackingPaste(e, row.id, 'quantity')}
+                          /> <span className={`${getEditedColor('unit', row.id, true)}`}>{row.unit}</span>
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id)}`} value={formatNumber(row.plProc, true, 'quantity') || ''} onChange={(e) => handleRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProc', row.id, true)}`} value={formatNumber(row.plProc, true, 'quantity') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plProc', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProc')} onPaste={(e) => handlePackingPaste(e, row.id, 'plProc')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id)}`} value={formatNumber(row.plProcAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plProcAmount', row.id, true)}`} value={formatNumber(row.plProcAmount, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plProcAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plProcAmount')} onPaste={(e) => handlePackingPaste(e, row.id, 'plProcAmount')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id)}`} value={formatNumber(row.plPrice, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plPrice', row.id, true)}`} value={formatNumber(row.plPrice, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plPrice', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plPrice')} onPaste={(e) => handlePackingPaste(e, row.id, 'plPrice')} />
                         </div>
                       </td>
                       <td className="border border-black p-1 text-right text-[10.5px] font-bold align-middle">
                         <div className="flex items-center justify-end min-h-[22px]">
-                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id)}`} value={formatNumber(row.plAmount, true, 'decimal') || ''} onChange={(e) => handleRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} />
+                          <input className={`invoice-table-input invoice-input text-right ${getEditedColor('plAmount', row.id, true)}`} value={formatNumber(row.plAmount, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange(row.id, 'plAmount', e.target.value)} onKeyDown={(e) => handleKeyDown(e, row.id, 'plAmount')} onPaste={(e) => handlePackingPaste(e, row.id, 'plAmount')} />
                         </div>
                       </td>
                     </>
@@ -3087,45 +3241,58 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <td colSpan={3} className={`border border-black p-1 font-black text-[10.5px] align-middle text-left`}>
                   <div className="flex items-center justify-between w-full">
                     <span>GRAND TOTAL</span>
-                    {formData.totalQuantityBreakdown ? (
-                      <div className="text-right font-black whitespace-nowrap leading-tight">{formData.totalQuantityBreakdown}</div>
-                    ) : (
-                      <div className="flex items-center justify-end min-h-[22px]">
-                        <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity')}`} value={formatNumber(formData.totalQuantity, true, 'quantity') || ''} onChange={(e) => handleRowChange('', 'totalQuantity' as any, e.target.value)} />
-                      </div>
-                    )}
+                    {(() => {
+                      const plRows = formData.packingRows || formData.rows || [];
+                      const plUnits: { [unit: string]: number } = {};
+                      let plTotalSum = 0;
+                      plRows.filter(r => r.type === 'ITEM').forEach(r => {
+                        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
+                        plTotalSum += q;
+                        const u = (r.unit || 'PCS').toUpperCase();
+                        plUnits[u] = (plUnits[u] || 0) + q;
+                      });
+                      const entries = Object.entries(plUnits).filter(([_, val]) => val > 0);
+                      const breakdown = entries.length > 0 ? entries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ') : '';
+                      return breakdown ? (
+                        <div className="text-right font-black whitespace-nowrap leading-tight">{breakdown}</div>
+                      ) : (
+                        <div className="flex items-center justify-end min-h-[22px]">
+                          <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('totalQuantity', undefined, true)}`} value={formatNumber(plTotalSum > 0 ? plTotalSum : formData.totalQuantity, true, 'quantity') || ''} readOnly />
+                        </div>
+                      );
+                    })()}
                   </div>
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty')}`} value={formatNumber(formData.plTotalCtQty, true, 'quantity') || ''} onChange={(e) => handleRowChange('', 'plTotalCtQty' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCtQty', undefined, true)}`} value={formatNumber(formData.plTotalCtQty, true, 'quantity') || ''} onChange={(e) => handlePackingRowChange('', 'plTotalCtQty' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight')}`} value={formatNumber(formData.plTotalNetWeight, true, 'decimal') || ''} onChange={(e) => handleRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalNetWeight', undefined, true)}`} value={formatNumber(formData.plTotalNetWeight, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange('', 'plTotalNetWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight')}`} value={formatNumber(formData.plTotalGrossWeight, true, 'decimal') || ''} onChange={(e) => handleRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalGrossWeight', undefined, true)}`} value={formatNumber(formData.plTotalGrossWeight, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange('', 'plTotalGrossWeight' as any, e.target.value)} />
                 </td>
                 <td className="border border-black p-1 text-right font-black text-[10.5px] bg-slate-100 align-middle">
-                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm')}`} value={formatNumber(formData.plTotalCbm, true, 'decimal') || ''} onChange={(e) => handleRowChange('', 'plTotalCbm' as any, e.target.value)} />
+                  <input className={`invoice-table-input invoice-input text-right font-black ${getEditedColor('plTotalCbm', undefined, true)}`} value={formatNumber(formData.plTotalCbm, true, 'decimal') || ''} onChange={(e) => handlePackingRowChange('', 'plTotalCbm' as any, e.target.value)} />
                 </td>
               </tr>
             </tbody>
           </table>
           <div className="flex gap-4 mt-2 no-print">
-            <button onClick={() => handleAddRow('ITEM')} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
+            <button onClick={() => handleAddPackingRow('ITEM')} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
               품목 추가
             </button>
-            <button onClick={() => handleAddRow('HEADER')} className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1">
+            <button onClick={() => handleAddPackingRow('HEADER')} className="text-xs font-bold text-emerald-600 hover:underline flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
               구분(Header) 추가
             </button>
-            <button onClick={() => handleAddRow('TOTAL')} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1">
+            <button onClick={() => handleAddPackingRow('TOTAL')} className="text-xs font-bold text-amber-600 hover:underline flex items-center gap-1">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
               소계(Total) 추가
             </button>
-            {selectedRowId && (
-              <button onClick={() => handleRemoveRow(selectedRowId)} className="text-xs font-bold text-rose-600 hover:underline flex items-center gap-1">
+            {selectedPackingRowId && (
+              <button onClick={() => handleRemovePackingRow(selectedPackingRowId)} className="text-xs font-bold text-rose-600 hover:underline flex items-center gap-1">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M20 12H4" /></svg>
                 행 삭제 (-)
               </button>

@@ -369,6 +369,7 @@ export interface NationalInvoiceItem {
   
   // Table
   rows: NationalInvoiceRow[];
+  packingRows?: NationalInvoiceRow[];
   totalQuantity: string;
   totalQuantityBreakdown?: string;
   totalAmount: string;
