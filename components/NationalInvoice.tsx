@@ -109,7 +109,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       showRemarks: true,
       showPlRemarks: true,
       showPlExtraRemarks: true,
-      shippingMarkType: ''
+      shippingMarkType: '',
+      packingPackageType: 'CTN'
     };
   };
 
@@ -174,6 +175,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         if (item && formData.id !== editId) {
           const loadedItem: NationalInvoiceItem = {
             ...item,
+            packingPackageType: item.packingPackageType || 'CTN',
             packingRows: item.packingRows && item.packingRows.length > 0 
               ? JSON.parse(JSON.stringify(item.packingRows)) 
               : JSON.parse(JSON.stringify(item.rows || []))
@@ -1636,7 +1638,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <th style="width: 20%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">SHIPPING MARK</th>
                       <th style="width: 35%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
                       <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">QUANTITY</th>
-                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">C/T</th>
+                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">${formData.packingPackageType || 'CTN'}</th>
                       <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">NET WEIGHT (kg)</th>
                       <th style="width: 8%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">GROSS WEIGHT (kg)</th>
                       <th style="width: 7%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">CBM (M3)</th>
@@ -1836,8 +1838,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       // 3. Table Header
       const hRowIdx = 22;
       sheet.getRow(hRowIdx).height = 35;
+      const pkgType = formData.packingPackageType || 'CTN';
       const headers = isPL 
-        ? ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", "C/T", "NET WEI (kg)", "GROSS WEI (kg)", "CBM (M3)"]
+        ? ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", pkgType, "NET WEI (kg)", "GROSS WEI (kg)", "CBM (M3)"]
         : ["SHIPPING MARK", "NO. & KINDS OF PKGS; GOODS DESCRIPTION", "QUANTITY", `PROC (${formData.currencySymbol})`, `PROC AMT (${formData.currencySymbol})`, `PRICE (${formData.currencySymbol})`, `AMOUNT (${formData.currencySymbol})`];
 
       headers.forEach((h, i) => {
@@ -3100,7 +3103,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </th>
                 <th className="border border-black p-2 text-[10.5px] font-black">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-32">QUANTITY</th>
-                <th className="border border-black p-2 text-[10.5px] font-black w-20">C/T</th>
+                <th className="border border-black p-2 text-[10.5px] font-black w-24 relative">
+                  <div className="flex flex-col items-center gap-1">
+                    <span>{formData.packingPackageType || 'CTN'}</span>
+                    <select 
+                      className="text-[8px] bg-white border border-slate-200 rounded px-1 no-print font-normal w-full text-center"
+                      value={formData.packingPackageType || 'CTN'}
+                      onChange={(e) => setFormData(prev => ({ ...prev, packingPackageType: e.target.value as 'CTN' | 'PLT' }))}
+                    >
+                      <option value="CTN">CTN</option>
+                      <option value="PLT">PLT</option>
+                    </select>
+                  </div>
+                </th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">NET WEIGHT (kg)</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-20">GROSS WEIGHT (kg)</th>
                 <th className="border border-black p-2 text-[10.5px] font-black w-24">CBM (M3)</th>
