@@ -1254,8 +1254,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     <head>
       <title>${filename}</title>
       <style>
-        /* 1. 굵기 데이터(700, 900)를 명시적으로 모두 호출 */
-        @import url('https://fonts.googleapis.com/css2?family=Great+Vibes&family=Inter:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
+        /* 1. 굵기 데이터(700, 900) 및 필기체 폰트 명시적 호출 */
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Great+Vibes&family=Inter:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
         
         @page { 
           size: A4 portrait; 
@@ -1371,7 +1371,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         table { width: 100%; border-collapse: collapse; margin-top: 10px; border: none; }
         
         .signature-box { border: 1px solid black; padding: 10px; width: 280px; }
-        .signature-font { font-family: 'Brush Script Std', cursive; font-size: 12px; color: #000; }
+        .signature-font { font-family: 'Brush Script MT', 'Dancing Script', 'Brush Script Std', cursive; font-size: 15px; color: #000; }
         .footer-info { font-size: 11px; font-weight: bold; color: #000; }
         .clear { clear: both; }
 
@@ -1398,13 +1398,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             const plTotal = Math.ceil(pl.scrollHeight / 1050); 
             pl.querySelectorAll('.page-total').forEach(function(el) { el.textContent = plTotal; });
           }
-          
-          setTimeout(function() {
-            window.print();
-          }, 250);
-        });
-        window.addEventListener('afterprint', function() {
-          window.close();
         });
       </script>
           </head>
