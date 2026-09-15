@@ -482,12 +482,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   };
 
   const handleAddRow = (type: 'ITEM' | 'HEADER' | 'TOTAL' = 'ITEM', index?: number) => {
+    const newId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
     const newRow: NationalInvoiceRow = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+      id: newId,
       type,
       description: type === 'TOTAL' ? 'TOTAL' : '',
       pkgNo: type === 'HEADER' ? 'ADDRESS' : '',
-      plPkgNo: '',
+      plPkgNo: type === 'HEADER' ? 'ADDRESS' : '',
       quantity: '',
       unit: type === 'ITEM' ? 'PCS' : (type === 'TOTAL' ? 'UNIT' : ''),
       proc: '',
@@ -516,8 +517,31 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       } else {
         rows.push(newRow);
       }
-      const recalculated = recalculateInvoiceTotals(rows);
-      return { ...prev, ...recalculated };
+
+      // 인보이스에 행 추가 시 패킹리스트에도 동일한 위치에 신규 행 자동 추가
+      const pRows = [...(prev.packingRows || prev.rows || [])];
+      let pInsertIndex = index;
+      if (pInsertIndex === undefined && selectedRowId) {
+        pInsertIndex = pRows.findIndex(r => r.id === selectedRowId);
+      }
+      const newPackingRow: NationalInvoiceRow = {
+        ...newRow,
+        plPkgNo: newRow.pkgNo || ''
+      };
+      if (pInsertIndex !== undefined && pInsertIndex !== -1) {
+        pRows.splice(pInsertIndex + 1, 0, newPackingRow);
+      } else {
+        pRows.push(newPackingRow);
+      }
+
+      const recalculatedInvoice = recalculateInvoiceTotals(rows);
+      const recalculatedPacking = recalculatePackingTotals(pRows);
+
+      return { 
+        ...prev, 
+        ...recalculatedInvoice,
+        ...recalculatedPacking
+      };
     });
     setSelectedRowId(newRow.id);
   };
@@ -525,8 +549,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const handleRemoveRow = (id: string) => {
     setFormData(prev => {
       const rows = (prev.rows || []).filter(r => r.id !== id);
-      const recalculated = recalculateInvoiceTotals(rows);
-      return { ...prev, ...recalculated };
+      // 인보이스에서 행 삭제 시 패킹리스트에서도 해당 행 자동 삭제
+      const pRows = (prev.packingRows || prev.rows || []).filter(r => r.id !== id);
+      const recalculatedInvoice = recalculateInvoiceTotals(rows);
+      const recalculatedPacking = recalculatePackingTotals(pRows);
+      return { 
+        ...prev, 
+        ...recalculatedInvoice,
+        ...recalculatedPacking 
+      };
     });
   };
 
@@ -540,6 +571,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         return { ...prev, [field]: val };
       }
 
+      let updatedRowItem: NationalInvoiceRow | null = null;
       let newRows = (prev.rows || []).map(r => {
         if (r.id === id) {
           let val = value;
@@ -562,15 +594,42 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               updated.procAmount = (q * pr).toFixed(2);
             }
           }
+          updatedRowItem = updated;
           return updated;
         }
         return r;
       });
 
-      const recalculated = recalculateInvoiceTotals(newRows);
+      // 인보이스 항목 변경 시 패킹리스트의 해당 행(ADDRESS, Description, Quantity, Unit, Header) 자동 동기화
+      // 단, 패킹리스트 고유 데이터(CTN, 무게, CBM)는 그대로 보존됨
+      let pRows = [...(prev.packingRows || prev.rows || [])];
+      if (updatedRowItem) {
+        const target = updatedRowItem as NationalInvoiceRow;
+        const pIdx = pRows.findIndex(pr => pr.id === id);
+        if (pIdx !== -1) {
+          const currentP = pRows[pIdx];
+          pRows[pIdx] = {
+            ...currentP,
+            description: target.description,
+            quantity: target.quantity,
+            unit: target.unit,
+            headerLeft: target.headerLeft,
+            headerRight: target.headerRight,
+            type: target.type,
+            fontSize: target.fontSize,
+            isBold: target.isBold,
+            plPkgNo: (field === 'pkgNo') ? (target.pkgNo || '') : (currentP.plPkgNo !== undefined ? currentP.plPkgNo : target.pkgNo || ''),
+            pkgNo: target.pkgNo
+          };
+        }
+      }
+
+      const recalculatedInvoice = recalculateInvoiceTotals(newRows);
+      const recalculatedPacking = recalculatePackingTotals(pRows);
       return {
         ...prev,
-        ...recalculated
+        ...recalculatedInvoice,
+        ...recalculatedPacking
       };
     });
   };
@@ -589,6 +648,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
     setFormData(prev => {
       const rows = [...(prev.rows || [])];
+      let pRows = [...(prev.packingRows || prev.rows || [])];
       let startIdx = rows.findIndex(r => r.id === rowId);
       if (startIdx === -1) return prev;
 
@@ -597,21 +657,28 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         const columns = line.split('\t');
         
         if (currentPtr >= rows.length || rows[currentPtr].type !== 'ITEM') {
+          const newId = Date.now().toString() + Math.random().toString(36).substr(2, 5);
           const newRow: NationalInvoiceRow = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
+            id: newId,
             type: 'ITEM',
             description: '',
             pkgNo: '',
+            plPkgNo: '',
             quantity: '',
             unit: 'PCS',
             proc: '',
             procAmount: '',
             price: '',
             amount: '',
+            plProc: '',
+            plProcAmount: '',
+            plPrice: '',
+            plAmount: '',
             fontSize: 10.5,
             isBold: false
           };
           rows.splice(currentPtr, 0, newRow);
+          pRows.splice(currentPtr, 0, { ...newRow });
         }
 
         const row = { ...rows[currentPtr] };
@@ -636,11 +703,67 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         row.procAmount = (q * pr).toFixed(2);
         
         rows[currentPtr] = row;
+
+        // 패킹리스트 행에도 동기화
+        const pIdx = pRows.findIndex(pr => pr.id === row.id);
+        if (pIdx !== -1) {
+          pRows[pIdx] = {
+            ...pRows[pIdx],
+            description: row.description,
+            quantity: row.quantity,
+            unit: row.unit,
+            plPkgNo: row.pkgNo || pRows[pIdx].plPkgNo || '',
+            pkgNo: row.pkgNo
+          };
+        } else {
+          pRows.splice(currentPtr, 0, {
+            ...row,
+            plPkgNo: row.pkgNo || '',
+            plProc: '',
+            plProcAmount: '',
+            plPrice: '',
+            plAmount: ''
+          });
+        }
+
         currentPtr++;
       });
 
-      const recalculated = recalculateInvoiceTotals(rows);
-      return { ...prev, ...recalculated };
+      const recalculatedInvoice = recalculateInvoiceTotals(rows);
+      const recalculatedPacking = recalculatePackingTotals(pRows);
+      return { 
+        ...prev, 
+        ...recalculatedInvoice,
+        ...recalculatedPacking 
+      };
+    });
+  };
+
+  const handleSyncPackingFromInvoice = () => {
+    if (!window.confirm('인보이스에 작성된 내용(ADDRESS, 상품명, 수량)으로 패킹리스트를 동기화하시겠습니까? (패킹리스트의 기존 행 구성이 인보이스와 동일하게 정렬됩니다)')) {
+      return;
+    }
+    setFormData(prev => {
+      const invoiceRows = prev.rows || [];
+      const currentPRows = prev.packingRows || [];
+      
+      const newPRows: NationalInvoiceRow[] = invoiceRows.map(invRow => {
+        const existingP = currentPRows.find(p => p.id === invRow.id);
+        return {
+          ...invRow,
+          plPkgNo: existingP?.plPkgNo !== undefined ? existingP.plPkgNo : (invRow.pkgNo || ''),
+          plProc: existingP?.plProc || '',
+          plProcAmount: existingP?.plProcAmount || '',
+          plPrice: existingP?.plPrice || '',
+          plAmount: existingP?.plAmount || ''
+        };
+      });
+
+      const recalculated = recalculatePackingTotals(newPRows);
+      return {
+        ...prev,
+        ...recalculated
+      };
     });
   };
 
@@ -785,23 +908,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       });
 
       const recalculated = recalculatePackingTotals(pRows);
-      return {
-        ...prev,
-        ...recalculated
-      };
-    });
-  };
-
-  const handleSyncPackingFromInvoice = () => {
-    if (!confirm('인보이스의 품목과 수량을 패킹리스트로 복사하시겠습니까? 기존 패킹리스트의 내용이 인보이스 기준으로 갱신됩니다.')) return;
-    setFormData(prev => {
-      const sourceRows = prev.rows || [];
-      const clonedRows = JSON.parse(JSON.stringify(sourceRows)).map((r: NationalInvoiceRow) => ({
-        ...r,
-        id: Date.now().toString() + Math.random().toString(36).substr(2, 5),
-        plPkgNo: r.pkgNo || '',
-      }));
-      const recalculated = recalculatePackingTotals(clonedRows);
       return {
         ...prev,
         ...recalculated
@@ -2937,8 +3043,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
         {/* PACKING LIST SECTION */}
         <div className="mt-20 pt-20 border-t-4 border-double border-slate-300 flex flex-col min-h-[1123px]">
-          <div className="text-center mb-8">
+          <div className="text-center mb-8 relative">
             <h2 className="text-5xl font-black underline tracking-widest">PACKING LIST</h2>
+            <div className="absolute right-0 top-1/2 -translate-y-1/2 no-print">
+              <button 
+                onClick={handleSyncPackingFromInvoice} 
+                className="text-[11px] font-bold text-slate-700 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 border border-slate-300 hover:border-blue-300 px-3 py-1.5 rounded transition-all shadow-sm flex items-center gap-1.5"
+                title="인보이스에 작성된 품목 및 수량 데이터로 패킹리스트를 동기화합니다"
+              >
+                🔄 인보이스 데이터로 동기화
+              </button>
+            </div>
           </div>
 
           <div className="invoice-grid">
