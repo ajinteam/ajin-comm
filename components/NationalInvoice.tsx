@@ -1016,6 +1016,71 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     setFormData(prev => ({ ...prev, currency: curr, currencySymbol: symbols[curr] }));
   };
 
+  const getUserInitials = (userIdOrInitials: string | undefined): string => {
+    if (!userIdOrInitials) return '작성자';
+    const trimmed = userIdOrInitials.trim();
+    
+    try {
+      const saved = localStorage.getItem('ajin_accounts');
+      if (saved) {
+        const accounts: UserAccount[] = JSON.parse(saved);
+        const found = accounts.find(
+          a => (a.id && a.id.toUpperCase() === trimmed.toUpperCase()) ||
+               (a.loginId && a.loginId.toUpperCase() === trimmed.toUpperCase()) ||
+               (a.initials && a.initials.toUpperCase() === trimmed.toUpperCase())
+        );
+        if (found && found.initials) return found.initials;
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    if (currentUser) {
+      if ((currentUser.id && currentUser.id.toUpperCase() === trimmed.toUpperCase()) ||
+          (currentUser.loginId && currentUser.loginId.toUpperCase() === trimmed.toUpperCase())) {
+        return currentUser.initials || currentUser.loginId;
+      }
+    }
+
+    if (trimmed.toUpperCase() === 'AJ5200' || trimmed.toUpperCase().includes('MASTER')) {
+      return 'MASTER';
+    }
+
+    if (trimmed.length <= 6) {
+      return trimmed.toUpperCase();
+    }
+
+    return trimmed;
+  };
+
+  const getAddressModelSummary = (item: NationalInvoiceItem): string => {
+    if (!item) return '';
+    // 1. HEADER row with headerLeft
+    const headerRow = (item.rows || []).find(r => r.type === 'HEADER' && r.headerLeft && r.headerLeft.trim() !== '');
+    if (headerRow && headerRow.headerLeft) {
+      return headerRow.headerLeft.trim();
+    }
+    // 2. Row with pkgNo containing 'ADDRESS'
+    const addressRow = (item.rows || []).find(r => (r.pkgNo || '').toUpperCase().includes('ADDRESS'));
+    if (addressRow) {
+      if (addressRow.headerLeft && addressRow.headerLeft.trim()) return addressRow.headerLeft.trim();
+      if (addressRow.description && addressRow.description.trim()) return addressRow.description.trim();
+    }
+    // 3. deliveryTerms first line
+    if (item.deliveryTerms && item.deliveryTerms.trim()) {
+      const firstLine = item.deliveryTerms.split('\n')[0].trim();
+      if (firstLine && !firstLine.toUpperCase().includes('COMMERCIAL VALUE')) {
+        return firstLine;
+      }
+    }
+    // 4. First item description
+    const firstItem = (item.rows || []).find(r => r.type === 'ITEM' && r.description && r.description.trim() !== '');
+    if (firstItem && firstItem.description) {
+      return firstItem.description.trim();
+    }
+    return '';
+  };
+
   const handleSave = async (status: NationalInvoiceSubCategory) => {
     const isUpdate = !!formData.id;
     const isCompleting = status === NationalInvoiceSubCategory.COMPLETED;
@@ -1025,7 +1090,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       ...(formData as NationalInvoiceItem),
       id: isUpdate ? formData.id! : `ni-${Date.now()}`,
       status,
-      authorId: currentUser.id,
+      authorId: formData.authorId || currentUser.id,
+      authorInitials: formData.authorInitials || currentUser.initials,
       createdAt: isUpdate ? formData.createdAt! : new Date().toISOString(),
       ...(isCompleting && !wasAlreadyCompleted ? {
         completedByInitials: currentUser.initials,
@@ -2101,8 +2167,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const matchConsignee = (item.consigneeName || '').toLowerCase().includes(term);
       const matchInvoiceNo = (item.invoiceNo || '').toLowerCase().includes(term);
       const matchItems = (item.rows || []).some(row => (row.description || '').toLowerCase().includes(term));
+      const matchAddress = getAddressModelSummary(item).toLowerCase().includes(term);
       
-      return matchConsignee || matchInvoiceNo || matchItems;
+      return matchConsignee || matchInvoiceNo || matchItems || matchAddress;
     }).sort((a, b) => {
       const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
       const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
@@ -2157,136 +2224,171 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           </div>
         ) : viewMode === 'ICON' ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {paginatedItems.map(item => (
-              <div key={item.id} className="relative group">
-                <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden h-full" onClick={() => {
-                  setView({ type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory.CREATE, editId: item.id });
-                }}>
-                  <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50/50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150" />
-                  
-                  <div className="relative">
-                    <div className="flex justify-between items-start mb-6">
-                      <div className="flex flex-col">
-                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest w-fit mb-1">{item.invoiceNo || 'NO-NUMBER'}</span>
-                        <span className="text-[10px] font-bold text-slate-400 ml-1">{new Date(item.createdAt).toLocaleDateString()}</span>
+            {paginatedItems.map(item => {
+              const addressSummary = getAddressModelSummary(item);
+              const authorInitials = getUserInitials(item.authorInitials || item.authorId);
+              const finalModifier = item.modifiedByInitials || item.completedByInitials;
+
+              return (
+                <div key={item.id} className="relative group">
+                  <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden h-full flex flex-col justify-between" onClick={() => {
+                    setView({ type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory.CREATE, editId: item.id });
+                  }}>
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50/50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150" />
+                    
+                    <div className="relative">
+                      <div className="flex justify-between items-start mb-5">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest w-fit mb-1">{item.invoiceNo || 'NO-NUMBER'}</span>
+                          <span className="text-[10px] font-bold text-slate-400 ml-1">{new Date(item.createdAt).toLocaleDateString()}</span>
+                        </div>
+                        <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </div>
                       </div>
-                      <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
+
+                      <h3 className="text-lg font-black text-slate-900 mb-1 truncate group-hover:text-blue-600 transition-colors">{item.consigneeName}</h3>
+                      <p className="text-xs font-bold text-slate-500 mb-3 truncate leading-relaxed">{item.shipperName}</p>
+                      
+                      {/* ADDRESS (모델명) 정보 표시 영역 - 요청 사각 영역 */}
+                      <div className="mb-5 bg-slate-50/90 border border-slate-200/90 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-xs">
+                        <span className="text-[9px] font-black text-blue-700 bg-blue-100/90 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                          ADDRESS
+                        </span>
+                        <span className="text-xs font-bold text-slate-800 truncate" title={addressSummary || '미입력'}>
+                          {addressSummary || <span className="text-slate-400 font-normal italic">미입력</span>}
+                        </span>
                       </div>
                     </div>
 
-                    <h3 className="text-lg font-black text-slate-900 mb-2 truncate group-hover:text-blue-600 transition-colors">{item.consigneeName}</h3>
-                    <p className="text-xs font-bold text-slate-500 mb-6 line-clamp-2 leading-relaxed h-8">{item.shipperName}</p>
-                    
-                    <div className="flex justify-between items-end pt-5 border-t border-slate-100">
+                    <div className="flex justify-between items-end pt-4 border-t border-slate-100 mt-2">
                       <div className="flex flex-col">
                         <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Total Amount</span>
                         <span className="text-xl font-black text-slate-900 tracking-tight">{item.currencySymbol}{formatNumber(item.totalAmount)}</span>
                       </div>
-                      <div className="flex flex-col items-end">
-                        <div className="flex items-center gap-1.5 mb-1">
-                          <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center border border-slate-200">
-                            <span className="text-[8px] font-black text-slate-500">{item.authorId.slice(0, 2)}</span>
+                      
+                      {/* 작성자 및 최종 수정자 이니셜 표시 영역 */}
+                      <div className="flex flex-col items-end gap-1">
+                        <div className="flex items-center gap-1.5" title={`작성자: ${authorInitials}`}>
+                          <span className="text-[9px] font-bold text-slate-400">작성</span>
+                          <div className="w-5 h-5 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200">
+                            <span className="text-[8px] font-black">{authorInitials.slice(0, 2)}</span>
                           </div>
-                          <span className="text-[10px] font-black text-slate-600 uppercase">{item.authorId}</span>
+                          <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{authorInitials}</span>
                         </div>
-                        {item.completedByInitials && (
-                          <div className="flex items-center gap-1">
+                        {finalModifier && (
+                          <div className="flex items-center gap-1" title={`${item.modifiedByInitials ? '최종 수정자' : '작성 완료자'}: ${finalModifier}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">
-                              {item.completedByInitials} {item.modifiedByInitials ? '(MOD)' : '(DONE)'}
+                            <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tight">
+                              {finalModifier} {item.modifiedByInitials ? '(MOD)' : '(DONE)'}
                             </span>
                           </div>
                         )}
                       </div>
                     </div>
                   </div>
+                  {(isMaster || (item.status === NationalInvoiceSubCategory.TEMPORARY && (
+                    (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                    (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                    (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                  ))) && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
+                      className="absolute -top-2 -right-2 bg-red-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
                 </div>
-                {(isMaster || (item.status === NationalInvoiceSubCategory.TEMPORARY && (
-                  (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
-                  (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
-                  (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
-                ))) && (
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
-                    className="absolute -top-2 -right-2 bg-red-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-red-700 flex items-center justify-center z-10"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
-                  </button>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         ) : (
           <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[800px]">
+            <table className="w-full text-left border-collapse min-w-[850px]">
               <thead>
                 <tr className="bg-slate-50/50 border-b border-slate-100">
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">날짜</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice No</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Consignee</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">금액</th>
-                  <th className="px-8 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">상태 / 관리</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">날짜</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Invoice No</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">Consignee</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">ADDRESS (모델명)</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest">금액</th>
+                  <th className="px-6 py-5 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">작성자 / 상태</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {paginatedItems.map(item => (
-                  <tr 
-                    key={item.id} 
-                    className="hover:bg-blue-50/30 cursor-pointer transition-all group"
-                    onClick={() => {
-                      setView({ type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory.CREATE, editId: item.id });
-                    }}
-                  >
-                    <td className="px-8 py-5">
-                      <span className="text-xs font-bold text-slate-500 font-mono">{new Date(item.createdAt).toLocaleDateString()}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest">{item.invoiceNo || 'NO-NUMBER'}</span>
-                    </td>
-                    <td className="px-8 py-5">
-                      <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.consigneeName}</div>
-                      <div className="text-[10px] font-bold text-slate-400 truncate max-w-[250px] mt-0.5">{item.shipperName}</div>
-                    </td>
-                    <td className="px-8 py-5">
-                      <span className="text-sm font-black text-slate-900 tracking-tight">{item.currencySymbol}{formatNumber(item.totalAmount)}</span>
-                    </td>
-                    <td className="px-8 py-5 text-right">
-                      <div className="flex items-center justify-end gap-3">
-                        <div className="flex flex-col items-end">
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-tighter">{item.authorId}</span>
-                            <div className="w-6 h-6 rounded-lg bg-slate-100 flex items-center justify-center border border-slate-200 group-hover:border-blue-200 transition-colors">
-                              <span className="text-[9px] font-black text-slate-500">{item.authorId.slice(0, 2)}</span>
+                {paginatedItems.map(item => {
+                  const addressSummary = getAddressModelSummary(item);
+                  const authorInitials = getUserInitials(item.authorInitials || item.authorId);
+                  const finalModifier = item.modifiedByInitials || item.completedByInitials;
+
+                  return (
+                    <tr 
+                      key={item.id} 
+                      className="hover:bg-blue-50/30 cursor-pointer transition-all group"
+                      onClick={() => {
+                        setView({ type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory.CREATE, editId: item.id });
+                      }}
+                    >
+                      <td className="px-6 py-5">
+                        <span className="text-xs font-bold text-slate-500 font-mono">{new Date(item.createdAt).toLocaleDateString()}</span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest">{item.invoiceNo || 'NO-NUMBER'}</span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="font-black text-slate-900 group-hover:text-blue-600 transition-colors">{item.consigneeName}</div>
+                        <div className="text-[10px] font-bold text-slate-400 truncate max-w-[200px] mt-0.5">{item.shipperName}</div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-1.5 max-w-[240px]">
+                          <span className="text-[8px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0.5 rounded uppercase shrink-0">ADDRESS</span>
+                          <span className="text-xs font-bold text-slate-700 truncate" title={addressSummary || '미입력'}>
+                            {addressSummary || <span className="text-slate-400 italic font-normal">미입력</span>}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="text-sm font-black text-slate-900 tracking-tight">{item.currencySymbol}{formatNumber(item.totalAmount)}</span>
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <div className="flex items-center justify-end gap-3">
+                          <div className="flex flex-col items-end gap-0.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[9px] font-bold text-slate-400">작성</span>
+                              <span className="text-[10px] font-black text-slate-700 uppercase tracking-tight">{authorInitials}</span>
+                              <div className="w-5 h-5 rounded bg-blue-50 text-blue-600 flex items-center justify-center border border-blue-200">
+                                <span className="text-[8px] font-black">{authorInitials.slice(0, 2)}</span>
+                              </div>
                             </div>
+                            {finalModifier && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tight">
+                                  {finalModifier} {item.modifiedByInitials ? '(수정)' : '(완료)'}
+                                </span>
+                                <span className="w-1 h-1 rounded-full bg-emerald-400" />
+                              </div>
+                            )}
                           </div>
-                          {item.completedByInitials && (
-                            <div className="flex items-center gap-1 mt-1">
-                              <span className="text-[9px] font-black text-emerald-600 uppercase tracking-tighter">
-                                {item.completedByInitials} {item.modifiedByInitials ? '(수정완료)' : '(작성완료)'}
-                              </span>
-                              <span className="w-1 h-1 rounded-full bg-emerald-400" />
-                            </div>
+                          {(isMaster || (item.status === NationalInvoiceSubCategory.TEMPORARY && (
+                            (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
+                            (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                            (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                          ))) && (
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
+                              className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
                           )}
                         </div>
-                        {(isMaster || (item.status === NationalInvoiceSubCategory.TEMPORARY && (
-                          (item.authorId || '').toUpperCase() === (currentUser.id || '').toUpperCase() ||
-                          (item.authorId || '').toUpperCase() === (currentUser.initials || '').toUpperCase() ||
-                          (item.authorId || '').toUpperCase() === (currentUser.loginId || '').toUpperCase()
-                        ))) && (
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); setDeletingId(item.id); }} 
-                            className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

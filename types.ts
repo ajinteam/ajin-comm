@@ -399,6 +399,7 @@ export interface NationalInvoiceItem {
   showPlExtraRemarks?: boolean;
   shippingMarkType?: string;
   packingPackageType?: 'CTN' | 'PLT';
+  authorInitials?: string;
   completedByInitials?: string;
   completedAt?: string;
   modifiedByInitials?: string;
