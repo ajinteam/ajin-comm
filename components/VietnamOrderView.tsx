@@ -478,14 +478,15 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
   };
 
   const handlePaste = (e: React.ClipboardEvent, startRowIdx: number, startColIdx: number, docTypeStr: 'METAL' | 'ORDER' | 'PAYMENT') => {
-    const clipboardItems = e.clipboardData.items;
-    let hasImage = false;
-    if (clipboardItems) {
+    // 1. Only handle image paste if pasting into the image column in ORDER document
+    const isImageColumn = (docTypeStr === 'ORDER' && startColIdx === 2);
+    
+    if (isImageColumn && e.clipboardData.items) {
+      const clipboardItems = e.clipboardData.items;
       for (let i = 0; i < clipboardItems.length; i++) {
         if (clipboardItems[i].type.indexOf('image') !== -1) {
           const file = clipboardItems[i].getAsFile();
           if (file) {
-            hasImage = true;
             e.preventDefault();
             takeSnapshot();
 
@@ -497,7 +498,6 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                 let width = img.width;
                 let height = img.height;
 
-                // Max width/height to limit file size for optimization
                 const MAX_WIDTH = 1000;
                 const MAX_HEIGHT = 1000;
 
@@ -519,10 +519,8 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
                   ctx.drawImage(img, 0, 0, width, height);
-                  // Compress image as jpeg with 0.7 quality to optimize size
                   const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                   
-                  // Update vRows
                   setVRows(prev => {
                     let newRows = [...prev];
                     if (startRowIdx < newRows.length) {
@@ -541,14 +539,13 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
               img.src = event.target?.result as string;
             };
             reader.readAsDataURL(file);
+            return;
           }
-          break;
         }
       }
     }
 
-    if (hasImage) return;
-
+    // 2. Handle tabular data (Excel copy-paste, multi-row / multi-col text)
     const text = e.clipboardData.getData('text');
     
     if (text && (text.includes('\t') || text.includes('\n') || text.includes('\r'))) {
