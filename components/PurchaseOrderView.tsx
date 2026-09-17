@@ -448,6 +448,46 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     return (current || '').toString().trim() !== (original || '').toString().trim();
   }, [editingItemId, originalRejectedItem]);
 
+  // 수신처 보관함 메모(발주 후 변경 및 기타사항) 상태
+  const [isEditingMemo, setIsEditingMemo] = useState(false);
+  const [memoInput, setMemoInput] = useState('');
+
+  useEffect(() => {
+    if (activeItem) {
+      setMemoInput(activeItem.archiveMemo || '');
+      setIsEditingMemo(false);
+    }
+  }, [activeItem?.id, activeItem?.archiveMemo]);
+
+  // 메탈발주서(PO3): 수신처 보관함 문서에서 도번에 해당하는 최신 단가 자동 조회
+  const findLatestUnitPriceForDept = useCallback((deptVal: string) => {
+    if (!deptVal || !deptVal.trim()) return null;
+    const cleanDept = deptVal.trim().toLowerCase();
+
+    // 수신처 보관함 문서(stamps.final이 있거나 완료된 문서)를 최신순으로 정렬
+    const candidateDocs = [...items]
+      .filter(doc => !!doc.stamps?.final || doc.status === PurchaseOrderSubCategory.APPROVED)
+      .sort((a, b) => {
+        const timeA = new Date(a.stamps?.final?.timestamp || a.createdAt || a.date).getTime();
+        const timeB = new Date(b.stamps?.final?.timestamp || b.createdAt || b.date).getTime();
+        return timeB - timeA;
+      });
+
+    for (const doc of candidateDocs) {
+      if (doc.rows && Array.isArray(doc.rows)) {
+        for (const r of doc.rows) {
+          if ((r.dept || '').trim().toLowerCase() === cleanDept) {
+            const price = (r.unitPrice || '').toString().trim();
+            if (price && price !== '0') {
+              return price;
+            }
+          }
+        }
+      }
+    }
+    return null;
+  }, [items]);
+
   // 주문서(OrderView) 로직과 동일하게 Row 필드 변경 감지
   const updatePo2RowField = useCallback((rowId: string, field: keyof OrderRow, value: string) => {
     const formatNumberWithCommas = (valStr: string) => {
@@ -460,6 +500,8 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     };
 
     const finalValue = (field === 'price' || field === 'orderQty' || field === 'unitPrice') ? formatNumberWithCommas(value) : value;
+    const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
+    const isPO3Current = currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP || currentItemType === '메탈발주서';
 
     setPo2Rows(prev => prev.map(row => {
       if (row.id === rowId) {
@@ -477,11 +519,22 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
           // 신규 작성이나 임시 저장 문서 수정 시에는 강조 이력을 남기지 않음
           updatedFields = [];
         }
-        return { ...row, [field]: finalValue, changedFields: updatedFields };
+
+        const updatedRow = { ...row, [field]: finalValue, changedFields: updatedFields };
+
+        // 메탈발주서: 도번(dept) 입력 시 수신처보관함에서 최신 단가 자동 조회하여 반영
+        if (field === 'dept' && isPO3Current && value.trim()) {
+          const matchedUnitPrice = findLatestUnitPriceForDept(value);
+          if (matchedUnitPrice) {
+            updatedRow.unitPrice = formatNumberWithCommas(matchedUnitPrice);
+          }
+        }
+
+        return updatedRow;
       }
       return row;
     }));
-  }, [originalRejectedItem]);
+  }, [originalRejectedItem, editingItemId, items, sub, findLatestUnitPriceForDept]);
 
   const isNoteChanged = useCallback((nIdx: number, field: keyof PurchaseOrderNote, current: any) => {
     if (!editingItemId || !originalRejectedItem || !originalRejectedItem.notes) return false;
@@ -554,6 +607,40 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
     }
   };
 
+  const handleSaveMemo = async () => {
+    if (!activeItem) return;
+    const text = memoInput.trim();
+    const updatedDoc: PurchaseOrderItem = {
+      ...activeItem,
+      archiveMemo: text,
+      archiveMemoAuthorId: activeItem.archiveMemoAuthorId || currentUser.initials || currentUser.loginId || currentUser.id,
+      archiveMemoAuthorName: activeItem.archiveMemoAuthorName || currentUser.name || currentUser.initials || currentUser.loginId,
+      archiveMemoUpdatedAt: new Date().toISOString()
+    };
+    
+    setActiveItem(updatedDoc);
+    const updatedList = items.map(it => it.id === updatedDoc.id ? updatedDoc : it);
+    await saveItems(updatedList, updatedDoc);
+    setIsEditingMemo(false);
+  };
+
+  const handleDeleteMemo = async () => {
+    if (!activeItem) return;
+    if (!window.confirm('작성된 메모를 삭제하시겠습니까?')) return;
+    const updatedDoc: PurchaseOrderItem = {
+      ...activeItem,
+      archiveMemo: '',
+      archiveMemoAuthorId: undefined,
+      archiveMemoAuthorName: undefined,
+      archiveMemoUpdatedAt: undefined
+    };
+    setActiveItem(updatedDoc);
+    setMemoInput('');
+    setIsEditingMemo(false);
+    const updatedList = items.map(it => it.id === updatedDoc.id ? updatedDoc : it);
+    await saveItems(updatedList, updatedDoc);
+  };
+
   const handleSaveVendor = () => {
     if (!newVendor.name.trim()) return;
     const updated = vendors.filter(v => v.name !== newVendor.name);
@@ -601,8 +688,10 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
       });
     });
 
+    const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
+    const isPO3Current = currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP || currentItemType === '메탈발주서';
+
     const getColToField = () => {
-      const currentItemType = editingItemId ? items.find(i => i.id === editingItemId)?.type : sub;
       if (currentItemType === PurchaseOrderSubCategory.PO1 || currentItemType === PurchaseOrderSubCategory.PO1_TEMP) return { 0: 'dept', 1: 'model', 2: 's', 3: 'itemName', 4: 'cty', 5: 'price', 6: 'material', 7: 'vendor', 8: 'injectionVendor', 9: 'orderQty', 10: 'unitPrice', 11: 'amount', 12: 'remarks' };
       if (currentItemType === PurchaseOrderSubCategory.PO3 || currentItemType === PurchaseOrderSubCategory.PO3_TEMP) return { 0: 'dept', 1: 'itemName', 2: 'model', 3: 'price', 4: 'unitPrice', 5: 'amount', 6: 'remarks' };
       return { 0: 'itemName', 1: 'model', 2: 'price', 3: 'unitPrice', 4: 'amount', 5: 'remarks' };
@@ -645,6 +734,14 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   }
                 }
                 newRows[rIdx] = { ...newRows[rIdx], [field]: valToSet, changedFields: updatedFields };
+
+                // 메탈발주서: 도번(dept) 붙여넣기 시 수신처보관함에서 최신 단가 자동 조회 (단가가 비어있을 때)
+                if (field === 'dept' && isPO3Current && String(valToSet).trim() && !newRows[rIdx].unitPrice) {
+                  const matched = findLatestUnitPriceForDept(String(valToSet));
+                  if (matched) {
+                    newRows[rIdx].unitPrice = formatNumberWithCommas(matched);
+                  }
+                }
               }
             }
           });
@@ -2249,7 +2346,104 @@ const PurchaseOrderView: React.FC<PurchaseOrderViewProps> = ({ sub, currentUser,
                   </button>
                 </div>
               )}
-              {activeItem.stamps.final && (<div className="mt-12 pt-4 border-t border-slate-100 flex items-center gap-3 text-xs md:text-sm font-bold text-blue-400"><span className="text-slate-400 uppercase">확인:</span><span className="text-blue-500 uppercase">{activeItem.stamps.final.userId}</span><span className="tabular-nums">{formatCompletionDate(activeItem.stamps.final.timestamp, activeItem.recipient?.includes('베트남') || activeItem.recipient?.includes('VIETNAM'))}</span></div>)}</>) : (<div className="p-10 text-center italic text-slate-400">양식 준비중</div>)}</div></div>
+              {activeItem.stamps.final && (<div className="mt-12 pt-4 border-t border-slate-100 flex items-center gap-3 text-xs md:text-sm font-bold text-blue-400"><span className="text-slate-400 uppercase">확인:</span><span className="text-blue-500 uppercase">{activeItem.stamps.final.userId}</span><span className="tabular-nums">{formatCompletionDate(activeItem.stamps.final.timestamp, activeItem.recipient?.includes('베트남') || activeItem.recipient?.includes('VIETNAM'))}</span></div>)}
+              
+              {/* 수신처 보관함 메모 (발주 후 변경 및 기타사항) - 작성자와 마스터만 조회/수정/삭제 가능 */}
+              {(activeItem.stamps.final || sub === PurchaseOrderSubCategory.ARCHIVE) && (
+                (() => {
+                  const isMasterUser = currentUser.loginId === 'AJ5200' || currentUser.id === 'AJ5200' || (currentUser.initials && currentUser.initials.toUpperCase() === 'MASTER');
+                  const isMemoAuthor = Boolean(
+                    activeItem && (
+                      (activeItem.archiveMemoAuthorId && (
+                        activeItem.archiveMemoAuthorId.toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                        activeItem.archiveMemoAuthorId.toUpperCase() === (currentUser.loginId || '').toUpperCase() ||
+                        activeItem.archiveMemoAuthorId.toUpperCase() === (currentUser.id || '').toUpperCase()
+                      )) ||
+                      (activeItem.archiveMemoAuthorName && (
+                        activeItem.archiveMemoAuthorName === (currentUser.name || currentUser.initials || currentUser.loginId)
+                      )) ||
+                      (!activeItem.archiveMemoAuthorId && activeItem.authorId && (
+                        activeItem.authorId.toUpperCase() === (currentUser.initials || '').toUpperCase() ||
+                        activeItem.authorId.toUpperCase() === (currentUser.loginId || '').toUpperCase()
+                      ))
+                    )
+                  );
+                  const canViewOrEditMemo = isMasterUser || isMemoAuthor || !activeItem.archiveMemo;
+
+                  if (!canViewOrEditMemo) return null;
+
+                  return (
+                    <div className="mt-6 border-2 border-dashed border-red-300 rounded-xl p-4 bg-red-50/20 no-print text-left">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs font-black text-red-600 uppercase tracking-wider flex items-center gap-1.5">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            발주 후 변경 및 기타 메모
+                          </span>
+                          {activeItem.archiveMemoAuthorName && (
+                            <span className="text-[11px] font-bold text-slate-500">
+                              (작성자: <strong className="text-slate-700">{activeItem.archiveMemoAuthorName}</strong>{activeItem.archiveMemoUpdatedAt ? ` | ${new Date(activeItem.archiveMemoUpdatedAt).toLocaleString('ko-KR')}` : ''})
+                            </span>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {activeItem.archiveMemo && !isEditingMemo && (isMasterUser || isMemoAuthor) && (
+                            <>
+                              <button
+                                onClick={() => { setIsEditingMemo(true); setMemoInput(activeItem.archiveMemo || ''); }}
+                                className="px-2.5 py-1 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+                              >
+                                수정
+                              </button>
+                              <button
+                                onClick={handleDeleteMemo}
+                                className="px-2.5 py-1 bg-white border border-red-200 hover:bg-red-50 text-red-600 rounded text-xs font-bold transition-all shadow-sm flex items-center gap-1"
+                              >
+                                삭제
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {isEditingMemo || !activeItem.archiveMemo ? (
+                        <div className="space-y-2 mt-2">
+                          <textarea
+                            value={memoInput}
+                            onChange={(e) => setMemoInput(e.target.value)}
+                            placeholder="발주 후 변경 사항이나 기타 특이사항을 입력하세요. (작성자와 마스터만 열람 및 수정 가능)"
+                            className="w-full h-24 p-3 bg-white border border-red-200 rounded-lg text-xs font-medium text-slate-800 outline-none focus:ring-2 focus:ring-red-400"
+                          />
+                          <div className="flex justify-end gap-2">
+                            {activeItem.archiveMemo && (
+                              <button
+                                onClick={() => { setIsEditingMemo(false); setMemoInput(activeItem.archiveMemo || ''); }}
+                                className="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded text-xs font-bold transition-all"
+                              >
+                                취소
+                              </button>
+                            )}
+                            <button
+                              onClick={handleSaveMemo}
+                              className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-black shadow transition-all"
+                            >
+                              메모 저장
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-white/90 rounded-lg p-3 border border-red-100 shadow-sm">
+                          <p className="text-xs font-medium text-slate-800 whitespace-pre-wrap leading-relaxed">{activeItem.archiveMemo}</p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()
+              )}
+            </>) : (<div className="p-10 text-center italic text-slate-400">양식 준비중</div>)}</div></div>
         
         {isRejectModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">

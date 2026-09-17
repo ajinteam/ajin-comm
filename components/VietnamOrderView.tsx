@@ -557,39 +557,82 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
       e.preventDefault();
       takeSnapshot();
       
-      const lines = text.split(/\r\n|\n|\r/);
-      // Remove trailing empty line from Excel
-      if (lines.length > 1 && lines[lines.length - 1].trim() === '') {
-        lines.pop();
-      }
+      const rowsText = text.split(/\r?\n(?=(?:(?:[^"]*"){2})*[^"]*$)/);
+      const grid = rowsText.map(row => {
+        return row.split('\t').map(cell => {
+          let clean = cell.trim();
+          if (clean.startsWith('"') && clean.endsWith('"')) {
+            clean = clean.substring(1, clean.length - 1);
+          }
+          return clean.replace(/""/g, '"');
+        });
+      }).filter((r, idx, arr) => {
+        if (idx === arr.length - 1 && r.length === 1 && r[0] === '') return false;
+        return true;
+      });
 
-      const fields: (keyof VietnamOrderRow)[] = isMetal 
-        ? ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'remarks']
-        : ['itemName', 'unit', 'qty', 'unitPrice', 'remarks'];
+      if (grid.length === 0) return;
+
+      const firstRowLen = grid[0].length;
+
+      // Determine fields mapping based on doc type and whether Excel includes an amount column
+      let fields: (keyof VietnamOrderRow | null)[];
+      if (isMetal) {
+        if (firstRowLen >= 8) {
+          // [도번, 품목, 규격, 단위, 수량, 단가, 금액(계산), 비고]
+          fields = ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', null, 'remarks'];
+        } else {
+          // [도번, 품목, 규격, 단위, 수량, 단가, 비고]
+          fields = ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'remarks'];
+        }
+      } else {
+        if (firstRowLen >= 6) {
+          // [품목, 단위, 수량, 단가, 금액(계산), 비고]
+          fields = ['itemName', 'unit', 'qty', 'unitPrice', null, 'remarks'];
+        } else {
+          // [품목, 단위, 수량, 단가, 비고]
+          fields = ['itemName', 'unit', 'qty', 'unitPrice', 'remarks'];
+        }
+      }
       
-      const startFieldIdx = fields.indexOf(field);
-      if (startFieldIdx === -1) return;
+      let startFieldIdx = fields.indexOf(field);
+      if (startFieldIdx === -1) {
+        startFieldIdx = 0;
+      }
 
       setVRows(prev => {
         const startRowIdx = prev.findIndex(r => r.id === rowId);
-        if (startRowIdx === -1) return prev;
+        const effectiveStartRow = startRowIdx === -1 ? 0 : startRowIdx;
 
-        const newRows = [...prev];
-        lines.forEach((line, rOffset) => {
-          const targetRowIdx = startRowIdx + rOffset;
+        let newRows = [...prev];
+        grid.forEach((lineCells, rOffset) => {
+          const targetRowIdx = effectiveStartRow + rOffset;
           
           while (targetRowIdx >= newRows.length) {
             newRows.push(createEmptyRow());
           }
 
-          const cells = line.split('\t');
-          cells.forEach((cellText, cOffset) => {
+          lineCells.forEach((cellText, cOffset) => {
             const targetFieldIdx = startFieldIdx + cOffset;
             if (targetFieldIdx >= fields.length) return;
             const targetField = fields[targetFieldIdx];
-            newRows[targetRowIdx] = { ...newRows[targetRowIdx], [targetField]: cellText.trim() };
+            if (!targetField) return; // Skip calculated columns like amount
+            
+            let cleanVal = cellText.trim();
+            if (targetField === 'qty' || targetField === 'unitPrice') {
+              cleanVal = cleanVal.replace(/,/g, '');
+            }
+            newRows[targetRowIdx] = { ...newRows[targetRowIdx], [targetField]: cleanVal };
           });
         });
+
+        if (activeItem) {
+          const updatedItem = { ...activeItem, rows: newRows };
+          setActiveItem(updatedItem);
+          const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
+          saveVietnamItems(updatedItems, updatedItem);
+        }
+
         return newRows;
       });
     }

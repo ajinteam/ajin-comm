@@ -243,6 +243,10 @@ export interface PurchaseOrderItem {
     ceo?: StampInfo;      
     final?: StampInfo;    
   };
+  archiveMemo?: string;
+  archiveMemoAuthorId?: string;
+  archiveMemoAuthorName?: string;
+  archiveMemoUpdatedAt?: string;
 }
 
 export interface InvoiceRow {
