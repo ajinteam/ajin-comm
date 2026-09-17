@@ -477,7 +477,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
     alert('파일이 품명에 링크되었습니다.');
   };
 
-  const handlePaste = (e: React.ClipboardEvent, rowId: string, field: keyof VietnamOrderRow, isMetal: boolean) => {
+  const handlePaste = (e: React.ClipboardEvent, startRowIdx: number, startColIdx: number, docTypeStr: 'METAL' | 'ORDER' | 'PAYMENT') => {
     const clipboardItems = e.clipboardData.items;
     let hasImage = false;
     if (clipboardItems) {
@@ -523,21 +523,19 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                   const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                   
                   // Update vRows
-                  setVRows(prev => prev.map(row => 
-                    row.id === rowId ? { ...row, image: compressedBase64 } : row
-                  ));
-
-                  // Also update activeItem to auto-save in edit/view mode
-                  if (activeItem) {
-                    const updatedRows = activeItem.rows.map(row => 
-                      row.id === rowId ? { ...row, image: compressedBase64 } : row
-                    );
-                    const updatedItem = { ...activeItem, rows: updatedRows };
-                    setActiveItem(updatedItem);
-                    
-                    const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
-                    saveVietnamItems(updatedItems, updatedItem);
-                  }
+                  setVRows(prev => {
+                    let newRows = [...prev];
+                    if (startRowIdx < newRows.length) {
+                      newRows[startRowIdx] = { ...newRows[startRowIdx], image: compressedBase64 };
+                    }
+                    if (activeItem) {
+                      const updatedItem = { ...activeItem, rows: newRows };
+                      setActiveItem(updatedItem);
+                      const updatedItems = items.map(it => it.id === activeItem.id ? updatedItem : it);
+                      saveVietnamItems(updatedItems, updatedItem);
+                    }
+                    return newRows;
+                  });
                 }
               };
               img.src = event.target?.result as string;
@@ -573,57 +571,67 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
 
       if (grid.length === 0) return;
 
-      const firstRowLen = grid[0].length;
+      const getColToField = (): Record<number, keyof VietnamOrderRow> => {
+        if (docTypeStr === 'METAL') {
+          return {
+            0: 'drawingNo',
+            1: 'itemName',
+            2: 'specification',
+            3: 'unit',
+            4: 'qty',
+            5: 'unitPrice',
+            6: 'amount',
+            7: 'remarks'
+          };
+        }
+        if (docTypeStr === 'PAYMENT') {
+          return {
+            1: 'itemName',
+            3: 'unit',
+            4: 'qty',
+            5: 'unitPrice',
+            6: 'amount',
+            7: 'remarks'
+          };
+        }
+        // ORDER
+        return {
+          1: 'itemName',
+          3: 'unit',
+          4: 'qty',
+          5: 'unitPrice',
+          6: 'amount',
+          7: 'remarks'
+        };
+      };
 
-      // Determine fields mapping based on doc type and whether Excel includes an amount column
-      let fields: (keyof VietnamOrderRow | null)[];
-      if (isMetal) {
-        if (firstRowLen >= 8) {
-          // [도번, 품목, 규격, 단위, 수량, 단가, 금액(계산), 비고]
-          fields = ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', null, 'remarks'];
-        } else {
-          // [도번, 품목, 규격, 단위, 수량, 단가, 비고]
-          fields = ['drawingNo', 'itemName', 'specification', 'unit', 'qty', 'unitPrice', 'remarks'];
-        }
-      } else {
-        if (firstRowLen >= 6) {
-          // [품목, 단위, 수량, 단가, 금액(계산), 비고]
-          fields = ['itemName', 'unit', 'qty', 'unitPrice', null, 'remarks'];
-        } else {
-          // [품목, 단위, 수량, 단가, 비고]
-          fields = ['itemName', 'unit', 'qty', 'unitPrice', 'remarks'];
-        }
-      }
-      
-      let startFieldIdx = fields.indexOf(field);
-      if (startFieldIdx === -1) {
-        startFieldIdx = 0;
-      }
+      const colToField = getColToField();
+      const validCols = Object.keys(colToField).map(Number).sort((a, b) => a - b);
+      const startValidIdx = validCols.indexOf(startColIdx);
 
       setVRows(prev => {
-        const startRowIdx = prev.findIndex(r => r.id === rowId);
-        const effectiveStartRow = startRowIdx === -1 ? 0 : startRowIdx;
-
         let newRows = [...prev];
-        grid.forEach((lineCells, rOffset) => {
-          const targetRowIdx = effectiveStartRow + rOffset;
-          
-          while (targetRowIdx >= newRows.length) {
+        grid.forEach((pRow, rOffset) => {
+          const rIdx = startRowIdx + rOffset;
+          if (rIdx >= 500) return;
+          while (rIdx >= newRows.length) {
             newRows.push(createEmptyRow());
           }
 
-          lineCells.forEach((cellText, cOffset) => {
-            const targetFieldIdx = startFieldIdx + cOffset;
-            if (targetFieldIdx >= fields.length) return;
-            const targetField = fields[targetFieldIdx];
-            if (!targetField) return; // Skip calculated columns like amount
-            
-            let cleanVal = cellText.trim();
-            if (targetField === 'qty' || targetField === 'unitPrice') {
-              cleanVal = cleanVal.replace(/,/g, '');
-            }
-            newRows[targetRowIdx] = { ...newRows[targetRowIdx], [targetField]: cleanVal };
-          });
+          if (startValidIdx !== -1) {
+            pRow.forEach((pCell, cOffset) => {
+              const currentValidIdx = startValidIdx + cOffset;
+              if (currentValidIdx < validCols.length) {
+                const targetColIdx = validCols[currentValidIdx];
+                const field = colToField[targetColIdx];
+                if (field && field !== 'amount') {
+                  const clean = pCell.trim();
+                  const valToSet = (field === 'qty' || field === 'unitPrice') ? clean.replace(/,/g, '') : clean;
+                  newRows[rIdx] = { ...newRows[rIdx], [field]: valToSet };
+                }
+              }
+            });
+          }
         });
 
         if (activeItem) {
@@ -1566,7 +1574,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                         {cell.f === 'image' ? (
                                             <div 
                                                 className={`w-full ${isPayDoc ? 'min-h-[30px]' : 'min-h-[80px]'} flex items-center justify-center p-1 bg-slate-50/30 print:bg-transparent relative`}
-                                                onPaste={(e) => !isReadOnly && handlePaste(e, row.id, 'image' as any, isMetalDoc)}
+                                                onPaste={(e) => !isReadOnly && handlePaste(e, rIdx, cell.c, isMetalDoc ? 'METAL' : (isPayDoc ? 'PAYMENT' : 'ORDER'))}
                                                 tabIndex={isReadOnly ? -1 : 0}
                                                 data-row={rIdx} data-col={cell.c}
                                                 onFocus={() => !isReadOnly && setSelection({ sR: rIdx, sC: cell.c, eR: rIdx, eC: cell.c })}
@@ -1641,7 +1649,7 @@ const VietnamOrderView: React.FC<VietnamOrderViewProps> = ({ sub, currentUser, s
                                                           }} 
                                                           onFocus={() => { takeSnapshot(); setSelection({ sR: rIdx, sC: cell.c, eR: rIdx, eC: cell.c }); }}
                                                           onKeyDown={(e: any) => handleRowKeyDown(e, rIdx, cell.c, isPayDoc ? 'PAYMENT' : (isMetalDoc ? 'METAL' : 'ORDER'))}
-                                                          onPaste={(e: any) => handlePaste(e, row.id, cell.f as keyof VietnamOrderRow, isMetalDoc)}
+                                                          onPaste={(e: any) => handlePaste(e, rIdx, cell.c, isPayDoc ? 'PAYMENT' : (isMetalDoc ? 'METAL' : 'ORDER'))}
                                                           onClick={(e: React.MouseEvent) => {
                                                             // Request: Alt + Click to open file storage link
                                                             if (e.altKey && (cell.f === 'itemName' || cell.f === 'drawingNo' || cell.f === 'specification')) {
