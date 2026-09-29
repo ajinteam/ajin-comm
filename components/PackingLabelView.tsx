@@ -39,7 +39,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 }) => {
   const isMaster = currentUser.loginId === 'AJ5200';
 
-  // Documents state
+  // Documents state (only permanently saved docs)
   const [docs, setDocs] = useState<PackingLabelDoc[]>([]);
   const [activeDoc, setActiveDoc] = useState<PackingLabelDoc | null>(null);
   const [viewMode, setViewMode] = useState<'ICON' | 'LIST'>('ICON');
@@ -50,29 +50,44 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [availableInvoices, setAvailableInvoices] = useState<NationalInvoiceItem[]>([]);
 
-  // Load packing labels from storage
+  // Load packing labels from storage (optimized deduplication)
   const loadDocs = () => {
     try {
-      const raw = localStorage.getItem('ajin_packing_labels');
-      let list: PackingLabelDoc[] = raw ? JSON.parse(raw) : [];
+      const map = new Map<string, PackingLabelDoc>();
 
-      // Also check if any packing labels are stored in ajin_national_invoices with category PACKING_LABEL
+      // 1. Load from dedicated local storage
+      const raw = localStorage.getItem('ajin_packing_labels');
+      if (raw) {
+        try {
+          const list: PackingLabelDoc[] = JSON.parse(raw);
+          list.forEach(d => {
+            if (d && d.id) map.set(d.id, d);
+          });
+        } catch (e) {
+          console.error('Failed to parse ajin_packing_labels', e);
+        }
+      }
+
+      // 2. Also check cloud-synced national invoices
       const nationalRaw = localStorage.getItem('ajin_national_invoices');
       if (nationalRaw) {
         try {
           const natList: any[] = JSON.parse(nationalRaw);
-          const labelInvoices = natList.filter(item => item.status === NationalInvoiceSubCategory.PACKING_LABEL && item.boxes);
+          const labelInvoices = natList.filter(item => 
+            (item.status === NationalInvoiceSubCategory.PACKING_LABEL || item.status === 'invoice_packing_label') && 
+            item.boxes && Array.isArray(item.boxes)
+          );
           labelInvoices.forEach(lbl => {
-            if (!list.some(d => d.id === lbl.id)) {
-              list.push(lbl);
+            if (lbl && lbl.id && !map.has(lbl.id)) {
+              map.set(lbl.id, lbl);
             }
           });
         } catch (e) {
-          console.error(e);
+          console.error('Failed to parse ajin_national_invoices for packing labels', e);
         }
       }
 
-      setDocs(list);
+      setDocs(Array.from(map.values()));
     } catch (e) {
       console.error('Failed to load packing labels', e);
     }
@@ -84,7 +99,12 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       const raw = localStorage.getItem('ajin_national_invoices');
       if (raw) {
         const list: NationalInvoiceItem[] = JSON.parse(raw);
-        setAvailableInvoices(list);
+        // Exclude packing labels themselves from the invoice list
+        const realInvoices = list.filter(item => 
+          (item.status as any) !== NationalInvoiceSubCategory.PACKING_LABEL && 
+          (item.status as any) !== 'invoice_packing_label'
+        );
+        setAvailableInvoices(realInvoices);
       }
     } catch (e) {
       console.error('Failed to load invoices', e);
@@ -103,7 +123,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     }
   }, [activeDoc?.id]);
 
-  // If initialInvoiceId is passed, automatically create or open packing label from that invoice
+  // If initialInvoiceId is passed, open existing or create in-memory draft (WITHOUT auto-saving)
   useEffect(() => {
     if (initialInvoiceId && availableInvoices.length > 0) {
       const targetInv = availableInvoices.find(inv => inv.id === initialInvoiceId);
@@ -118,33 +138,34 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     }
   }, [initialInvoiceId, availableInvoices, docs]);
 
-  // Save all docs helper
-  const saveDocsList = (newList: PackingLabelDoc[], updatedItem?: PackingLabelDoc) => {
-    setDocs(newList);
-    localStorage.setItem('ajin_packing_labels', JSON.stringify(newList));
-    if (updatedItem) {
-      saveSingleDoc('nationalinvoice', updatedItem, 'PACKING_LABEL');
-    }
-  };
-
-  // Helper to parse carton rows from invoice
+  // Helper to parse carton rows from invoice with Shipper country detection & CTN filter
   const parseCartonsFromInvoice = (invoice: NationalInvoiceItem): PackingLabelBox[] => {
     const rows = invoice.packingRows || invoice.rows || [];
     const boxesMap: { [cartonNo: string]: PackingLabelBox } = {};
 
+    // 1. Detect Shipper for MADE IN: If Shipper contains AJIN TRAIN VINA / VINA / VIETNAM -> MADE : VIETNAM
+    const shipperStr = `${invoice.shipperName || ''} ${invoice.plShipperAddress || ''} ${invoice.shipperAddress || ''}`.toUpperCase();
+    const isVinaShipper = shipperStr.includes('AJIN TRAIN VINA') || shipperStr.includes('VINA') || shipperStr.includes('VIETNAM');
+    const defaultMadeIn = isVinaShipper ? 'VIETNAM' : 'KOREA';
+
+    // 2. Determine default model name from invoice
     let defaultModel = 'MODEL TRAIN PARTS';
     const headerRow = rows.find(r => r.type === 'HEADER' && r.headerLeft);
     if (headerRow && headerRow.headerLeft) {
       defaultModel = headerRow.headerLeft.replace(/^(MODEL|ITEM)\s*[:]?\s*/i, '').trim() || defaultModel;
     }
 
+    // 3. Extract items ONLY if carton number (CTN NO) is explicitly specified
     rows.forEach(row => {
       if (row.type !== 'ITEM') return;
+
+      const ctnRaw = (row.plProc || row.plPkgNo || row.pkgNo || '').trim();
+      // Requirement 3: If no CTN number is provided, do NOT import this row
+      if (!ctnRaw) return;
 
       const desc = row.description || '';
       const qty = formatQtyWithComma(row.quantity || '0');
       const unit = row.unit || 'PCS';
-      const ctnRaw = (row.plProc || row.plPkgNo || row.pkgNo || '').trim();
 
       const rangeMatch = ctnRaw.match(/^(\d+)\s*[~-]\s*(\d+)$/);
       if (rangeMatch) {
@@ -158,7 +179,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               cartonNo: ctnKey,
               model: defaultModel,
               items: [],
-              madeIn: 'KOREA',
+              madeIn: defaultMadeIn,
               layoutType: '4-UP',
               printCount: 1
             };
@@ -169,7 +190,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             unit: unit
           });
         }
-      } else if (ctnRaw) {
+      } else {
         const ctnKey = ctnRaw;
         if (!boxesMap[ctnKey]) {
           boxesMap[ctnKey] = {
@@ -177,25 +198,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             cartonNo: ctnKey,
             model: defaultModel,
             items: [],
-            madeIn: 'KOREA',
-            layoutType: '4-UP',
-            printCount: 1
-          };
-        }
-        boxesMap[ctnKey].items.push({
-          name: desc,
-          qty: qty,
-          unit: unit
-        });
-      } else {
-        const ctnKey = '1';
-        if (!boxesMap[ctnKey]) {
-          boxesMap[ctnKey] = {
-            id: `box-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            cartonNo: ctnKey,
-            model: defaultModel,
-            items: [],
-            madeIn: 'KOREA',
+            madeIn: defaultMadeIn,
             layoutType: '4-UP',
             printCount: 1
           };
@@ -230,14 +233,14 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
         cartonNo: '1',
         model: defaultModel,
         items: [{ name: '', qty: '', unit: 'PCS' }],
-        madeIn: 'KOREA',
+        madeIn: defaultMadeIn,
         layoutType: '4-UP',
         printCount: 1
       }
     ];
   };
 
-  // Create doc from an invoice
+  // Create in-memory draft from an invoice (NO auto-save until [저장] is clicked)
   const createDocFromInvoice = (invoice: NationalInvoiceItem) => {
     const boxes = parseCartonsFromInvoice(invoice);
     const newDoc: PackingLabelDoc = {
@@ -255,14 +258,13 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       boxes: boxes
     };
 
-    const newList = [newDoc, ...docs.filter(d => d.id !== newDoc.id)];
-    saveDocsList(newList, newDoc);
+    // Only set active in-memory, DO NOT persist to storage/cloud yet
     setActiveDoc(newDoc);
     setSelectedBoxIds(new Set(boxes.map(b => b.id)));
     setIsImportModalOpen(false);
   };
 
-  // Create empty new doc
+  // Create in-memory blank draft (NO auto-save until [저장] is clicked)
   const createBlankDoc = () => {
     const newDoc: PackingLabelDoc = {
       id: `pl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -287,32 +289,61 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       ]
     };
 
-    const newList = [newDoc, ...docs];
-    saveDocsList(newList, newDoc);
+    // Only set active in-memory, DO NOT persist to storage/cloud yet
     setActiveDoc(newDoc);
     setSelectedBoxIds(new Set(newDoc.boxes.map(b => b.id)));
   };
 
-  // Save active doc edits
+  // Save active doc explicitly to LocalStorage and Supabase DB
   const handleSaveActiveDoc = () => {
     if (!activeDoc) return;
-    const updated = {
+    const updated: PackingLabelDoc = {
       ...activeDoc,
       updatedAt: new Date().toISOString()
     };
-    const newList = docs.map(d => d.id === updated.id ? updated : d);
-    if (!newList.some(d => d.id === updated.id)) {
-      newList.unshift(updated);
+
+    // Update state list
+    const newList = [updated, ...docs.filter(d => d.id !== updated.id)];
+    setDocs(newList);
+
+    // Save to localStorage
+    localStorage.setItem('ajin_packing_labels', JSON.stringify(newList));
+
+    // Update localStorage national invoices as well
+    try {
+      const natRaw = localStorage.getItem('ajin_national_invoices');
+      let natList: any[] = natRaw ? JSON.parse(natRaw) : [];
+      natList = [updated, ...natList.filter(item => item.id !== updated.id)];
+      localStorage.setItem('ajin_national_invoices', JSON.stringify(natList));
+    } catch (e) {
+      console.error(e);
     }
-    saveDocsList(newList, updated);
-    alert('패킹 라벨 문서가 안전하게 저장되었습니다.');
+
+    // Save to Supabase Cloud DB with debounced sync
+    saveSingleDoc('nationalinvoice', updated, 'PACKING_LABEL');
+
+    alert('패킹 라벨 문서가 Supabase DB에 안전하게 저장되었습니다.');
   };
 
   // Delete doc
   const handleDeleteDoc = (id: string) => {
     const docToDelete = docs.find(d => d.id === id);
     const newList = docs.filter(d => d.id !== id);
-    saveDocsList(newList);
+    setDocs(newList);
+    localStorage.setItem('ajin_packing_labels', JSON.stringify(newList));
+
+    // Remove from national invoices storage
+    try {
+      const natRaw = localStorage.getItem('ajin_national_invoices');
+      if (natRaw) {
+        const natList: any[] = JSON.parse(natRaw);
+        const filtered = natList.filter(item => item.id !== id);
+        localStorage.setItem('ajin_national_invoices', JSON.stringify(filtered));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
     if (docToDelete) {
       deleteSingleDoc('nationalinvoice', id, docToDelete);
     }
@@ -422,7 +453,6 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
         return;
       }
     } else {
-      // General print with active selection
       const activeSelection = selectedBoxIds;
       if (activeSelection && activeSelection.size > 0) {
         baseBoxes = allBoxes.filter(b => activeSelection.has(b.id));
@@ -434,7 +464,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       setSelectedBoxIds(new Set(allBoxes.map(b => b.id)));
     }
 
-    // Expand boxes based on their printCount (인쇄 매수만큼 라벨 복제하여 순서대로 채움)
+    // Expand boxes based on their printCount
     const expandedBoxes4Up: PackingLabelBox[] = [];
     const expandedBoxes2Up: PackingLabelBox[] = [];
 
@@ -788,6 +818,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
   // If editing an active doc, render editor
   if (activeDoc) {
+    const isSaved = docs.some(d => d.id === activeDoc.id);
     const totalBoxesCount = activeDoc.boxes.length;
     
     // Calculate total label copies based on printCount
@@ -822,6 +853,15 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 uppercase tracking-wider">
                   📦 PACKING LABEL
                 </span>
+                {!isSaved ? (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-100 text-rose-700 border border-rose-200">
+                    미저장 신규 문서
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    저장 완료됨
+                  </span>
+                )}
                 <span className="text-xs font-bold text-slate-400">
                   작성자: {activeDoc.authorInitials || activeDoc.authorId}
                 </span>
@@ -833,15 +873,19 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Save Button */}
+            {/* Save Button (Requires explicit click to persist) */}
             <button
               onClick={handleSaveActiveDoc}
-              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+              className={`px-4 py-2 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5 ${
+                !isSaved 
+                  ? 'bg-amber-600 hover:bg-amber-700 ring-2 ring-amber-400 ring-offset-1 animate-pulse' 
+                  : 'bg-slate-900 hover:bg-slate-800'
+              }`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
               </svg>
-              저장
+              <span>저장</span>
             </button>
 
             {/* Direct 4-UP Label Sheet Print */}
@@ -1001,7 +1045,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     cartonNo: nextNo,
                     model: activeDoc.boxes[0]?.model || 'MODEL TRAIN PARTS',
                     items: [{ name: '', qty: '', unit: 'PCS' }],
-                    madeIn: 'KOREA',
+                    madeIn: activeDoc.boxes[0]?.madeIn || 'KOREA',
                     layoutType: '4-UP',
                     printCount: 1
                   };
@@ -1246,10 +1290,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                                     const val = e.target.value;
                                     setActiveDoc(prev => prev ? {
                                       ...prev,
-                                      boxes: prev.boxes.map((b, i) => i === boxIdx ? {
-                                        ...b,
-                                        items: b.items.map((it, idx) => idx === itIdx ? { ...it, unit: val } : it)
-                                      } : b)
+                                      boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, items: b.items.map((it, idx) => idx === itIdx ? { ...it, unit: val } : it) } : b)
                                     } : null);
                                   }}
                                 />
@@ -1331,7 +1372,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           </div>
 
           <div className="flex items-center gap-4 mt-4">
-            <p className="text-slate-500 text-xs font-bold">총 {filteredDocs.length}개 라벨 문서</p>
+            <p className="text-slate-500 text-xs font-bold">총 {filteredDocs.length}개 저장된 라벨 문서</p>
             <div className="h-4 w-[1px] bg-slate-300" />
             <div className="flex bg-slate-200 p-1 rounded-xl">
               <button
@@ -1396,7 +1437,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           <div>
             <h3 className="text-lg font-black text-slate-800">등록된 패킹 라벨 문서가 없습니다</h3>
             <p className="text-xs font-bold text-slate-400 mt-1">
-              [인보이스에서 불러오기]를 클릭하여 작성된 패킹리스트에서 라벨을 자동 생성하세요.
+              [인보이스에서 불러오기] 또는 [+ 직접 작성]으로 라벨을 편집한 후 [저장]을 눌러 보관하세요.
             </p>
           </div>
           <button
@@ -1436,7 +1477,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {/* Delete button cleanly positioned inside top-right, visible and unclipped */}
+                      {/* Delete button */}
                       {canDelete && (
                         <button
                           onClick={(e) => {
@@ -1603,7 +1644,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               ) : (
                 availableInvoices.map(inv => {
                   const invDate = inv.invoiceDate || inv.createdAt?.split('T')[0] || '';
-                  const totalItems = (inv.packingRows || inv.rows || []).filter(r => r.type === 'ITEM').length;
+                  const totalItems = (inv.packingRows || inv.rows || []).filter(r => r.type === 'ITEM' && (r.plProc || r.plPkgNo || r.pkgNo || '').trim()).length;
 
                   return (
                     <div
@@ -1622,7 +1663,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                           {inv.consigneeName}
                         </h4>
                         <p className="text-[11px] font-bold text-slate-500 mt-0.5">
-                          총 {totalItems}개 품목 / {inv.currencySymbol}{inv.totalAmount || '0'}
+                          카톤 지정 품목 {totalItems}개 / {inv.currencySymbol}{inv.totalAmount || '0'}
                         </p>
                       </div>
 
