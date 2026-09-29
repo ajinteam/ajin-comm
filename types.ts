@@ -293,7 +293,38 @@ export interface InvoiceItem {
 export enum NationalInvoiceSubCategory {
   CREATE = 'invoice_create',
   TEMPORARY = 'invoice_draft',
-  COMPLETED = 'invoice_complete'
+  COMPLETED = 'invoice_complete',
+  PACKING_LABEL = 'invoice_packing_label'
+}
+
+export interface PackingLabelItemRow {
+  name: string;
+  qty: string;
+  unit?: string;
+}
+
+export interface PackingLabelBox {
+  id: string;
+  cartonNo: string; // e.g. "1", "2", "6"
+  model: string; // e.g. "MODEL TRAIN PARTS"
+  items: PackingLabelItemRow[];
+  madeIn: string; // "KOREA"
+  layoutType: '4-UP' | '2-UP';
+}
+
+export interface PackingLabelDoc {
+  id: string;
+  status: NationalInvoiceSubCategory.PACKING_LABEL;
+  invoiceId?: string;
+  invoiceNo?: string;
+  date: string; // "2026-09-29"
+  recipient: string; // e.g. "AJIN TRAIN VINA CO., LTD"
+  authorId: string;
+  authorInitials?: string;
+  createdAt: string;
+  updatedAt?: string;
+  defaultLayout: '4-UP' | '2-UP';
+  boxes: PackingLabelBox[];
 }
 
 export enum ShippingReportSubCategory {

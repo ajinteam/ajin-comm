@@ -1,0 +1,1238 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  PackingLabelDoc, 
+  PackingLabelBox, 
+  PackingLabelItemRow, 
+  UserAccount, 
+  ViewState, 
+  NationalInvoiceSubCategory, 
+  NationalInvoiceItem 
+} from '../types';
+import { printHtmlContent } from '../utils/printHelper';
+import { saveSingleDoc, deleteSingleDoc } from '../supabase';
+
+interface PackingLabelViewProps {
+  currentUser: UserAccount;
+  setView: (v: ViewState) => void;
+  dataVersion?: number;
+  initialInvoiceId?: string;
+}
+
+export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
+  currentUser,
+  setView,
+  dataVersion = 0,
+  initialInvoiceId
+}) => {
+  const isMaster = currentUser.loginId === 'AJ5200';
+
+  // Documents state
+  const [docs, setDocs] = useState<PackingLabelDoc[]>([]);
+  const [activeDoc, setActiveDoc] = useState<PackingLabelDoc | null>(null);
+  const [viewMode, setViewMode] = useState<'ICON' | 'LIST'>('ICON');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  // Invoice selector modal state
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [availableInvoices, setAvailableInvoices] = useState<NationalInvoiceItem[]>([]);
+
+  // Load packing labels from storage
+  const loadDocs = () => {
+    try {
+      const raw = localStorage.getItem('ajin_packing_labels');
+      let list: PackingLabelDoc[] = raw ? JSON.parse(raw) : [];
+
+      // Also check if any packing labels are stored in ajin_national_invoices with category PACKING_LABEL
+      const nationalRaw = localStorage.getItem('ajin_national_invoices');
+      if (nationalRaw) {
+        try {
+          const natList: any[] = JSON.parse(nationalRaw);
+          const labelInvoices = natList.filter(item => item.status === NationalInvoiceSubCategory.PACKING_LABEL && item.boxes);
+          labelInvoices.forEach(lbl => {
+            if (!list.some(d => d.id === lbl.id)) {
+              list.push(lbl);
+            }
+          });
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      setDocs(list);
+    } catch (e) {
+      console.error('Failed to load packing labels', e);
+    }
+  };
+
+  // Load invoices for import
+  const loadInvoices = () => {
+    try {
+      const raw = localStorage.getItem('ajin_national_invoices');
+      if (raw) {
+        const list: NationalInvoiceItem[] = JSON.parse(raw);
+        setAvailableInvoices(list);
+      }
+    } catch (e) {
+      console.error('Failed to load invoices', e);
+    }
+  };
+
+  useEffect(() => {
+    loadDocs();
+    loadInvoices();
+  }, [dataVersion]);
+
+  // If initialInvoiceId is passed, automatically create or open packing label from that invoice
+  useEffect(() => {
+    if (initialInvoiceId && availableInvoices.length > 0) {
+      const targetInv = availableInvoices.find(inv => inv.id === initialInvoiceId);
+      if (targetInv) {
+        // Check if an existing label doc already exists for this invoice
+        const existing = docs.find(d => d.invoiceId === initialInvoiceId);
+        if (existing) {
+          setActiveDoc(existing);
+        } else {
+          createDocFromInvoice(targetInv);
+        }
+      }
+    }
+  }, [initialInvoiceId, availableInvoices, docs]);
+
+  // Save all docs helper
+  const saveDocsList = (newList: PackingLabelDoc[], updatedItem?: PackingLabelDoc) => {
+    setDocs(newList);
+    localStorage.setItem('ajin_packing_labels', JSON.stringify(newList));
+    if (updatedItem) {
+      saveSingleDoc('nationalinvoice', updatedItem, 'PACKING_LABEL');
+    }
+  };
+
+  // Helper to parse carton rows from invoice
+  const parseCartonsFromInvoice = (invoice: NationalInvoiceItem): PackingLabelBox[] => {
+    const rows = invoice.packingRows || invoice.rows || [];
+    const boxesMap: { [cartonNo: string]: PackingLabelBox } = {};
+
+    // Determine model name from invoice
+    let defaultModel = 'MODEL TRAIN PARTS';
+    const headerRow = rows.find(r => r.type === 'HEADER' && r.headerLeft);
+    if (headerRow && headerRow.headerLeft) {
+      defaultModel = headerRow.headerLeft.replace(/^(MODEL|ITEM)\s*[:]?\s*/i, '').trim() || defaultModel;
+    }
+
+    rows.forEach(row => {
+      if (row.type !== 'ITEM') return;
+
+      const desc = row.description || '';
+      const qty = row.quantity || '0';
+      const unit = row.unit || 'PCS';
+      const ctnRaw = (row.plProc || row.plPkgNo || row.pkgNo || '').trim();
+
+      // Check if carton is a range like "1~2" or "1-2"
+      const rangeMatch = ctnRaw.match(/^(\d+)\s*[~-]\s*(\d+)$/);
+      if (rangeMatch) {
+        const start = parseInt(rangeMatch[1], 10);
+        const end = parseInt(rangeMatch[2], 10);
+        for (let i = start; i <= end; i++) {
+          const ctnKey = String(i);
+          if (!boxesMap[ctnKey]) {
+            boxesMap[ctnKey] = {
+              id: `box-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              cartonNo: ctnKey,
+              model: defaultModel,
+              items: [],
+              madeIn: 'KOREA',
+              layoutType: '4-UP'
+            };
+          }
+          boxesMap[ctnKey].items.push({
+            name: desc,
+            qty: qty,
+            unit: unit
+          });
+        }
+      } else if (ctnRaw) {
+        // Single carton or multiple numbers (e.g. "6" or "5")
+        const ctnKey = ctnRaw;
+        if (!boxesMap[ctnKey]) {
+          boxesMap[ctnKey] = {
+            id: `box-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            cartonNo: ctnKey,
+            model: defaultModel,
+            items: [],
+            madeIn: 'KOREA',
+            layoutType: '4-UP'
+          };
+        }
+        boxesMap[ctnKey].items.push({
+          name: desc,
+          qty: qty,
+          unit: unit
+        });
+      } else {
+        // No carton specified -> put into default Box 1
+        const ctnKey = '1';
+        if (!boxesMap[ctnKey]) {
+          boxesMap[ctnKey] = {
+            id: `box-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            cartonNo: ctnKey,
+            model: defaultModel,
+            items: [],
+            madeIn: 'KOREA',
+            layoutType: '4-UP'
+          };
+        }
+        boxesMap[ctnKey].items.push({
+          name: desc,
+          qty: qty,
+          unit: unit
+        });
+      }
+    });
+
+    const boxesList = Object.values(boxesMap);
+
+    // Auto layout: If a box has 3 or more items, default to 2-UP
+    boxesList.forEach(box => {
+      if (box.items.length >= 3) {
+        box.layoutType = '2-UP';
+      }
+    });
+
+    // Sort boxes by carton number
+    boxesList.sort((a, b) => {
+      const numA = parseInt(a.cartonNo.replace(/\D/g, ''), 10) || 0;
+      const numB = parseInt(b.cartonNo.replace(/\D/g, ''), 10) || 0;
+      return numA - numB;
+    });
+
+    return boxesList.length > 0 ? boxesList : [
+      {
+        id: `box-1`,
+        cartonNo: '1',
+        model: defaultModel,
+        items: [{ name: '', qty: '', unit: 'PCS' }],
+        madeIn: 'KOREA',
+        layoutType: '4-UP'
+      }
+    ];
+  };
+
+  // Create doc from an invoice
+  const createDocFromInvoice = (invoice: NationalInvoiceItem) => {
+    const boxes = parseCartonsFromInvoice(invoice);
+    const newDoc: PackingLabelDoc = {
+      id: `pl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      status: NationalInvoiceSubCategory.PACKING_LABEL,
+      invoiceId: invoice.id,
+      invoiceNo: invoice.invoiceNo || '',
+      date: invoice.invoiceDate || new Date().toISOString().split('T')[0],
+      recipient: invoice.consigneeName || 'CONSIGNEE',
+      authorId: currentUser.id || currentUser.loginId,
+      authorInitials: currentUser.initials || currentUser.loginId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      defaultLayout: boxes.some(b => b.layoutType === '2-UP') ? '2-UP' : '4-UP',
+      boxes: boxes
+    };
+
+    const newList = [newDoc, ...docs.filter(d => d.id !== newDoc.id)];
+    saveDocsList(newList, newDoc);
+    setActiveDoc(newDoc);
+    setIsImportModalOpen(false);
+  };
+
+  // Create empty new doc
+  const createBlankDoc = () => {
+    const newDoc: PackingLabelDoc = {
+      id: `pl-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      status: NationalInvoiceSubCategory.PACKING_LABEL,
+      date: new Date().toISOString().split('T')[0],
+      recipient: '',
+      authorId: currentUser.id || currentUser.loginId,
+      authorInitials: currentUser.initials || currentUser.loginId,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      defaultLayout: '4-UP',
+      boxes: [
+        {
+          id: `box-${Date.now()}-1`,
+          cartonNo: '1',
+          model: 'MODEL TRAIN PARTS',
+          items: [{ name: '', qty: '', unit: 'PCS' }],
+          madeIn: 'KOREA',
+          layoutType: '4-UP'
+        }
+      ]
+    };
+
+    const newList = [newDoc, ...docs];
+    saveDocsList(newList, newDoc);
+    setActiveDoc(newDoc);
+  };
+
+  // Save active doc edits
+  const handleSaveActiveDoc = () => {
+    if (!activeDoc) return;
+    const updated = {
+      ...activeDoc,
+      updatedAt: new Date().toISOString()
+    };
+    const newList = docs.map(d => d.id === updated.id ? updated : d);
+    if (!newList.some(d => d.id === updated.id)) {
+      newList.unshift(updated);
+    }
+    saveDocsList(newList, updated);
+    alert('패킹 라벨 문서가 안전하게 저장되었습니다.');
+  };
+
+  // Delete doc
+  const handleDeleteDoc = (id: string) => {
+    const docToDelete = docs.find(d => d.id === id);
+    const newList = docs.filter(d => d.id !== id);
+    saveDocsList(newList);
+    if (docToDelete) {
+      deleteSingleDoc('nationalinvoice', id, docToDelete);
+    }
+    if (activeDoc && activeDoc.id === id) {
+      setActiveDoc(null);
+    }
+    setDeletingId(null);
+  };
+
+  // Print Formtec Labels
+  const handlePrint = (docToPrint: PackingLabelDoc) => {
+    const boxes = docToPrint.boxes || [];
+    if (boxes.length === 0) {
+      alert('인쇄할 라벨 내용이 없습니다.');
+      return;
+    }
+
+    // Determine layout mode
+    const layout = docToPrint.defaultLayout || '4-UP';
+
+    // Helper to generate a single label HTML cell
+    const renderLabelBoxHtml = (box: PackingLabelBox, is2Up: boolean) => {
+      const itemsHtml = box.items.map((item) => {
+        return `
+          <tr>
+            <td class="lbl-th">NAME</td>
+            <td class="lbl-td name-td">${item.name || ''}</td>
+          </tr>
+          <tr>
+            <td class="lbl-th">QTY</td>
+            <td class="lbl-td qty-td">${item.qty || ''} ${item.unit || ''}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const boxFontSize = box.items.length >= 4 ? '11px' : box.items.length >= 3 ? '12px' : is2Up ? '14px' : '13px';
+      const ctnBadgeSize = is2Up ? '13px' : '11px';
+
+      return `
+        <div class="label-card ${is2Up ? 'label-2up' : 'label-4up'}" style="font-size: ${boxFontSize};">
+          <div class="ctn-header-badge" style="font-size: ${ctnBadgeSize};">
+            <span>CTN NO. ${box.cartonNo || ''}</span>
+          </div>
+          <table class="label-inner-table">
+            <tbody>
+              <tr>
+                <td class="lbl-th" style="width: 25%;">MODEL</td>
+                <td class="lbl-td model-td" style="width: 75%; font-weight: 900;">${box.model || ''}</td>
+              </tr>
+              ${itemsHtml}
+              <tr>
+                <td class="lbl-th">MADE</td>
+                <td class="lbl-td made-td" style="font-weight: 900;">${box.madeIn || 'KOREA'}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      `;
+    };
+
+    // Group boxes into pages
+    let pagesHtml = '';
+    if (layout === '2-UP') {
+      // 2 labels per A4 sheet
+      for (let i = 0; i < boxes.length; i += 2) {
+        const b1 = boxes[i];
+        const b2 = boxes[i + 1];
+        pagesHtml += `
+          <div class="a4-page page-2up-grid">
+            ${b1 ? renderLabelBoxHtml(b1, true) : '<div class="label-card empty-card"></div>'}
+            ${b2 ? renderLabelBoxHtml(b2, true) : '<div class="label-card empty-card"></div>'}
+          </div>
+        `;
+      }
+    } else {
+      // 4 labels per A4 sheet (2x2)
+      for (let i = 0; i < boxes.length; i += 4) {
+        const pageBoxes = boxes.slice(i, i + 4);
+        while (pageBoxes.length < 4) {
+          pageBoxes.push(null as any);
+        }
+        pagesHtml += `
+          <div class="a4-page page-4up-grid">
+            ${pageBoxes.map(b => b ? renderLabelBoxHtml(b, false) : '<div class="label-card empty-card"></div>').join('')}
+          </div>
+        `;
+      }
+    }
+
+    const docTitle = `PACKING_LABEL_${docToPrint.date}_${docToPrint.recipient || 'CONSIGNEE'}`.replace(/[/\\?%*:|"<>]/g, '-');
+
+    const fullHtml = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${docTitle}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Inter:wght@400;700;900&display=swap');
+            
+            @page {
+              size: A4 portrait;
+              margin: 10mm 8mm;
+            }
+
+            * {
+              box-sizing: border-box;
+            }
+
+            body {
+              font-family: 'Inter', 'Noto Sans KR', sans-serif;
+              margin: 0;
+              padding: 0;
+              background: #fff;
+              color: #000;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+
+            .a4-page {
+              width: 194mm;
+              height: 277mm;
+              page-break-after: always;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              margin-bottom: 20px;
+            }
+
+            @media print {
+              .a4-page {
+                margin-bottom: 0;
+                page-break-after: always;
+              }
+            }
+
+            /* 4-UP Grid: 2 columns x 2 rows (Formtec standard) */
+            .page-4up-grid {
+              display: grid;
+              grid-template-columns: 1fr 1fr;
+              grid-template-rows: 1fr 1fr;
+              gap: 6mm 8mm;
+              height: 275mm;
+            }
+
+            /* 2-UP Grid: 1 column x 2 rows */
+            .page-2up-grid {
+              display: grid;
+              grid-template-columns: 1fr;
+              grid-template-rows: 1fr 1fr;
+              gap: 10mm;
+              height: 275mm;
+            }
+
+            .label-card {
+              border: 2px solid #000;
+              border-radius: 4px;
+              padding: 6mm 8mm;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              background: #fff;
+              position: relative;
+              overflow: hidden;
+            }
+
+            .empty-card {
+              border: 1px dashed #ccc;
+              visibility: hidden;
+            }
+
+            .ctn-header-badge {
+              display: flex;
+              justify-content: flex-end;
+              font-weight: 900;
+              margin-bottom: 4px;
+              letter-spacing: 0.5px;
+            }
+
+            .label-inner-table {
+              width: 100%;
+              border-collapse: collapse;
+              border: 1.5px solid #000;
+              flex-grow: 1;
+            }
+
+            .label-inner-table td {
+              border: 1px solid #000;
+              padding: 6px 10px;
+              vertical-align: middle;
+            }
+
+            .lbl-th {
+              font-weight: 900;
+              text-align: left;
+              background-color: #fff;
+              white-space: nowrap;
+              letter-spacing: 1px;
+            }
+
+            .lbl-td {
+              font-weight: 700;
+              text-align: left;
+              word-break: break-word;
+            }
+
+            .model-td {
+              font-size: 1.1em;
+              text-transform: uppercase;
+            }
+
+            .name-td {
+              font-size: 0.95em;
+              line-height: 1.25;
+            }
+
+            .qty-td {
+              font-size: 1.05em;
+              font-weight: 900;
+            }
+
+            .made-td {
+              font-size: 1.05em;
+              letter-spacing: 1.5px;
+            }
+          </style>
+        </head>
+        <body>
+          ${pagesHtml}
+        </body>
+      </html>
+    `;
+
+    printHtmlContent(fullHtml, docTitle);
+  };
+
+  // Filtered documents
+  const filteredDocs = useMemo(() => {
+    return docs.filter(d => {
+      if (!searchTerm) return true;
+      const t = searchTerm.toLowerCase();
+      const matchRecipient = (d.recipient || '').toLowerCase().includes(t);
+      const matchDate = (d.date || '').toLowerCase().includes(t);
+      const matchInvoiceNo = (d.invoiceNo || '').toLowerCase().includes(t);
+      const matchBoxes = (d.boxes || []).some(b => 
+        (b.model || '').toLowerCase().includes(t) ||
+        (b.cartonNo || '').toLowerCase().includes(t) ||
+        (b.items || []).some(it => (it.name || '').toLowerCase().includes(t))
+      );
+      return matchRecipient || matchDate || matchInvoiceNo || matchBoxes;
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [docs, searchTerm]);
+
+  // If editing an active doc, render editor
+  if (activeDoc) {
+    return (
+      <div className="space-y-6 text-left pb-16">
+        {/* Editor Top Bar */}
+        <div className="bg-white p-6 rounded-3xl border border-amber-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setActiveDoc(null)}
+              className="p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors"
+              title="목록으로 돌아가기"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800 uppercase tracking-wider">
+                  📦 PACKING LABEL
+                </span>
+                <span className="text-xs font-bold text-slate-400">
+                  작성자: {activeDoc.authorInitials || activeDoc.authorId}
+                </span>
+              </div>
+              <h1 className="text-2xl font-black text-slate-900 mt-1">
+                {activeDoc.date} / {activeDoc.recipient || '(수신처 미지정)'}
+              </h1>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Global Layout Selector */}
+            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+              <button
+                onClick={() => {
+                  setActiveDoc(prev => prev ? {
+                    ...prev,
+                    defaultLayout: '4-UP',
+                    boxes: prev.boxes.map(b => ({ ...b, layoutType: '4-UP' }))
+                  } : null);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '4-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                4칸 라벨 (4-UP)
+              </button>
+              <button
+                onClick={() => {
+                  setActiveDoc(prev => prev ? {
+                    ...prev,
+                    defaultLayout: '2-UP',
+                    boxes: prev.boxes.map(b => ({ ...b, layoutType: '2-UP' }))
+                  } : null);
+                }}
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '2-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+              >
+                2칸 라벨 (2-UP)
+              </button>
+            </div>
+
+            {/* Action Buttons */}
+            <button
+              onClick={handleSaveActiveDoc}
+              className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+              </svg>
+              저장
+            </button>
+
+            <button
+              onClick={() => handlePrint(activeDoc)}
+              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-md shadow-amber-600/20 transition-all flex items-center gap-1.5"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+              </svg>
+              라벨 인쇄
+            </button>
+          </div>
+        </div>
+
+        {/* Basic Document Info */}
+        <div className="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">인쇄 날짜</label>
+            <input
+              type="date"
+              className="w-full px-3 py-2 border rounded-xl font-bold text-sm bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-amber-500"
+              value={activeDoc.date || ''}
+              onChange={(e) => setActiveDoc(prev => prev ? { ...prev, date: e.target.value } : null)}
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">수신처 (CONSIGNEE)</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border rounded-xl font-bold text-sm bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+              value={activeDoc.recipient || ''}
+              onChange={(e) => setActiveDoc(prev => prev ? { ...prev, recipient: e.target.value } : null)}
+              placeholder="예: AJIN TRAIN VINA CO., LTD"
+            />
+          </div>
+          <div>
+            <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">참조 인보이스 번호</label>
+            <input
+              type="text"
+              className="w-full px-3 py-2 border rounded-xl font-bold text-sm bg-slate-50 focus:bg-white outline-none focus:ring-2 focus:ring-amber-500 uppercase"
+              value={activeDoc.invoiceNo || ''}
+              onChange={(e) => setActiveDoc(prev => prev ? { ...prev, invoiceNo: e.target.value } : null)}
+              placeholder="예: AJI-2609027"
+            />
+          </div>
+        </div>
+
+        {/* Carton Boxes Section */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
+              <span>카톤별 라벨 목록</span>
+              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800">
+                총 {activeDoc.boxes.length}개 카톤
+              </span>
+            </h2>
+
+            <button
+              onClick={() => {
+                const nextNo = String(activeDoc.boxes.length + 1);
+                setActiveDoc(prev => prev ? {
+                  ...prev,
+                  boxes: [
+                    ...prev.boxes,
+                    {
+                      id: `box-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+                      cartonNo: nextNo,
+                      model: prev.boxes[0]?.model || 'MODEL TRAIN PARTS',
+                      items: [{ name: '', qty: '', unit: 'PCS' }],
+                      madeIn: 'KOREA',
+                      layoutType: prev.defaultLayout || '4-UP'
+                    }
+                  ]
+                } : null);
+              }}
+              className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs"
+            >
+              + 카톤(박스) 추가
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {activeDoc.boxes.map((box, boxIdx) => (
+              <div 
+                key={box.id || boxIdx} 
+                className={`bg-white rounded-3xl border-2 ${box.layoutType === '2-UP' ? 'border-amber-400 bg-amber-50/20' : 'border-slate-300'} p-5 shadow-sm space-y-3 relative group transition-all`}
+              >
+                {/* Carton Header Bar */}
+                <div className="flex justify-between items-center border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
+                      CTN #{box.cartonNo}
+                    </span>
+                    <input
+                      type="text"
+                      className="w-16 px-1.5 py-0.5 border rounded text-xs font-bold text-center"
+                      value={box.cartonNo}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setActiveDoc(prev => prev ? {
+                          ...prev,
+                          boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, cartonNo: val } : b)
+                        } : null);
+                      }}
+                      placeholder="카톤번호"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const newLayout = box.layoutType === '4-UP' ? '2-UP' : '4-UP';
+                        setActiveDoc(prev => prev ? {
+                          ...prev,
+                          boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, layoutType: newLayout } : b)
+                        } : null);
+                      }}
+                      className={`text-[10px] font-black px-2 py-0.5 rounded transition-colors ${box.layoutType === '2-UP' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}`}
+                      title="4칸용지와 2칸용지 전환"
+                    >
+                      {box.layoutType}
+                    </button>
+
+                    <button
+                      onClick={() => {
+                        if (confirm(`카톤 #${box.cartonNo} 라벨을 삭제하시겠습니까?`)) {
+                          setActiveDoc(prev => prev ? {
+                            ...prev,
+                            boxes: prev.boxes.filter((_, i) => i !== boxIdx)
+                          } : null);
+                        }
+                      }}
+                      className="p-1 text-slate-300 hover:text-rose-600 transition-colors"
+                      title="카톤 삭제"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Simulated Label Card Table Structure */}
+                <div className="border border-black rounded overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <tbody>
+                      {/* MODEL ROW */}
+                      <tr className="border-b border-black bg-slate-50/50">
+                        <td className="w-24 border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
+                          MODEL
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            className="w-full font-black uppercase outline-none bg-transparent"
+                            value={box.model || ''}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setActiveDoc(prev => prev ? {
+                                ...prev,
+                                boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, model: val } : b)
+                              } : null);
+                            }}
+                            placeholder="MODEL NAME"
+                          />
+                        </td>
+                      </tr>
+
+                      {/* ITEMS ROWS */}
+                      {box.items.map((item, itIdx) => (
+                        <React.Fragment key={itIdx}>
+                          <tr className="border-b border-black">
+                            <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle flex items-center justify-between">
+                              <span>NAME</span>
+                              {box.items.length > 1 && (
+                                <button
+                                  onClick={() => {
+                                    setActiveDoc(prev => prev ? {
+                                      ...prev,
+                                      boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                        ...b,
+                                        items: b.items.filter((_, idx) => idx !== itIdx)
+                                      } : b)
+                                    } : null);
+                                  }}
+                                  className="text-rose-500 hover:text-rose-700 font-bold px-1"
+                                  title="품목 삭제"
+                                >
+                                  ×
+                                </button>
+                              )}
+                            </td>
+                            <td className="p-2">
+                              <textarea
+                                className="w-full font-bold text-slate-900 outline-none bg-transparent resize-none leading-tight"
+                                rows={2}
+                                value={item.name || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setActiveDoc(prev => prev ? {
+                                    ...prev,
+                                    boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                      ...b,
+                                      items: b.items.map((it, idx) => idx === itIdx ? { ...it, name: val } : it)
+                                    } : b)
+                                  } : null);
+                                }}
+                                placeholder="ITEM NAME & DESCRIPTION"
+                              />
+                            </td>
+                          </tr>
+                          <tr className="border-b border-black bg-slate-50/30">
+                            <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
+                              QTY
+                            </td>
+                            <td className="p-2 flex items-center gap-2">
+                              <input
+                                type="text"
+                                className="font-black text-slate-900 outline-none bg-transparent flex-1"
+                                value={item.qty || ''}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setActiveDoc(prev => prev ? {
+                                    ...prev,
+                                    boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                      ...b,
+                                      items: b.items.map((it, idx) => idx === itIdx ? { ...it, qty: val } : it)
+                                    } : b)
+                                  } : null);
+                                }}
+                                placeholder="117"
+                              />
+                              <input
+                                type="text"
+                                className="w-16 font-bold text-slate-500 text-center outline-none bg-transparent border-b border-dashed border-slate-300"
+                                value={item.unit || 'PCS'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  setActiveDoc(prev => prev ? {
+                                    ...prev,
+                                    boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                      ...b,
+                                      items: b.items.map((it, idx) => idx === itIdx ? { ...it, unit: val } : it)
+                                    } : b)
+                                  } : null);
+                                }}
+                              />
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      ))}
+
+                      {/* MADE IN ROW */}
+                      <tr className="bg-amber-50/40">
+                        <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
+                          MADE
+                        </td>
+                        <td className="p-2">
+                          <input
+                            type="text"
+                            className="w-full font-black uppercase outline-none bg-transparent tracking-widest text-slate-900"
+                            value={box.madeIn || 'KOREA'}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setActiveDoc(prev => prev ? {
+                                ...prev,
+                                boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, madeIn: val } : b)
+                              } : null);
+                            }}
+                          />
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Box Item Add Button */}
+                <div className="flex justify-between items-center pt-1">
+                  <button
+                    onClick={() => {
+                      setActiveDoc(prev => prev ? {
+                        ...prev,
+                        boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                          ...b,
+                          items: [...b.items, { name: '', qty: '', unit: 'PCS' }]
+                        } : b)
+                      } : null);
+                    }}
+                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                  >
+                    + 품목 추가 (혼재 박스)
+                  </button>
+
+                  <span className="text-[10px] font-bold text-slate-400">
+                    {box.items.length}개 품목 포함
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Document List Screen
+  return (
+    <div className="space-y-6 text-left pb-16">
+      {/* Header & Controls */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <span className="p-2.5 rounded-2xl bg-amber-500 text-white shadow-md shadow-amber-500/20">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+              </svg>
+            </span>
+            <div>
+              <h1 className="text-3xl font-black text-slate-900">PACKING LABEL (패킹 라벨)</h1>
+              <p className="text-slate-500 text-xs mt-0.5">폼텍 4칸 / 2칸 라벨용지 카톤박스 부착용 라벨 관리</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4 mt-4">
+            <p className="text-slate-500 text-xs font-bold">총 {filteredDocs.length}개 라벨 문서</p>
+            <div className="h-4 w-[1px] bg-slate-300" />
+            <div className="flex bg-slate-200 p-1 rounded-xl">
+              <button
+                onClick={() => setViewMode('ICON')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${viewMode === 'ICON' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                아이콘 보기
+              </button>
+              <button
+                onClick={() => setViewMode('LIST')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${viewMode === 'LIST' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'}`}
+              >
+                리스트 보기
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full md:w-auto">
+          {/* Search */}
+          <div className="relative flex-1 sm:w-64">
+            <input
+              type="text"
+              placeholder="날짜, 수신처, 모델명 검색..."
+              className="w-full pl-9 pr-4 py-2.5 rounded-2xl border border-slate-200 focus:ring-2 focus:ring-amber-500 outline-none text-xs font-bold bg-white shadow-xs"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+          </div>
+
+          {/* Action Buttons */}
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-4 py-2.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-black rounded-2xl shadow-md shadow-amber-500/20 transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+            </svg>
+            인보이스에서 불러오기
+          </button>
+
+          <button
+            onClick={createBlankDoc}
+            className="px-4 py-2.5 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-2xl shadow-sm transition-all flex items-center justify-center gap-1.5 whitespace-nowrap"
+          >
+            + 직접 작성
+          </button>
+        </div>
+      </div>
+
+      {/* Document Grid / List */}
+      {filteredDocs.length === 0 ? (
+        <div className="bg-white p-16 rounded-3xl border border-dashed border-amber-200 text-center space-y-4">
+          <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-3xl flex items-center justify-center mx-auto">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+            </svg>
+          </div>
+          <div>
+            <h3 className="text-lg font-black text-slate-800">등록된 패킹 라벨 문서가 없습니다</h3>
+            <p className="text-xs font-bold text-slate-400 mt-1">
+              [인보이스에서 불러오기]를 클릭하여 작성된 패킹리스트에서 라벨을 자동 생성하세요.
+            </p>
+          </div>
+          <button
+            onClick={() => setIsImportModalOpen(true)}
+            className="px-5 py-2.5 bg-amber-500 text-white text-xs font-black rounded-xl hover:bg-amber-600 transition-colors inline-block"
+          >
+            인보이스 선택하여 라벨 만들기
+          </button>
+        </div>
+      ) : viewMode === 'ICON' ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {filteredDocs.map(doc => {
+            const author = doc.authorInitials || doc.authorId || 'AJIN';
+            const totalBoxes = (doc.boxes || []).length;
+            const modelSummary = doc.boxes[0]?.model || 'MODEL TRAIN PARTS';
+
+            return (
+              <div
+                key={doc.id}
+                onClick={() => setActiveDoc(doc)}
+                className="bg-white rounded-[2rem] border border-amber-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between p-6 group"
+              >
+                {/* Background decorative badge */}
+                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-100/40 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150" />
+
+                <div className="relative">
+                  {/* Top Bar */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg uppercase tracking-wider w-fit mb-1">
+                        {doc.date}
+                      </span>
+                      {doc.invoiceNo && (
+                        <span className="text-[10px] font-bold text-slate-400 ml-1">
+                          INV: {doc.invoiceNo}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="w-10 h-10 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                      </svg>
+                    </div>
+                  </div>
+
+                  {/* Recipient / Title */}
+                  <h3 className="text-lg font-black text-slate-900 mb-1 truncate group-hover:text-amber-600 transition-colors">
+                    {doc.recipient || '(수신처 미지정)'}
+                  </h3>
+
+                  {/* Model Summary */}
+                  <div className="mb-4 bg-amber-50/60 border border-amber-200/60 rounded-xl px-3 py-2 flex items-center gap-2">
+                    <span className="text-[9px] font-black text-amber-900 bg-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                      MODEL
+                    </span>
+                    <span className="text-xs font-bold text-slate-800 truncate" title={modelSummary}>
+                      {modelSummary}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Footer Bar */}
+                <div className="flex justify-between items-end pt-4 border-t border-slate-100 mt-2">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">총 카톤 수</span>
+                    <span className="text-xl font-black text-slate-900 tracking-tight">
+                      {totalBoxes} <span className="text-xs font-normal text-slate-500">CTN</span>
+                    </span>
+                  </div>
+
+                  {/* Author */}
+                  <div className="flex items-center gap-1.5" title={`작성자: ${author}`}>
+                    <span className="text-[9px] font-bold text-slate-400">작성자</span>
+                    <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center border border-amber-200">
+                      <span className="text-[8px] font-black">{author.slice(0, 2)}</span>
+                    </div>
+                    <span className="text-[10px] font-black text-slate-700 uppercase">{author}</span>
+                  </div>
+                </div>
+
+                {/* Delete button for Master / Author */}
+                {(isMaster || doc.authorId === currentUser.id || doc.authorId === currentUser.loginId) && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (confirm(`'${doc.date} / ${doc.recipient}' 라벨 문서를 삭제하시겠습니까?`)) {
+                        handleDeleteDoc(doc.id);
+                      }
+                    }}
+                    className="absolute -top-2 -right-2 bg-rose-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-rose-700 flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="문서 삭제"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="bg-white rounded-[2rem] border border-amber-200 overflow-hidden shadow-sm overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[800px]">
+            <thead>
+              <tr className="bg-amber-50/50 border-b border-amber-100">
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">날짜</th>
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">수신처 (CONSIGNEE)</th>
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">참조 인보이스</th>
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">대표 모델</th>
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">카톤 수</th>
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest text-right">작성자</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-50">
+              {filteredDocs.map(doc => {
+                const author = doc.authorInitials || doc.authorId || 'AJIN';
+                const totalBoxes = (doc.boxes || []).length;
+                const modelSummary = doc.boxes[0]?.model || 'MODEL TRAIN PARTS';
+
+                return (
+                  <tr
+                    key={doc.id}
+                    onClick={() => setActiveDoc(doc)}
+                    className="hover:bg-amber-50/30 cursor-pointer transition-all group"
+                  >
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-bold text-slate-700 font-mono">{doc.date}</span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="font-black text-slate-900 group-hover:text-amber-600 transition-colors">
+                        {doc.recipient || '(수신처 미지정)'}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-[10px] font-black text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                        {doc.invoiceNo || 'NO-NUMBER'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-bold text-slate-700 truncate max-w-[200px] block">
+                        {modelSummary}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className="text-xs font-black text-slate-900">{totalBoxes} CTN</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center border border-amber-200">
+                          <span className="text-[8px] font-black">{author.slice(0, 2)}</span>
+                        </div>
+                        <span className="text-xs font-black text-slate-700 uppercase">{author}</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Invoice Import Selector Modal */}
+      {isImportModalOpen && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col overflow-hidden">
+            <div className="p-6 border-b flex justify-between items-center bg-amber-50/50">
+              <div>
+                <h3 className="text-lg font-black text-slate-900">패킹리스트 불러오기</h3>
+                <p className="text-xs font-bold text-slate-500 mt-0.5">라벨을 생성할 인보이스 문서를 선택하세요</p>
+              </div>
+              <button
+                onClick={() => setIsImportModalOpen(false)}
+                className="p-2 text-slate-400 hover:text-slate-600 rounded-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto space-y-3 flex-1">
+              {availableInvoices.length === 0 ? (
+                <p className="text-center text-slate-400 py-10 font-bold">저장된 인보이스가 없습니다.</p>
+              ) : (
+                availableInvoices.map(inv => {
+                  const invDate = inv.invoiceDate || inv.createdAt?.split('T')[0] || '';
+                  const totalItems = (inv.packingRows || inv.rows || []).filter(r => r.type === 'ITEM').length;
+
+                  return (
+                    <div
+                      key={inv.id}
+                      onClick={() => createDocFromInvoice(inv)}
+                      className="p-4 rounded-2xl border border-slate-200 hover:border-amber-500 hover:bg-amber-50/30 transition-all cursor-pointer flex justify-between items-center group"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded">
+                            {inv.invoiceNo || 'NO-NUMBER'}
+                          </span>
+                          <span className="text-xs font-bold text-slate-400">{invDate}</span>
+                        </div>
+                        <h4 className="text-sm font-black text-slate-900 group-hover:text-amber-700">
+                          {inv.consigneeName}
+                        </h4>
+                        <p className="text-[11px] font-bold text-slate-500 mt-0.5">
+                          총 {totalItems}개 품목 / {inv.currencySymbol}{inv.totalAmount || '0'}
+                        </p>
+                      </div>
+
+                      <button className="px-3 py-1.5 bg-amber-500 group-hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-colors">
+                        라벨 생성 ➔
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <div className="p-4 border-t bg-slate-50 flex justify-end">
+              <button
+                onClick={() => setIsImportModalOpen(false)}
+                className="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-200 rounded-xl"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};

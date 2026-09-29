@@ -41,9 +41,11 @@ const GLOBAL_SUB_LABELS: Record<string, string> = {
   'invoice_create': 'Create Invoice',
   'invoice_draft': 'Draft Invoices',
   'invoice_complete': 'Completed Invoices',
+  'invoice_packing_label': 'Packing Label',
   '인보이스작성': 'Create Invoice',
   '인보이스임시': 'Draft Invoices',
   '인보이스완료': 'Completed Invoices',
+  '패킹라벨': 'Packing Label',
   'shipment_create': 'Create Shipment',
   'shipment_draft': 'Draft Shipments',
   'shipment_complete': 'Completed Shipments',
@@ -437,6 +439,7 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
                   {renderSubMenu(NationalInvoiceSubCategory.CREATE, 'NATIONAL_INVOICE')}
                   {renderSubMenu(NationalInvoiceSubCategory.TEMPORARY, 'NATIONAL_INVOICE')}
                   {renderSubMenu(NationalInvoiceSubCategory.COMPLETED, 'NATIONAL_INVOICE')}
+                  {renderSubMenu(NationalInvoiceSubCategory.PACKING_LABEL, 'NATIONAL_INVOICE')}
                 </div>
               )}
             </div>

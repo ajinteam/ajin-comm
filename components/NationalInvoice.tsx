@@ -13,11 +13,13 @@ import {
 } from '../types';
 import { saveSingleDoc, deleteSingleDoc, saveRecipient, deleteRecipient } from '../supabase';
 import { printHtmlContent } from '../utils/printHelper';
+import { PackingLabelView } from './PackingLabelView';
 
 const normalizeSub = (s: string): string => {
   if (s === '인보이스임시' || s === 'invoice_draft') return 'invoice_draft';
   if (s === '인보이스완료' || s === 'invoice_complete') return 'invoice_complete';
   if (s === '인보이스작성' || s === 'invoice_create') return 'invoice_create';
+  if (s === '패킹라벨' || s === 'invoice_packing_label') return 'invoice_packing_label';
   return s;
 };
 
@@ -25,9 +27,11 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
   'invoice_create': 'Create Invoice',
   'invoice_draft': 'Draft Invoices',
   'invoice_complete': 'Completed Invoices',
+  'invoice_packing_label': 'Packing Label',
   '인보이스작성': 'Create Invoice',
   '인보이스임시': 'Draft Invoices',
-  '인보이스완료': 'Completed Invoices'
+  '인보이스완료': 'Completed Invoices',
+  '패킹라벨': 'Packing Label'
 };
 
 interface NationalInvoiceProps {
@@ -2414,6 +2418,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     );
   };
 
+  if (sub === NationalInvoiceSubCategory.PACKING_LABEL) {
+    return (
+      <PackingLabelView
+        currentUser={currentUser}
+        setView={setView}
+        dataVersion={dataVersion}
+        initialInvoiceId={editId}
+      />
+    );
+  }
+
   if (sub !== NationalInvoiceSubCategory.CREATE) return renderListView();
 
   return (
@@ -2481,6 +2496,22 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           <button onClick={handleExportExcel} className="px-3 py-1.5 bg-white border border-slate-200 text-emerald-700 rounded-xl font-bold text-xs md:text-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5">
             <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
             엑셀 내보내기
+          </button>
+          <button 
+            onClick={() => {
+              setView({
+                type: 'NATIONAL_INVOICE',
+                sub: NationalInvoiceSubCategory.PACKING_LABEL,
+                editId: editId || formData.id
+              });
+            }} 
+            className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl font-black text-xs md:text-sm transition-all flex items-center gap-1.5 shadow-xs"
+            title="이 인보이스의 패킹리스트로 카톤 박스 라벨을 생성/인쇄합니다"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            패킹 라벨
           </button>
           <button onClick={() => { setEditingEntity({ type: 'SHIPPER' }); setIsEntityModalOpen(true); }} className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-xl font-bold text-xs md:text-sm hover:bg-slate-200 transition-colors">보관함 관리</button>
           {normalizeSub(formData.status || '') !== normalizeSub(NationalInvoiceSubCategory.COMPLETED) && (
