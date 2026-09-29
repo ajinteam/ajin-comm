@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   PackingLabelDoc, 
   PackingLabelBox, 
-  PackingLabelItemRow, 
   UserAccount, 
   ViewState, 
   NationalInvoiceSubCategory, 
@@ -358,32 +357,39 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     setSelectedBoxIds(new Set());
   };
 
-  // Global layout switcher that also updates selection to match all boxes
-  const handleSetGlobalLayout = (layout: '4-UP' | '2-UP') => {
-    if (!activeDoc) return;
-    const updatedBoxes = activeDoc.boxes.map(b => ({ ...b, layoutType: layout }));
-    setActiveDoc({
-      ...activeDoc,
-      defaultLayout: layout,
-      boxes: updatedBoxes
-    });
-    // Ensure all boxes remain selected
-    setSelectedBoxIds(new Set(updatedBoxes.map(b => b.id)));
-  };
-
-  // Print Formtec Labels with landscape orientation, 2x enlarged auto-fit fonts, and grouped layouts
-  const handlePrint = (docToPrint: PackingLabelDoc, customSelectedIds?: Set<string>) => {
+  // Print Formtec Labels with landscape orientation, outer border removed, and adaptive height compression
+  const handlePrint = (
+    docToPrint: PackingLabelDoc, 
+    filterMode?: 'ALL' | '4-UP_ONLY' | '2-UP_ONLY'
+  ) => {
     const allBoxes = docToPrint.boxes || [];
     if (allBoxes.length === 0) {
       alert('인쇄할 라벨 내용이 없습니다.');
       return;
     }
 
-    // Filter to selected boxes (fallback to all boxes if none selected)
-    const activeSelection = customSelectedIds || selectedBoxIds;
-    let targetBoxes = activeSelection && activeSelection.size > 0
-      ? allBoxes.filter(b => activeSelection.has(b.id))
-      : allBoxes;
+    // Determine target boxes based on filterMode or current selection
+    let targetBoxes = allBoxes;
+
+    if (filterMode === '4-UP_ONLY') {
+      targetBoxes = allBoxes.filter(b => b.layoutType !== '2-UP');
+      if (targetBoxes.length === 0) {
+        alert('인쇄할 4칸 라벨 카톤이 없습니다.');
+        return;
+      }
+    } else if (filterMode === '2-UP_ONLY') {
+      targetBoxes = allBoxes.filter(b => b.layoutType === '2-UP');
+      if (targetBoxes.length === 0) {
+        alert('인쇄할 2칸 라벨 카톤이 없습니다.');
+        return;
+      }
+    } else {
+      // General print with active selection
+      const activeSelection = selectedBoxIds;
+      if (activeSelection && activeSelection.size > 0) {
+        targetBoxes = allBoxes.filter(b => activeSelection.has(b.id));
+      }
+    }
 
     if (targetBoxes.length === 0) {
       targetBoxes = allBoxes;
@@ -394,72 +400,98 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     const boxes4Up = targetBoxes.filter(b => b.layoutType !== '2-UP');
     const boxes2Up = targetBoxes.filter(b => b.layoutType === '2-UP');
 
-    // Helper to generate a single label HTML card with 2x enlarged auto-scaled fonts
+    // Helper to generate a single label HTML card with outer-border removed and row-compression for many items
     const renderLabelBoxHtml = (box: PackingLabelBox, is2Up: boolean) => {
       const itemCount = box.items.length;
       
-      // Calculate 2x enlarged font scale based on items count and layout
-      let baseFontSize = '20px';
-      let headerFontSize = '18px';
-      let ctnBadgeSize = '22px';
-      let modelFontSize = '22px';
-      let qtyFontSize = '24px';
-      let madeFontSize = '20px';
-      let tablePadding = '8px 12px';
+      // Dynamic Smart Row Compression (행 높이 및 폰트 압축)
+      let baseFontSize = '18px';
+      let headerFontSize = '16px';
+      let ctnBadgeSize = '20px';
+      let modelFontSize = '20px';
+      let qtyFontSize = '22px';
+      let madeFontSize = '18px';
+      let tablePadding = '6px 10px';
+      let lineHeight = '1.2';
 
       if (is2Up) {
-        // 2-UP on landscape (plenty of wide vertical & horizontal space)
+        // 2-UP on landscape (Wide full-height label)
         if (itemCount <= 2) {
           baseFontSize = '24px';
-          headerFontSize = '22px';
-          ctnBadgeSize = '26px';
-          modelFontSize = '26px';
-          qtyFontSize = '28px';
-          madeFontSize = '24px';
-          tablePadding = '12px 16px';
+          headerFontSize = '21px';
+          ctnBadgeSize = '24px';
+          modelFontSize = '24px';
+          qtyFontSize = '26px';
+          madeFontSize = '22px';
+          tablePadding = '10px 14px';
+          lineHeight = '1.25';
         } else if (itemCount <= 4) {
-          baseFontSize = '20px';
-          headerFontSize = '18px';
-          ctnBadgeSize = '22px';
-          modelFontSize = '22px';
-          qtyFontSize = '24px';
-          madeFontSize = '20px';
-          tablePadding = '8px 12px';
-        } else {
-          baseFontSize = '16px';
-          headerFontSize = '15px';
-          ctnBadgeSize = '18px';
-          modelFontSize = '18px';
-          qtyFontSize = '20px';
-          madeFontSize = '16px';
+          baseFontSize = '19px';
+          headerFontSize = '17px';
+          ctnBadgeSize = '21px';
+          modelFontSize = '21px';
+          qtyFontSize = '22px';
+          madeFontSize = '19px';
           tablePadding = '6px 10px';
+          lineHeight = '1.18';
+        } else if (itemCount <= 6) {
+          baseFontSize = '15px';
+          headerFontSize = '14px';
+          ctnBadgeSize = '17px';
+          modelFontSize = '17px';
+          qtyFontSize = '17px';
+          madeFontSize = '15px';
+          tablePadding = '3.5px 7px';
+          lineHeight = '1.1';
+        } else if (itemCount <= 8) {
+          baseFontSize = '13px';
+          headerFontSize = '12px';
+          ctnBadgeSize = '15px';
+          modelFontSize = '15px';
+          qtyFontSize = '14.5px';
+          madeFontSize = '13px';
+          tablePadding = '2px 5px';
+          lineHeight = '1.05';
+        } else {
+          // 9 items or more (Compress tightly so MADE: KOREA is guaranteed to fit)
+          baseFontSize = '11px';
+          headerFontSize = '10.5px';
+          ctnBadgeSize = '13px';
+          modelFontSize = '13px';
+          qtyFontSize = '12px';
+          madeFontSize = '11.5px';
+          tablePadding = '1.5px 4px';
+          lineHeight = '1.0';
         }
       } else {
         // 4-UP on landscape (2x2 grid on A4 Landscape)
         if (itemCount <= 1) {
-          baseFontSize = '20px';
-          headerFontSize = '18px';
-          ctnBadgeSize = '22px';
-          modelFontSize = '22px';
-          qtyFontSize = '24px';
-          madeFontSize = '20px';
-          tablePadding = '8px 12px';
+          baseFontSize = '19px';
+          headerFontSize = '17px';
+          ctnBadgeSize = '21px';
+          modelFontSize = '21px';
+          qtyFontSize = '22px';
+          madeFontSize = '19px';
+          tablePadding = '7px 10px';
+          lineHeight = '1.2';
         } else if (itemCount === 2) {
-          baseFontSize = '17px';
-          headerFontSize = '15px';
-          ctnBadgeSize = '19px';
-          modelFontSize = '19px';
-          qtyFontSize = '20px';
-          madeFontSize = '17px';
-          tablePadding = '6px 10px';
-        } else {
           baseFontSize = '14px';
           headerFontSize = '13px';
           ctnBadgeSize = '16px';
           modelFontSize = '16px';
-          qtyFontSize = '17px';
+          qtyFontSize = '16px';
           madeFontSize = '14px';
-          tablePadding = '4px 8px';
+          tablePadding = '3.5px 6px';
+          lineHeight = '1.1';
+        } else {
+          baseFontSize = '11.5px';
+          headerFontSize = '11px';
+          ctnBadgeSize = '13px';
+          modelFontSize = '13px';
+          qtyFontSize = '13px';
+          madeFontSize = '12px';
+          tablePadding = '1.5px 4px';
+          lineHeight = '1.0';
         }
       }
 
@@ -468,11 +500,11 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
         return `
           <tr>
             <td class="lbl-th" style="font-size: ${headerFontSize}; padding: ${tablePadding};">NAME</td>
-            <td class="lbl-td name-td" style="font-size: ${baseFontSize}; padding: ${tablePadding};">${item.name || ''}</td>
+            <td class="lbl-td name-td" style="font-size: ${baseFontSize}; padding: ${tablePadding}; line-height: ${lineHeight};">${item.name || ''}</td>
           </tr>
           <tr>
             <td class="lbl-th" style="font-size: ${headerFontSize}; padding: ${tablePadding};">QTY</td>
-            <td class="lbl-td qty-td" style="font-size: ${qtyFontSize}; padding: ${tablePadding};">${formattedQty} ${item.unit || 'PCS'}</td>
+            <td class="lbl-td qty-td" style="font-size: ${qtyFontSize}; padding: ${tablePadding}; font-weight: 900;">${formattedQty} ${item.unit || 'PCS'}</td>
           </tr>
         `;
       }).join('');
@@ -486,12 +518,12 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             <tbody>
               <tr>
                 <td class="lbl-th" style="width: 22%; font-size: ${headerFontSize}; padding: ${tablePadding};">MODEL</td>
-                <td class="lbl-td model-td" style="width: 78%; font-size: ${modelFontSize}; font-weight: 900; padding: ${tablePadding};">${box.model || ''}</td>
+                <td class="lbl-td model-td" style="width: 78%; font-size: ${modelFontSize}; font-weight: 900; padding: ${tablePadding}; line-height: ${lineHeight};">${box.model || ''}</td>
               </tr>
               ${itemsHtml}
               <tr>
                 <td class="lbl-th" style="font-size: ${headerFontSize}; padding: ${tablePadding};">MADE</td>
-                <td class="lbl-td made-td" style="font-size: ${madeFontSize}; font-weight: 900; padding: ${tablePadding};">${box.madeIn || 'KOREA'}</td>
+                <td class="lbl-td made-td" style="font-size: ${madeFontSize}; font-weight: 900; padding: ${tablePadding}; letter-spacing: 2px;">${box.madeIn || 'KOREA'}</td>
               </tr>
             </tbody>
           </table>
@@ -516,7 +548,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       }
     }
 
-    // 2. Render 2-UP Pages (Formtec 2-label on A4 Landscape, 2 columns x 1 row or 1 column x 2 rows)
+    // 2. Render 2-UP Pages (Formtec 2-label on A4 Landscape, 2 columns x 1 row)
     if (boxes2Up.length > 0) {
       for (let i = 0; i < boxes2Up.length; i += 2) {
         const b1 = boxes2Up[i];
@@ -606,20 +638,21 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               height: 194mm;
             }
 
+            /* Outer card has NO border to fit Formtec sticker cut-lines cleanly */
             .label-card {
-              border: 2.5px solid #000;
-              border-radius: 4px;
-              padding: 5mm 6mm;
+              border: none !important;
+              padding: 1mm 2mm;
               display: flex;
               flex-direction: column;
-              justify-content: space-between;
+              justify-content: flex-start;
               background: #fff;
               position: relative;
               overflow: hidden;
+              height: 100%;
+              max-height: 100%;
             }
 
             .empty-card {
-              border: 1px dashed #ccc;
               visibility: hidden;
             }
 
@@ -627,11 +660,12 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               display: flex;
               justify-content: flex-end;
               font-weight: 900;
-              margin-bottom: 3px;
+              margin-bottom: 2.5px;
               letter-spacing: 0.5px;
               line-height: 1.1;
             }
 
+            /* Main Table Grid with sharp crisp borders */
             .label-inner-table {
               width: 100%;
               border-collapse: collapse;
@@ -658,7 +692,6 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             .lbl-td {
               font-weight: 700;
               text-align: left;
-              line-height: 1.25;
             }
 
             .model-td {
@@ -667,7 +700,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             }
 
             .name-td {
-              line-height: 1.2;
+              line-height: 1.15;
             }
 
             .qty-td {
@@ -710,8 +743,10 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
   if (activeDoc) {
     const totalBoxesCount = activeDoc.boxes.length;
     const selectedBoxesCount = selectedBoxIds.size;
-    const count4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP' && selectedBoxIds.has(b.id)).length;
-    const count2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP' && selectedBoxIds.has(b.id)).length;
+    const count4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP').length;
+    const count2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP').length;
+    const selected4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP' && selectedBoxIds.has(b.id)).length;
+    const selected2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP' && selectedBoxIds.has(b.id)).length;
 
     return (
       <div className="space-y-6 text-left pb-16">
@@ -746,25 +781,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Global Layout Switcher: sets all boxes & selects all */}
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
-              <button
-                onClick={() => handleSetGlobalLayout('4-UP')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '4-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                title="모든 카톤을 4칸 규격으로 일괄 변경하고 전체 선택합니다"
-              >
-                전체 4칸
-              </button>
-              <button
-                onClick={() => handleSetGlobalLayout('2-UP')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '2-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                title="모든 카톤을 2칸 규격으로 일괄 변경하고 전체 선택합니다"
-              >
-                전체 2칸
-              </button>
-            </div>
-
-            {/* Action Buttons */}
+            {/* Save Button */}
             <button
               onClick={handleSaveActiveDoc}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
@@ -775,10 +792,39 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               저장
             </button>
 
+            {/* Direct 4-UP Label Sheet Print */}
+            {count4Up > 0 && (
+              <button
+                onClick={() => handlePrint(activeDoc, '4-UP_ONLY')}
+                className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                title="4칸 라벨용지에 인쇄합니다"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                <span>4칸라벨 인쇄 ({count4Up}개)</span>
+              </button>
+            )}
+
+            {/* Direct 2-UP Label Sheet Print */}
+            {count2Up > 0 && (
+              <button
+                onClick={() => handlePrint(activeDoc, '2-UP_ONLY')}
+                className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
+                title="2칸 라벨용지에 인쇄합니다"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
+                </svg>
+                <span>2칸라벨 인쇄 ({count2Up}개)</span>
+              </button>
+            )}
+
+            {/* Selected Print Button */}
             <button
-              onClick={() => handlePrint(activeDoc, selectedBoxIds)}
-              className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-md shadow-amber-600/20 transition-all flex items-center gap-1.5"
-              title="선택된 카톤을 가로방향 폼텍 라벨 규격에 맞춰 인쇄"
+              onClick={() => handlePrint(activeDoc, 'ALL')}
+              className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-md shadow-emerald-700/20 transition-all flex items-center gap-1.5"
+              title="현재 선택된 카톤들을 각각의 4칸/2칸 규격에 맞춰 인쇄"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
@@ -833,7 +879,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 </span>
               </h2>
               <span className="text-xs font-bold text-slate-600">
-                (인쇄 선택: <b className="text-amber-900">{selectedBoxesCount}개</b> | 4칸용지 <b>{count4Up}개</b>, 2칸용지 <b>{count2Up}개</b>)
+                (4칸용지: <b className="text-blue-700">{count4Up}개</b> [선택 {selected4Up}개] / 2칸용지: <b className="text-amber-800">{count2Up}개</b> [선택 {selected2Up}개])
               </span>
             </div>
 
@@ -850,13 +896,13 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 </button>
                 <button
                   onClick={selectOnly4Up}
-                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-slate-700 hover:bg-amber-100 hover:text-amber-900 transition-colors"
+                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-blue-700 hover:bg-blue-50 transition-colors"
                 >
                   4칸만 선택
                 </button>
                 <button
                   onClick={selectOnly2Up}
-                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-slate-700 hover:bg-amber-100 hover:text-amber-900 transition-colors"
+                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-amber-800 hover:bg-amber-100 transition-colors"
                 >
                   2칸만 선택
                 </button>
@@ -878,7 +924,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     model: activeDoc.boxes[0]?.model || 'MODEL TRAIN PARTS',
                     items: [{ name: '', qty: '', unit: 'PCS' }],
                     madeIn: 'KOREA',
-                    layoutType: activeDoc.defaultLayout || '4-UP'
+                    layoutType: '4-UP'
                   };
                   setActiveDoc(prev => prev ? {
                     ...prev,
@@ -938,7 +984,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* Layout Type Toggle */}
+                      {/* Layout Type Toggle: 2칸 라벨 vs 4칸 라벨 */}
                       <button
                         onClick={() => {
                           const newLayout = box.layoutType === '4-UP' ? '2-UP' : '4-UP';
@@ -950,7 +996,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                         className={`text-[10px] font-black px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
                           box.layoutType === '2-UP' 
                             ? 'bg-amber-600 text-white shadow-xs' 
-                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                            : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
                         }`}
                         title="클릭하여 4칸(4-UP)과 2칸(2-UP) 규격 전환"
                       >
