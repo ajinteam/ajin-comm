@@ -1559,15 +1559,24 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       </style>
       <script>
         window.addEventListener('load', function() {
+          function calcPages(el) {
+            if (!el) return 1;
+            // A4 page height with standard print margins:
+            // Single page content typically renders between 950px - 1150px depending on font zoom.
+            // Using 1180px threshold avoids false 2-page calculations for 1-page documents.
+            const h = el.scrollHeight;
+            if (h <= 1180) return 1;
+            return Math.ceil(h / 1120);
+          }
           const invoice = document.getElementById('invoice-content');
           if (invoice) {
-            const invoiceTotal = Math.ceil(invoice.scrollHeight / 1050); 
+            const invoiceTotal = calcPages(invoice); 
             invoice.querySelectorAll('.page-total').forEach(function(el) { el.textContent = invoiceTotal; });
           }
           
           const pl = document.getElementById('packing-list-content');
           if (pl) {
-            const plTotal = Math.ceil(pl.scrollHeight / 1050); 
+            const plTotal = calcPages(pl); 
             pl.querySelectorAll('.page-total').forEach(function(el) { el.textContent = plTotal; });
           }
         });
