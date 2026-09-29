@@ -93,7 +93,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     }
   };
 
-  // Load invoices for import
+  // Load invoices for import (sorted by created/written date)
   const loadInvoices = () => {
     try {
       const raw = localStorage.getItem('ajin_national_invoices');
@@ -104,6 +104,23 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           (item.status as any) !== NationalInvoiceSubCategory.PACKING_LABEL && 
           (item.status as any) !== 'invoice_packing_label'
         );
+
+        // Sort by created / written date descending (newest first)
+        realInvoices.sort((a, b) => {
+          const parseTime = (item: NationalInvoiceItem) => {
+            if (item.createdAt) {
+              const t = new Date(item.createdAt).getTime();
+              if (!isNaN(t) && t > 0) return t;
+            }
+            if (item.invoiceDate) {
+              const t = new Date(item.invoiceDate).getTime();
+              if (!isNaN(t) && t > 0) return t;
+            }
+            return 0;
+          };
+          return parseTime(b) - parseTime(a);
+        });
+
         setAvailableInvoices(realInvoices);
       }
     } catch (e) {
