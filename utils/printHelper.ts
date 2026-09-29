@@ -42,8 +42,8 @@ export function printHtmlContent(fullHtml: string, suggestedTitle?: string) {
   iframe.style.position = 'fixed';
   iframe.style.top = '-9999px';
   iframe.style.left = '-9999px';
-  iframe.style.width = '1px';
-  iframe.style.height = '1px';
+  iframe.style.width = '210mm';
+  iframe.style.height = '297mm';
   iframe.style.border = 'none';
   iframe.style.opacity = '0';
   iframe.style.pointerEvents = 'none';

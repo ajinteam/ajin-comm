@@ -76,6 +76,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       invoiceNo: '',
       invoiceDate: new Date().toISOString().split('T')[0],
       pageNo: 'PAGE #1 OF 1',
+      plPageNo: 'PAGE #1 OF 1',
       consigneeName: '',
       consigneeAddress: '',
       consigneeTaxId: '',
@@ -1421,6 +1422,18 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const docDate = formData.invoiceDate || '';
       const filename = `${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
+      const invoiceRowsCount = (formData.rows || []).length;
+      const calculatedInvoicePages = invoiceRowsCount > 20 ? Math.ceil(invoiceRowsCount / 18) : 1;
+      const invoicePageText = (formData.pageNo && formData.pageNo.trim() !== '') 
+        ? formData.pageNo 
+        : `PAGE #1 OF ${calculatedInvoicePages}`;
+
+      const plRowsCount = plRowsList.length;
+      const calculatedPlPages = plRowsCount > 20 ? Math.ceil(plRowsCount / 18) : 1;
+      const plPageText = (formData.plPageNo && formData.plPageNo.trim() !== '') 
+        ? formData.plPageNo 
+        : (formData.pageNo && formData.pageNo.trim() !== '' ? formData.pageNo : `PAGE #1 OF ${calculatedPlPages}`);
+
       const html = `
   <html>
     <head>
@@ -1546,41 +1559,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         .signature-font { font-family: 'Brush Script MT', 'Dancing Script', 'Brush Script Std', cursive; font-size: 15px; color: #000; }
         .footer-info { font-size: 11px; font-weight: bold; color: #000; }
         .clear { clear: both; }
-
-        /* 자동 페이지 번호 표시를 위한 설정 */
-        body {
-          counter-reset: page;
-        }
-        .page-number::after {
-          counter-increment: page;
-          content: counter(page);
-        }
-        /* Chrome specific: counter(pages) is not always reliable in body, we'll use JS for total */
       </style>
-      <script>
-        window.addEventListener('load', function() {
-          function calcPages(el) {
-            if (!el) return 1;
-            // A4 page height with standard print margins:
-            // Single page content typically renders between 950px - 1150px depending on font zoom.
-            // Using 1180px threshold avoids false 2-page calculations for 1-page documents.
-            const h = el.scrollHeight;
-            if (h <= 1180) return 1;
-            return Math.ceil(h / 1120);
-          }
-          const invoice = document.getElementById('invoice-content');
-          if (invoice) {
-            const invoiceTotal = calcPages(invoice); 
-            invoice.querySelectorAll('.page-total').forEach(function(el) { el.textContent = invoiceTotal; });
-          }
-          
-          const pl = document.getElementById('packing-list-content');
-          if (pl) {
-            const plTotal = calcPages(pl); 
-            pl.querySelectorAll('.page-total').forEach(function(el) { el.textContent = plTotal; });
-          }
-        });
-      </script>
           </head>
           <body>
             <div id="invoice-content" style="display: flex; flex-direction: column; min-height: 260mm;">
@@ -1605,8 +1584,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
                 <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                   <span class="label" style="text-align: center;">PAGE</span>
-                  <div class="content-medium" style="font-weight: 900 !important;">
-                    PAGE #<span class="page-number"></span> OF <span class="page-total">1</span>
+                  <div class="content-medium" style="font-weight: 900 !important; text-align: center;">
+                    ${invoicePageText}
                   </div>
                 </div>
 
@@ -1745,8 +1724,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
                 <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                   <span class="label" style="text-align: center;">PAGE</span>
-                  <div class="content-medium" style="font-weight: 900 !important;">
-                    PAGE #<span class="page-number"></span> OF <span class="page-total">1</span>
+                  <div class="content-medium" style="font-weight: 900 !important; text-align: center;">
+                    ${plPageText}
                   </div>
                 </div>
                 <div class="cell" style="grid-column: 3; grid-row: 2;">
@@ -2586,7 +2565,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 {/* Row 1 Far Right: PAGE (그리드 번호 4번으로 고정) */}
 <div className="invoice-cell" style={{ gridColumn: '4', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
   <label className="invoice-label text-center">PAGE</label>
-  <div className="text-[10px] font-black text-center text-blue-600 bg-blue-50 py-1 rounded">자동 (출력 시 반영)</div>
+  <input 
+    className={`invoice-input text-center font-bold text-xs ${getEditedColor('pageNo')}`}
+    value={formData.pageNo !== undefined ? formData.pageNo : 'PAGE #1 OF 1'}
+    onChange={(e) => setFormData(prev => ({ ...prev, pageNo: e.target.value }))}
+    placeholder="PAGE #1 OF 1"
+  />
 </div>
 
 {/* Row 2 Middle: P/O NO (INVOICE NO 아래인 3번 위치로 이동) */}
@@ -3205,7 +3189,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             {/* Row 1 Far Right: PAGE (그리드 번호 4번으로 고정) */}
             <div className="invoice-cell" style={{ gridColumn: '4', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
               <label className="invoice-label text-center">PAGE</label>
-              <div className="text-[10px] font-black text-center text-blue-600 bg-blue-50 py-1 rounded">자동</div>
+              <input 
+                className={`invoice-input text-center font-bold text-xs ${getEditedColor('plPageNo')}`}
+                value={formData.plPageNo !== undefined ? formData.plPageNo : (formData.pageNo || 'PAGE #1 OF 1')}
+                onChange={(e) => setFormData(prev => ({ ...prev, plPageNo: e.target.value }))}
+                placeholder="PAGE #1 OF 1"
+              />
             </div>
 
             {/* Row 2 Middle: P/O NO */}

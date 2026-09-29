@@ -354,6 +354,7 @@ export interface NationalInvoiceItem {
   invoiceNo: string;
   invoiceDate: string;
   pageNo: string;
+  plPageNo?: string;
   consigneeName: string;
   consigneeAddress: string;
   consigneeTaxId?: string;
