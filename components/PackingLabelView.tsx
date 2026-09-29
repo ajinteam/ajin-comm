@@ -56,7 +56,6 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       const raw = localStorage.getItem('ajin_packing_labels');
       let list: PackingLabelDoc[] = raw ? JSON.parse(raw) : [];
 
-      // Also check if any packing labels are stored in ajin_national_invoices with category PACKING_LABEL
       const nationalRaw = localStorage.getItem('ajin_national_invoices');
       if (nationalRaw) {
         try {
@@ -96,21 +95,20 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     loadInvoices();
   }, [dataVersion]);
 
-  // When activeDoc changes, initialize selectedBoxIds to all box IDs
+  // When activeDoc changes, ensure all box IDs are selected by default
   useEffect(() => {
-    if (activeDoc && activeDoc.boxes) {
+    if (activeDoc && activeDoc.boxes && activeDoc.boxes.length > 0) {
       setSelectedBoxIds(new Set(activeDoc.boxes.map(b => b.id)));
     } else {
       setSelectedBoxIds(new Set());
     }
-  }, [activeDoc?.id, activeDoc?.boxes?.length]);
+  }, [activeDoc?.id]);
 
   // If initialInvoiceId is passed, automatically create or open packing label from that invoice
   useEffect(() => {
     if (initialInvoiceId && availableInvoices.length > 0) {
       const targetInv = availableInvoices.find(inv => inv.id === initialInvoiceId);
       if (targetInv) {
-        // Check if an existing label doc already exists for this invoice
         const existing = docs.find(d => d.invoiceId === initialInvoiceId);
         if (existing) {
           setActiveDoc(existing);
@@ -353,22 +351,36 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     setSelectedBoxIds(new Set());
   };
 
-  // Print Formtec Labels with grouped layout support (4-UP with 4-UP, 2-UP with 2-UP)
-  const handlePrint = (docToPrint: PackingLabelDoc, customSelectedIds?: Set<string>) => {
+  // Print Formtec Labels:
+  // - 4-UP: Rotated -90deg inside each cell so table runs horizontally across 130mm width, with 2x larger fonts
+  // - 2-UP: Expands to full 100% height when few items, and auto-scales down font/padding when up to 10 items so it never overflows to next page!
+  const handlePrint = (docToPrint: PackingLabelDoc, filterMode?: 'ALL' | '4-UP-ONLY' | '2-UP-ONLY' | 'SELECTED') => {
     const allBoxes = docToPrint.boxes || [];
     if (allBoxes.length === 0) {
       alert('인쇄할 라벨 내용이 없습니다.');
       return;
     }
 
-    // Filter to selected boxes if specified
-    const activeSelection = customSelectedIds || selectedBoxIds;
-    const targetBoxes = activeSelection && activeSelection.size > 0
-      ? allBoxes.filter(b => activeSelection.has(b.id))
-      : allBoxes;
+    let targetBoxes: PackingLabelBox[] = [];
+
+    if (filterMode === '4-UP-ONLY') {
+      targetBoxes = allBoxes.filter(b => b.layoutType !== '2-UP');
+    } else if (filterMode === '2-UP-ONLY') {
+      targetBoxes = allBoxes.filter(b => b.layoutType === '2-UP');
+    } else if (filterMode === 'ALL') {
+      targetBoxes = allBoxes;
+    } else {
+      // SELECTED
+      if (selectedBoxIds.size === 0) {
+        // Auto select all if none checked
+        targetBoxes = allBoxes;
+      } else {
+        targetBoxes = allBoxes.filter(b => selectedBoxIds.has(b.id));
+      }
+    }
 
     if (targetBoxes.length === 0) {
-      alert('인쇄할 선택된 카톤이 없습니다. 카톤을 최소 1개 이상 선택해 주세요.');
+      alert('인쇄할 조건에 해당하는 카톤이 없습니다.');
       return;
     }
 
@@ -376,40 +388,133 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     const boxes4Up = targetBoxes.filter(b => b.layoutType !== '2-UP');
     const boxes2Up = targetBoxes.filter(b => b.layoutType === '2-UP');
 
-    // Helper to generate a single label HTML card
-    const renderLabelBoxHtml = (box: PackingLabelBox, is2Up: boolean) => {
+    // 1. Helper to render 4-UP Rotated Label (-90deg rotation in cell)
+    // Cell size: 95mm W x 135mm H. Rotated box: 130mm W x 90mm H.
+    const render4UpRotatedBoxHtml = (box: PackingLabelBox) => {
+      const itemsCount = box.items.length;
+      
+      // Auto font scaling for 4-UP
+      let fontSize = '17px';
+      let rowPadding = '6px 10px';
+      let ctnBadgeSize = '14px';
+
+      if (itemsCount === 1) {
+        fontSize = '18px';
+        rowPadding = '8px 12px';
+        ctnBadgeSize = '16px';
+      } else if (itemsCount === 2) {
+        fontSize = '14px';
+        rowPadding = '4px 8px';
+        ctnBadgeSize = '13px';
+      } else if (itemsCount === 3) {
+        fontSize = '12px';
+        rowPadding = '3px 6px';
+        ctnBadgeSize = '12px';
+      } else {
+        fontSize = '10.5px';
+        rowPadding = '2px 5px';
+        ctnBadgeSize = '11px';
+      }
+
       const itemsHtml = box.items.map((item) => {
         const formattedQty = formatQtyWithComma(item.qty);
         return `
           <tr>
-            <td class="lbl-th">NAME</td>
-            <td class="lbl-td name-td">${item.name || ''}</td>
+            <td class="lbl-th" style="padding: ${rowPadding}; font-size: ${fontSize};">NAME</td>
+            <td class="lbl-td name-td" style="padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 800;">${item.name || ''}</td>
           </tr>
           <tr>
-            <td class="lbl-th">QTY</td>
-            <td class="lbl-td qty-td">${formattedQty} ${item.unit || ''}</td>
+            <td class="lbl-th" style="padding: ${rowPadding}; font-size: ${fontSize};">QTY</td>
+            <td class="lbl-td qty-td" style="padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 900;">${formattedQty} ${item.unit || ''}</td>
           </tr>
         `;
       }).join('');
 
-      const boxFontSize = box.items.length >= 4 ? '11px' : box.items.length >= 3 ? '12px' : is2Up ? '14px' : '13px';
-      const ctnBadgeSize = is2Up ? '13px' : '11px';
+      return `
+        <div class="label-4up-cell">
+          <div class="label-4up-rotated-inner">
+            <div class="ctn-header-badge" style="font-size: ${ctnBadgeSize};">
+              <span>CTN NO. ${box.cartonNo || ''}</span>
+            </div>
+            <table class="label-inner-table">
+              <tbody>
+                <tr>
+                  <td class="lbl-th" style="width: 22%; padding: ${rowPadding}; font-size: ${fontSize};">MODEL</td>
+                  <td class="lbl-td model-td" style="width: 78%; padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 900;">${box.model || ''}</td>
+                </tr>
+                ${itemsHtml}
+                <tr>
+                  <td class="lbl-th" style="padding: ${rowPadding}; font-size: ${fontSize};">MADE</td>
+                  <td class="lbl-td made-td" style="padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 900;">${box.madeIn || 'KOREA'}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+
+    // 2. Helper to render 2-UP Label (194mm W x 135mm H)
+    // Auto-expands to full height when 1~2 items, auto-shrinks when up to 10 items so 2 cartons strictly fit on 1 A4 sheet without spilling!
+    const render2UpBoxHtml = (box: PackingLabelBox) => {
+      const itemsCount = box.items.length;
+
+      let fontSize = '20px';
+      let rowPadding = '10px 14px';
+      let ctnBadgeSize = '18px';
+
+      if (itemsCount === 1) {
+        fontSize = '22px';
+        rowPadding = '14px 16px';
+        ctnBadgeSize = '20px';
+      } else if (itemsCount === 2) {
+        fontSize = '18px';
+        rowPadding = '8px 12px';
+        ctnBadgeSize = '16px';
+      } else if (itemsCount <= 4) {
+        fontSize = '14px';
+        rowPadding = '5px 10px';
+        ctnBadgeSize = '14px';
+      } else if (itemsCount <= 7) {
+        fontSize = '12px';
+        rowPadding = '3px 8px';
+        ctnBadgeSize = '12px';
+      } else {
+        // 8 to 12 items: ultra compact so it never overflows 130mm height!
+        fontSize = '10.5px';
+        rowPadding = '1.5px 6px';
+        ctnBadgeSize = '11px';
+      }
+
+      const itemsHtml = box.items.map((item) => {
+        const formattedQty = formatQtyWithComma(item.qty);
+        return `
+          <tr>
+            <td class="lbl-th" style="padding: ${rowPadding}; font-size: ${fontSize};">NAME</td>
+            <td class="lbl-td name-td" style="padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 800;">${item.name || ''}</td>
+          </tr>
+          <tr>
+            <td class="lbl-th" style="padding: ${rowPadding}; font-size: ${fontSize};">QTY</td>
+            <td class="lbl-td qty-td" style="padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 900;">${formattedQty} ${item.unit || ''}</td>
+          </tr>
+        `;
+      }).join('');
 
       return `
-        <div class="label-card ${is2Up ? 'label-2up' : 'label-4up'}" style="font-size: ${boxFontSize};">
+        <div class="label-2up-card">
           <div class="ctn-header-badge" style="font-size: ${ctnBadgeSize};">
             <span>CTN NO. ${box.cartonNo || ''}</span>
           </div>
           <table class="label-inner-table">
             <tbody>
               <tr>
-                <td class="lbl-th" style="width: 25%;">MODEL</td>
-                <td class="lbl-td model-td" style="width: 75%; font-weight: 900;">${box.model || ''}</td>
+                <td class="lbl-th" style="width: 20%; padding: ${rowPadding}; font-size: ${fontSize};">MODEL</td>
+                <td class="lbl-td model-td" style="width: 80%; padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 900;">${box.model || ''}</td>
               </tr>
               ${itemsHtml}
               <tr>
-                <td class="lbl-th">MADE</td>
-                <td class="lbl-td made-td" style="font-weight: 900;">${box.madeIn || 'KOREA'}</td>
+                <td class="lbl-th" style="padding: ${rowPadding}; font-size: ${fontSize};">MADE</td>
+                <td class="lbl-td made-td" style="padding: ${rowPadding}; font-size: ${fontSize}; font-weight: 900;">${box.madeIn || 'KOREA'}</td>
               </tr>
             </tbody>
           </table>
@@ -419,7 +524,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
     let pagesHtml = '';
 
-    // 1. Render 4-UP Pages (Formtec 4-label A4 sheets, 2x2 grid)
+    // A. Render 4-UP Pages (Formtec 4-label A4 sheets, 2x2 grid, each cell rotated -90deg)
     if (boxes4Up.length > 0) {
       for (let i = 0; i < boxes4Up.length; i += 4) {
         const pageBoxes = boxes4Up.slice(i, i + 4);
@@ -428,21 +533,21 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
         }
         pagesHtml += `
           <div class="a4-page page-4up-grid">
-            ${pageBoxes.map(b => b ? renderLabelBoxHtml(b, false) : '<div class="label-card empty-card"></div>').join('')}
+            ${pageBoxes.map(b => b ? render4UpRotatedBoxHtml(b) : '<div class="label-4up-cell"><div class="empty-card"></div></div>').join('')}
           </div>
         `;
       }
     }
 
-    // 2. Render 2-UP Pages (Formtec 2-label A4 sheets, 1x2 grid)
+    // B. Render 2-UP Pages (Formtec 2-label A4 sheets, 1x2 grid, exactly 2 labels per page)
     if (boxes2Up.length > 0) {
       for (let i = 0; i < boxes2Up.length; i += 2) {
         const b1 = boxes2Up[i];
         const b2 = boxes2Up[i + 1];
         pagesHtml += `
           <div class="a4-page page-2up-grid">
-            ${b1 ? renderLabelBoxHtml(b1, true) : '<div class="label-card empty-card"></div>'}
-            ${b2 ? renderLabelBoxHtml(b2, true) : '<div class="label-card empty-card"></div>'}
+            ${b1 ? render2UpBoxHtml(b1) : '<div class="label-2up-card empty-card"></div>'}
+            ${b2 ? render2UpBoxHtml(b2) : '<div class="label-2up-card empty-card"></div>'}
           </div>
         `;
       }
@@ -457,11 +562,11 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           <meta charset="utf-8" />
           <title>${docTitle}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&family=Inter:wght@400;700;900&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@600;800;900&family=Inter:wght@600;800;900&display=swap');
             
             @page {
               size: A4 portrait;
-              margin: 10mm 8mm;
+              margin: 8mm 6mm;
             }
 
             * {
@@ -479,75 +584,114 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             }
 
             .a4-page {
-              width: 194mm;
-              height: 277mm;
+              width: 198mm;
+              height: 281mm;
               page-break-after: always;
+              page-break-inside: avoid;
               display: flex;
               flex-direction: column;
               justify-content: space-between;
               margin-bottom: 20px;
+              box-sizing: border-box;
             }
 
             @media print {
               .a4-page {
                 margin-bottom: 0;
                 page-break-after: always;
+                page-break-inside: avoid;
               }
             }
 
-            /* 4-UP Grid: 2 columns x 2 rows (Formtec standard) */
+            /* 4-UP Grid: 2 columns x 2 rows (Formtec standard 4-up) */
             .page-4up-grid {
               display: grid;
-              grid-template-columns: 1fr 1fr;
-              grid-template-rows: 1fr 1fr;
-              gap: 6mm 8mm;
-              height: 275mm;
+              grid-template-columns: 98mm 98mm;
+              grid-template-rows: 138mm 138mm;
+              gap: 4mm 2mm;
+              height: 280mm;
+              justify-content: center;
+              align-content: center;
             }
 
-            /* 2-UP Grid: 1 column x 2 rows */
+            .label-4up-cell {
+              width: 98mm;
+              height: 138mm;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              overflow: hidden;
+              box-sizing: border-box;
+              position: relative;
+            }
+
+            /* -90 Degree Rotated Inner Container for 4-UP */
+            .label-4up-rotated-inner {
+              width: 134mm;
+              height: 94mm;
+              transform: rotate(-90deg);
+              transform-origin: center center;
+              box-sizing: border-box;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              border: 2.5px solid #000;
+              border-radius: 4px;
+              padding: 4mm 6mm;
+              background: #fff;
+            }
+
+            /* 2-UP Grid: 1 column x 2 rows (Formtec standard 2-up) */
             .page-2up-grid {
               display: grid;
-              grid-template-columns: 1fr;
-              grid-template-rows: 1fr 1fr;
-              gap: 10mm;
-              height: 275mm;
+              grid-template-columns: 198mm;
+              grid-template-rows: 138mm 138mm;
+              gap: 4mm;
+              height: 280mm;
+              justify-content: center;
+              align-content: center;
             }
 
-            .label-card {
-              border: 2px solid #000;
+            .label-2up-card {
+              width: 198mm;
+              height: 138mm;
+              border: 2.5px solid #000;
               border-radius: 4px;
-              padding: 6mm 8mm;
+              padding: 5mm 8mm;
               display: flex;
               flex-direction: column;
               justify-content: space-between;
               background: #fff;
-              position: relative;
+              box-sizing: border-box;
               overflow: hidden;
             }
 
             .empty-card {
               border: 1px dashed #ccc;
               visibility: hidden;
+              width: 100%;
+              height: 100%;
             }
 
             .ctn-header-badge {
               display: flex;
               justify-content: flex-end;
               font-weight: 900;
-              margin-bottom: 4px;
+              margin-bottom: 2px;
               letter-spacing: 0.5px;
             }
 
             .label-inner-table {
               width: 100%;
+              height: 100%;
               border-collapse: collapse;
-              border: 1.5px solid #000;
+              border: 2px solid #000;
               flex-grow: 1;
+              table-layout: fixed;
             }
 
             .label-inner-table td {
-              border: 1px solid #000;
-              padding: 6px 10px;
+              border: 1.5px solid #000;
               vertical-align: middle;
             }
 
@@ -560,29 +704,27 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             }
 
             .lbl-td {
-              font-weight: 700;
+              font-weight: 800;
               text-align: left;
               word-break: break-word;
             }
 
             .model-td {
-              font-size: 1.1em;
               text-transform: uppercase;
+              letter-spacing: 0.5px;
             }
 
             .name-td {
-              font-size: 0.95em;
-              line-height: 1.25;
+              line-height: 1.2;
             }
 
             .qty-td {
-              font-size: 1.05em;
               font-weight: 900;
+              letter-spacing: 0.5px;
             }
 
             .made-td {
-              font-size: 1.05em;
-              letter-spacing: 1.5px;
+              letter-spacing: 2px;
             }
           </style>
         </head>
@@ -615,9 +757,11 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
   // If editing an active doc, render editor
   if (activeDoc) {
     const totalBoxesCount = activeDoc.boxes.length;
-    const selectedBoxesCount = selectedBoxIds.size;
-    const count4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP' && selectedBoxIds.has(b.id)).length;
-    const count2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP' && selectedBoxIds.has(b.id)).length;
+    const selectedBoxesCount = selectedBoxIds.size > 0 ? selectedBoxIds.size : totalBoxesCount;
+    const count4UpTotal = activeDoc.boxes.filter(b => b.layoutType !== '2-UP').length;
+    const count2UpTotal = activeDoc.boxes.filter(b => b.layoutType === '2-UP').length;
+    const count4UpSelected = activeDoc.boxes.filter(b => b.layoutType !== '2-UP' && (selectedBoxIds.size === 0 || selectedBoxIds.has(b.id))).length;
+    const count2UpSelected = activeDoc.boxes.filter(b => b.layoutType === '2-UP' && (selectedBoxIds.size === 0 || selectedBoxIds.has(b.id))).length;
 
     return (
       <div className="space-y-6 text-left pb-16">
@@ -650,7 +794,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
             {/* Global Layout Switcher for convenience */}
-            <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200" title="모든 카톤의 라벨 용지 규격 일괄 변경">
+              <span className="text-[10px] font-black text-slate-400 px-2">전체 규격:</span>
               <button
                 onClick={() => {
                   setActiveDoc(prev => prev ? {
@@ -659,8 +804,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     boxes: prev.boxes.map(b => ({ ...b, layoutType: '4-UP' }))
                   } : null);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '4-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                title="모든 카톤을 4칸 규격으로 일괄 변경"
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${count2UpTotal === 0 ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 전체 4칸
               </button>
@@ -672,8 +816,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     boxes: prev.boxes.map(b => ({ ...b, layoutType: '2-UP' }))
                   } : null);
                 }}
-                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '2-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                title="모든 카톤을 2칸 규격으로 일괄 변경"
+                className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${count4UpTotal === 0 ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
               >
                 전체 2칸
               </button>
@@ -690,15 +833,16 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               저장
             </button>
 
+            {/* Print Button */}
             <button
-              onClick={() => handlePrint(activeDoc, selectedBoxIds)}
+              onClick={() => handlePrint(activeDoc, 'SELECTED')}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-md shadow-amber-600/20 transition-all flex items-center gap-1.5"
-              title="선택된 카톤을 각각 4칸/2칸 규격에 맞춰 묶어서 인쇄"
+              title="선택된 카톤을 각각 4칸(-90도 가로)/2칸 규격에 맞춰 묶어서 인쇄"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
-              <span>선택 인쇄 ({selectedBoxesCount}개)</span>
+              <span>라벨 인쇄 ({selectedBoxesCount}개)</span>
             </button>
           </div>
         </div>
@@ -738,8 +882,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
         {/* Carton Boxes Section */}
         <div className="space-y-4">
-          {/* Header Bar with Carton Selectors & Filters */}
-          <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          {/* Header Bar with Carton Selectors & Dedicated Print Options */}
+          <div className="bg-amber-50/80 border border-amber-200 p-4 rounded-3xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <span>카톤별 라벨 목록</span>
@@ -747,12 +891,12 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                   총 {totalBoxesCount}개 카톤
                 </span>
               </h2>
-              <span className="text-xs font-bold text-slate-500">
-                (선택됨: <b className="text-amber-800">{selectedBoxesCount}개</b> | 4칸용지 <b>{count4Up}개</b>, 2칸용지 <b>{count2Up}개</b>)
+              <span className="text-xs font-bold text-slate-600">
+                (선택됨: <b className="text-amber-900">{selectedBoxesCount}개</b> | 4칸용지 <b>{count4UpSelected}개</b>, 2칸용지 <b>{count2UpSelected}개</b>)
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
               {/* Filter Selection Buttons */}
               <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-amber-200 shadow-2xs">
                 <button
@@ -781,6 +925,28 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 </button>
               </div>
 
+              {/* Dedicated Print Buttons */}
+              <div className="flex items-center gap-1">
+                {count4UpSelected > 0 && (
+                  <button
+                    onClick={() => handlePrint(activeDoc, '4-UP-ONLY')}
+                    className="px-2.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black transition-colors"
+                    title="4칸 규격 카톤만 4칸 라벨 용지(-90도 가로)에 인쇄"
+                  >
+                    4칸만 인쇄 ({count4UpSelected})
+                  </button>
+                )}
+                {count2UpSelected > 0 && (
+                  <button
+                    onClick={() => handlePrint(activeDoc, '2-UP-ONLY')}
+                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black transition-colors"
+                    title="2칸 규격 카톤만 2칸 라벨 용지에 인쇄"
+                  >
+                    2칸만 인쇄 ({count2UpSelected})
+                  </button>
+                )}
+              </div>
+
               <button
                 onClick={() => {
                   const nextNo = String(activeDoc.boxes.length + 1);
@@ -801,7 +967,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                   } : null);
                   setSelectedBoxIds(prev => new Set(prev).add(newBoxId));
                 }}
-                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs"
+                className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs"
               >
                 + 카톤 추가
               </button>
@@ -810,7 +976,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {activeDoc.boxes.map((box, boxIdx) => {
-              const isSelected = selectedBoxIds.has(box.id);
+              const isSelected = selectedBoxIds.size === 0 || selectedBoxIds.has(box.id);
 
               return (
                 <div 
@@ -832,7 +998,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                           onChange={() => toggleBoxSelection(box.id)}
                           className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
                         />
-                        <span className={`text-xs font-black px-2 py-0.5 rounded-md transition-colors ${isSelected ? 'text-amber-800 bg-amber-200' : 'text-slate-400 bg-slate-100'}`}>
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-md transition-colors ${isSelected ? 'text-amber-900 bg-amber-200' : 'text-slate-400 bg-slate-100'}`}>
                           CTN #{box.cartonNo}
                         </span>
                       </label>
@@ -869,7 +1035,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                         }`}
                         title="클릭하여 4칸(4-UP)과 2칸(2-UP) 규격 전환"
                       >
-                        <span>{box.layoutType === '2-UP' ? '📄 2칸 라벨' : '📑 4칸 라벨'}</span>
+                        <span>{box.layoutType === '2-UP' ? '📄 2칸 라벨' : '📑 4칸 라벨 (-90° 회전)'}</span>
                       </button>
 
                       {/* Delete Carton Button */}
@@ -909,7 +1075,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                           <td className="p-2">
                             <input
                               type="text"
-                              className="w-full font-black uppercase outline-none bg-transparent"
+                              className="w-full font-black uppercase outline-none bg-transparent text-sm"
                               value={box.model || ''}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -1087,7 +1253,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             </span>
             <div>
               <h1 className="text-3xl font-black text-slate-900">PACKING LABEL (패킹 라벨)</h1>
-              <p className="text-slate-500 text-xs mt-0.5">폼텍 4칸 / 2칸 라벨용지 카톤박스 부착용 라벨 관리</p>
+              <p className="text-slate-500 text-xs mt-0.5">폼텍 4칸(-90° 가로) / 2칸 라벨용지 카톤박스 부착용 라벨 관리</p>
             </div>
           </div>
 
