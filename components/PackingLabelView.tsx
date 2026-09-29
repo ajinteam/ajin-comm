@@ -18,6 +18,19 @@ interface PackingLabelViewProps {
   initialInvoiceId?: string;
 }
 
+// Format quantity with thousand separator comma (e.g. 2387 -> 2,387)
+export const formatQtyWithComma = (val: string | number | undefined): string => {
+  if (val === undefined || val === null || val === '') return '';
+  const str = String(val).trim();
+  const clean = str.replace(/,/g, '');
+  if (/^-?\d+(\.\d+)?$/.test(clean)) {
+    const parts = clean.split('.');
+    parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    return parts.join('.');
+  }
+  return str;
+};
+
 export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
   currentUser,
   setView,
@@ -31,7 +44,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
   const [activeDoc, setActiveDoc] = useState<PackingLabelDoc | null>(null);
   const [viewMode, setViewMode] = useState<'ICON' | 'LIST'>('ICON');
   const [searchTerm, setSearchTerm] = useState('');
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedBoxIds, setSelectedBoxIds] = useState<Set<string>>(new Set());
 
   // Invoice selector modal state
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -83,6 +96,15 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     loadInvoices();
   }, [dataVersion]);
 
+  // When activeDoc changes, initialize selectedBoxIds to all box IDs
+  useEffect(() => {
+    if (activeDoc && activeDoc.boxes) {
+      setSelectedBoxIds(new Set(activeDoc.boxes.map(b => b.id)));
+    } else {
+      setSelectedBoxIds(new Set());
+    }
+  }, [activeDoc?.id, activeDoc?.boxes?.length]);
+
   // If initialInvoiceId is passed, automatically create or open packing label from that invoice
   useEffect(() => {
     if (initialInvoiceId && availableInvoices.length > 0) {
@@ -124,7 +146,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       if (row.type !== 'ITEM') return;
 
       const desc = row.description || '';
-      const qty = row.quantity || '0';
+      const qty = formatQtyWithComma(row.quantity || '0');
       const unit = row.unit || 'PCS';
       const ctnRaw = (row.plProc || row.plPkgNo || row.pkgNo || '').trim();
 
@@ -297,23 +319,67 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     if (activeDoc && activeDoc.id === id) {
       setActiveDoc(null);
     }
-    setDeletingId(null);
   };
 
-  // Print Formtec Labels
-  const handlePrint = (docToPrint: PackingLabelDoc) => {
-    const boxes = docToPrint.boxes || [];
-    if (boxes.length === 0) {
+  // Box selection helpers
+  const toggleBoxSelection = (boxId: string) => {
+    setSelectedBoxIds(prev => {
+      const next = new Set(prev);
+      if (next.has(boxId)) {
+        next.delete(boxId);
+      } else {
+        next.add(boxId);
+      }
+      return next;
+    });
+  };
+
+  const selectAllBoxes = () => {
+    if (!activeDoc) return;
+    setSelectedBoxIds(new Set(activeDoc.boxes.map(b => b.id)));
+  };
+
+  const selectOnly4Up = () => {
+    if (!activeDoc) return;
+    setSelectedBoxIds(new Set(activeDoc.boxes.filter(b => b.layoutType !== '2-UP').map(b => b.id)));
+  };
+
+  const selectOnly2Up = () => {
+    if (!activeDoc) return;
+    setSelectedBoxIds(new Set(activeDoc.boxes.filter(b => b.layoutType === '2-UP').map(b => b.id)));
+  };
+
+  const clearSelection = () => {
+    setSelectedBoxIds(new Set());
+  };
+
+  // Print Formtec Labels with grouped layout support (4-UP with 4-UP, 2-UP with 2-UP)
+  const handlePrint = (docToPrint: PackingLabelDoc, customSelectedIds?: Set<string>) => {
+    const allBoxes = docToPrint.boxes || [];
+    if (allBoxes.length === 0) {
       alert('인쇄할 라벨 내용이 없습니다.');
       return;
     }
 
-    // Determine layout mode
-    const layout = docToPrint.defaultLayout || '4-UP';
+    // Filter to selected boxes if specified
+    const activeSelection = customSelectedIds || selectedBoxIds;
+    const targetBoxes = activeSelection && activeSelection.size > 0
+      ? allBoxes.filter(b => activeSelection.has(b.id))
+      : allBoxes;
 
-    // Helper to generate a single label HTML cell
+    if (targetBoxes.length === 0) {
+      alert('인쇄할 선택된 카톤이 없습니다. 카톤을 최소 1개 이상 선택해 주세요.');
+      return;
+    }
+
+    // Group selected boxes by layoutType: 4-UP and 2-UP
+    const boxes4Up = targetBoxes.filter(b => b.layoutType !== '2-UP');
+    const boxes2Up = targetBoxes.filter(b => b.layoutType === '2-UP');
+
+    // Helper to generate a single label HTML card
     const renderLabelBoxHtml = (box: PackingLabelBox, is2Up: boolean) => {
       const itemsHtml = box.items.map((item) => {
+        const formattedQty = formatQtyWithComma(item.qty);
         return `
           <tr>
             <td class="lbl-th">NAME</td>
@@ -321,7 +387,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           </tr>
           <tr>
             <td class="lbl-th">QTY</td>
-            <td class="lbl-td qty-td">${item.qty || ''} ${item.unit || ''}</td>
+            <td class="lbl-td qty-td">${formattedQty} ${item.unit || ''}</td>
           </tr>
         `;
       }).join('');
@@ -351,30 +417,32 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       `;
     };
 
-    // Group boxes into pages
     let pagesHtml = '';
-    if (layout === '2-UP') {
-      // 2 labels per A4 sheet
-      for (let i = 0; i < boxes.length; i += 2) {
-        const b1 = boxes[i];
-        const b2 = boxes[i + 1];
-        pagesHtml += `
-          <div class="a4-page page-2up-grid">
-            ${b1 ? renderLabelBoxHtml(b1, true) : '<div class="label-card empty-card"></div>'}
-            ${b2 ? renderLabelBoxHtml(b2, true) : '<div class="label-card empty-card"></div>'}
-          </div>
-        `;
-      }
-    } else {
-      // 4 labels per A4 sheet (2x2)
-      for (let i = 0; i < boxes.length; i += 4) {
-        const pageBoxes = boxes.slice(i, i + 4);
+
+    // 1. Render 4-UP Pages (Formtec 4-label A4 sheets, 2x2 grid)
+    if (boxes4Up.length > 0) {
+      for (let i = 0; i < boxes4Up.length; i += 4) {
+        const pageBoxes = boxes4Up.slice(i, i + 4);
         while (pageBoxes.length < 4) {
           pageBoxes.push(null as any);
         }
         pagesHtml += `
           <div class="a4-page page-4up-grid">
             ${pageBoxes.map(b => b ? renderLabelBoxHtml(b, false) : '<div class="label-card empty-card"></div>').join('')}
+          </div>
+        `;
+      }
+    }
+
+    // 2. Render 2-UP Pages (Formtec 2-label A4 sheets, 1x2 grid)
+    if (boxes2Up.length > 0) {
+      for (let i = 0; i < boxes2Up.length; i += 2) {
+        const b1 = boxes2Up[i];
+        const b2 = boxes2Up[i + 1];
+        pagesHtml += `
+          <div class="a4-page page-2up-grid">
+            ${b1 ? renderLabelBoxHtml(b1, true) : '<div class="label-card empty-card"></div>'}
+            ${b2 ? renderLabelBoxHtml(b2, true) : '<div class="label-card empty-card"></div>'}
           </div>
         `;
       }
@@ -546,10 +614,15 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
   // If editing an active doc, render editor
   if (activeDoc) {
+    const totalBoxesCount = activeDoc.boxes.length;
+    const selectedBoxesCount = selectedBoxIds.size;
+    const count4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP' && selectedBoxIds.has(b.id)).length;
+    const count2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP' && selectedBoxIds.has(b.id)).length;
+
     return (
       <div className="space-y-6 text-left pb-16">
         {/* Editor Top Bar */}
-        <div className="bg-white p-6 rounded-3xl border border-amber-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-white p-5 rounded-3xl border border-amber-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div className="flex items-center gap-3">
             <button
               onClick={() => setActiveDoc(null)}
@@ -569,14 +642,14 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                   작성자: {activeDoc.authorInitials || activeDoc.authorId}
                 </span>
               </div>
-              <h1 className="text-2xl font-black text-slate-900 mt-1">
+              <h1 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
                 {activeDoc.date} / {activeDoc.recipient || '(수신처 미지정)'}
               </h1>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
-            {/* Global Layout Selector */}
+            {/* Global Layout Switcher for convenience */}
             <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
               <button
                 onClick={() => {
@@ -587,8 +660,9 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                   } : null);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '4-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                title="모든 카톤을 4칸 규격으로 일괄 변경"
               >
-                4칸 라벨 (4-UP)
+                전체 4칸
               </button>
               <button
                 onClick={() => {
@@ -599,8 +673,9 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                   } : null);
                 }}
                 className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all ${activeDoc.defaultLayout === '2-UP' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                title="모든 카톤을 2칸 규격으로 일괄 변경"
               >
-                2칸 라벨 (2-UP)
+                전체 2칸
               </button>
             </div>
 
@@ -616,13 +691,14 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             </button>
 
             <button
-              onClick={() => handlePrint(activeDoc)}
+              onClick={() => handlePrint(activeDoc, selectedBoxIds)}
               className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-md shadow-amber-600/20 transition-all flex items-center gap-1.5"
+              title="선택된 카톤을 각각 4칸/2칸 규격에 맞춰 묶어서 인쇄"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
-              라벨 인쇄
+              <span>선택 인쇄 ({selectedBoxesCount}개)</span>
             </button>
           </div>
         </div>
@@ -662,256 +738,335 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
         {/* Carton Boxes Section */}
         <div className="space-y-4">
-          <div className="flex justify-between items-center">
-            <h2 className="text-xl font-black text-slate-900 flex items-center gap-2">
-              <span>카톤별 라벨 목록</span>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-100 text-amber-800">
-                총 {activeDoc.boxes.length}개 카톤
+          {/* Header Bar with Carton Selectors & Filters */}
+          <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <span>카톤별 라벨 목록</span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-amber-200 text-amber-900">
+                  총 {totalBoxesCount}개 카톤
+                </span>
+              </h2>
+              <span className="text-xs font-bold text-slate-500">
+                (선택됨: <b className="text-amber-800">{selectedBoxesCount}개</b> | 4칸용지 <b>{count4Up}개</b>, 2칸용지 <b>{count2Up}개</b>)
               </span>
-            </h2>
+            </div>
 
-            <button
-              onClick={() => {
-                const nextNo = String(activeDoc.boxes.length + 1);
-                setActiveDoc(prev => prev ? {
-                  ...prev,
-                  boxes: [
-                    ...prev.boxes,
-                    {
-                      id: `box-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-                      cartonNo: nextNo,
-                      model: prev.boxes[0]?.model || 'MODEL TRAIN PARTS',
-                      items: [{ name: '', qty: '', unit: 'PCS' }],
-                      madeIn: 'KOREA',
-                      layoutType: prev.defaultLayout || '4-UP'
-                    }
-                  ]
-                } : null);
-              }}
-              className="px-3.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs"
-            >
-              + 카톤(박스) 추가
-            </button>
+            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+              {/* Filter Selection Buttons */}
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-amber-200 shadow-2xs">
+                <button
+                  onClick={selectAllBoxes}
+                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-slate-700 hover:bg-amber-100 hover:text-amber-900 transition-colors"
+                >
+                  전체 선택
+                </button>
+                <button
+                  onClick={selectOnly4Up}
+                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-slate-700 hover:bg-amber-100 hover:text-amber-900 transition-colors"
+                >
+                  4칸만 선택
+                </button>
+                <button
+                  onClick={selectOnly2Up}
+                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-slate-700 hover:bg-amber-100 hover:text-amber-900 transition-colors"
+                >
+                  2칸만 선택
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="px-2.5 py-1 text-[11px] font-black rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                >
+                  선택 해제
+                </button>
+              </div>
+
+              <button
+                onClick={() => {
+                  const nextNo = String(activeDoc.boxes.length + 1);
+                  const newBoxId = `box-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`;
+                  setActiveDoc(prev => prev ? {
+                    ...prev,
+                    boxes: [
+                      ...prev.boxes,
+                      {
+                        id: newBoxId,
+                        cartonNo: nextNo,
+                        model: prev.boxes[0]?.model || 'MODEL TRAIN PARTS',
+                        items: [{ name: '', qty: '', unit: 'PCS' }],
+                        madeIn: 'KOREA',
+                        layoutType: prev.defaultLayout || '4-UP'
+                      }
+                    ]
+                  } : null);
+                  setSelectedBoxIds(prev => new Set(prev).add(newBoxId));
+                }}
+                className="px-3.5 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-black transition-all flex items-center gap-1 shadow-xs"
+              >
+                + 카톤 추가
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {activeDoc.boxes.map((box, boxIdx) => (
-              <div 
-                key={box.id || boxIdx} 
-                className={`bg-white rounded-3xl border-2 ${box.layoutType === '2-UP' ? 'border-amber-400 bg-amber-50/20' : 'border-slate-300'} p-5 shadow-sm space-y-3 relative group transition-all`}
-              >
-                {/* Carton Header Bar */}
-                <div className="flex justify-between items-center border-b pb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-black text-amber-700 bg-amber-100 px-2 py-0.5 rounded-md">
-                      CTN #{box.cartonNo}
-                    </span>
-                    <input
-                      type="text"
-                      className="w-16 px-1.5 py-0.5 border rounded text-xs font-bold text-center"
-                      value={box.cartonNo}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setActiveDoc(prev => prev ? {
-                          ...prev,
-                          boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, cartonNo: val } : b)
-                        } : null);
-                      }}
-                      placeholder="카톤번호"
-                    />
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {activeDoc.boxes.map((box, boxIdx) => {
+              const isSelected = selectedBoxIds.has(box.id);
 
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => {
-                        const newLayout = box.layoutType === '4-UP' ? '2-UP' : '4-UP';
-                        setActiveDoc(prev => prev ? {
-                          ...prev,
-                          boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, layoutType: newLayout } : b)
-                        } : null);
-                      }}
-                      className={`text-[10px] font-black px-2 py-0.5 rounded transition-colors ${box.layoutType === '2-UP' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600'}`}
-                      title="4칸용지와 2칸용지 전환"
-                    >
-                      {box.layoutType}
-                    </button>
+              return (
+                <div 
+                  key={box.id || boxIdx} 
+                  className={`bg-white rounded-3xl border-2 transition-all p-5 shadow-sm space-y-3 relative ${
+                    box.layoutType === '2-UP' 
+                      ? isSelected ? 'border-amber-500 ring-2 ring-amber-500/20 bg-amber-50/15' : 'border-amber-300 opacity-60 bg-amber-50/5' 
+                      : isSelected ? 'border-slate-800 ring-2 ring-slate-800/10' : 'border-slate-200 opacity-60'
+                  }`}
+                >
+                  {/* Carton Header Bar */}
+                  <div className="flex justify-between items-center border-b pb-2">
+                    <div className="flex items-center gap-2.5">
+                      {/* Checkbox for Print selection */}
+                      <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isSelected}
+                          onChange={() => toggleBoxSelection(box.id)}
+                          className="w-4 h-4 rounded text-amber-600 focus:ring-amber-500 border-slate-300 cursor-pointer"
+                        />
+                        <span className={`text-xs font-black px-2 py-0.5 rounded-md transition-colors ${isSelected ? 'text-amber-800 bg-amber-200' : 'text-slate-400 bg-slate-100'}`}>
+                          CTN #{box.cartonNo}
+                        </span>
+                      </label>
 
-                    <button
-                      onClick={() => {
-                        if (confirm(`카톤 #${box.cartonNo} 라벨을 삭제하시겠습니까?`)) {
+                      <input
+                        type="text"
+                        className="w-16 px-1.5 py-0.5 border rounded text-xs font-bold text-center"
+                        value={box.cartonNo}
+                        onChange={(e) => {
+                          const val = e.target.value;
                           setActiveDoc(prev => prev ? {
                             ...prev,
-                            boxes: prev.boxes.filter((_, i) => i !== boxIdx)
+                            boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, cartonNo: val } : b)
                           } : null);
-                        }
-                      }}
-                      className="p-1 text-slate-300 hover:text-rose-600 transition-colors"
-                      title="카톤 삭제"
-                    >
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                      </svg>
-                    </button>
+                        }}
+                        placeholder="카톤번호"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {/* Layout Type Pill Toggle */}
+                      <button
+                        onClick={() => {
+                          const newLayout = box.layoutType === '4-UP' ? '2-UP' : '4-UP';
+                          setActiveDoc(prev => prev ? {
+                            ...prev,
+                            boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, layoutType: newLayout } : b)
+                          } : null);
+                        }}
+                        className={`text-[10px] font-black px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                          box.layoutType === '2-UP' 
+                            ? 'bg-amber-600 text-white shadow-xs' 
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                        }`}
+                        title="클릭하여 4칸(4-UP)과 2칸(2-UP) 규격 전환"
+                      >
+                        <span>{box.layoutType === '2-UP' ? '📄 2칸 라벨' : '📑 4칸 라벨'}</span>
+                      </button>
+
+                      {/* Delete Carton Button */}
+                      <button
+                        onClick={() => {
+                          if (confirm(`카톤 #${box.cartonNo} 라벨을 삭제하시겠습니까?`)) {
+                            setActiveDoc(prev => prev ? {
+                              ...prev,
+                              boxes: prev.boxes.filter((_, i) => i !== boxIdx)
+                            } : null);
+                            setSelectedBoxIds(prev => {
+                              const next = new Set(prev);
+                              next.delete(box.id);
+                              return next;
+                            });
+                          }
+                        }}
+                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="카톤 삭제"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                </div>
 
-                {/* Simulated Label Card Table Structure */}
-                <div className="border border-black rounded overflow-hidden">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <tbody>
-                      {/* MODEL ROW */}
-                      <tr className="border-b border-black bg-slate-50/50">
-                        <td className="w-24 border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
-                          MODEL
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            className="w-full font-black uppercase outline-none bg-transparent"
-                            value={box.model || ''}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setActiveDoc(prev => prev ? {
-                                ...prev,
-                                boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, model: val } : b)
-                              } : null);
-                            }}
-                            placeholder="MODEL NAME"
-                          />
-                        </td>
-                      </tr>
+                  {/* Simulated Label Card Table Structure */}
+                  <div className="border border-black rounded overflow-hidden">
+                    <table className="w-full text-left border-collapse text-xs">
+                      <tbody>
+                        {/* MODEL ROW */}
+                        <tr className="border-b border-black bg-slate-50/50">
+                          <td className="w-24 border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
+                            MODEL
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              className="w-full font-black uppercase outline-none bg-transparent"
+                              value={box.model || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setActiveDoc(prev => prev ? {
+                                  ...prev,
+                                  boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, model: val } : b)
+                                } : null);
+                              }}
+                              placeholder="MODEL NAME"
+                            />
+                          </td>
+                        </tr>
 
-                      {/* ITEMS ROWS */}
-                      {box.items.map((item, itIdx) => (
-                        <React.Fragment key={itIdx}>
-                          <tr className="border-b border-black">
-                            <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle flex items-center justify-between">
-                              <span>NAME</span>
-                              {box.items.length > 1 && (
-                                <button
-                                  onClick={() => {
+                        {/* ITEMS ROWS */}
+                        {box.items.map((item, itIdx) => (
+                          <React.Fragment key={itIdx}>
+                            <tr className="border-b border-black">
+                              <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle flex items-center justify-between">
+                                <span>NAME</span>
+                                {box.items.length > 1 && (
+                                  <button
+                                    onClick={() => {
+                                      setActiveDoc(prev => prev ? {
+                                        ...prev,
+                                        boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                          ...b,
+                                          items: b.items.filter((_, idx) => idx !== itIdx)
+                                        } : b)
+                                      } : null);
+                                    }}
+                                    className="p-1 rounded text-rose-500 hover:text-rose-700 hover:bg-rose-50 font-black text-sm leading-none transition-colors"
+                                    title="품목 삭제"
+                                  >
+                                    ✕
+                                  </button>
+                                )}
+                              </td>
+                              <td className="p-2">
+                                <textarea
+                                  className="w-full font-bold text-slate-900 outline-none bg-transparent resize-none leading-tight"
+                                  rows={2}
+                                  value={item.name || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
                                     setActiveDoc(prev => prev ? {
                                       ...prev,
                                       boxes: prev.boxes.map((b, i) => i === boxIdx ? {
                                         ...b,
-                                        items: b.items.filter((_, idx) => idx !== itIdx)
+                                        items: b.items.map((it, idx) => idx === itIdx ? { ...it, name: val } : it)
                                       } : b)
                                     } : null);
                                   }}
-                                  className="text-rose-500 hover:text-rose-700 font-bold px-1"
-                                  title="품목 삭제"
-                                >
-                                  ×
-                                </button>
-                              )}
-                            </td>
-                            <td className="p-2">
-                              <textarea
-                                className="w-full font-bold text-slate-900 outline-none bg-transparent resize-none leading-tight"
-                                rows={2}
-                                value={item.name || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setActiveDoc(prev => prev ? {
-                                    ...prev,
-                                    boxes: prev.boxes.map((b, i) => i === boxIdx ? {
-                                      ...b,
-                                      items: b.items.map((it, idx) => idx === itIdx ? { ...it, name: val } : it)
-                                    } : b)
-                                  } : null);
-                                }}
-                                placeholder="ITEM NAME & DESCRIPTION"
-                              />
-                            </td>
-                          </tr>
-                          <tr className="border-b border-black bg-slate-50/30">
-                            <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
-                              QTY
-                            </td>
-                            <td className="p-2 flex items-center gap-2">
-                              <input
-                                type="text"
-                                className="font-black text-slate-900 outline-none bg-transparent flex-1"
-                                value={item.qty || ''}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setActiveDoc(prev => prev ? {
-                                    ...prev,
-                                    boxes: prev.boxes.map((b, i) => i === boxIdx ? {
-                                      ...b,
-                                      items: b.items.map((it, idx) => idx === itIdx ? { ...it, qty: val } : it)
-                                    } : b)
-                                  } : null);
-                                }}
-                                placeholder="117"
-                              />
-                              <input
-                                type="text"
-                                className="w-16 font-bold text-slate-500 text-center outline-none bg-transparent border-b border-dashed border-slate-300"
-                                value={item.unit || 'PCS'}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  setActiveDoc(prev => prev ? {
-                                    ...prev,
-                                    boxes: prev.boxes.map((b, i) => i === boxIdx ? {
-                                      ...b,
-                                      items: b.items.map((it, idx) => idx === itIdx ? { ...it, unit: val } : it)
-                                    } : b)
-                                  } : null);
-                                }}
-                              />
-                            </td>
-                          </tr>
-                        </React.Fragment>
-                      ))}
+                                  placeholder="ITEM NAME & DESCRIPTION"
+                                />
+                              </td>
+                            </tr>
+                            <tr className="border-b border-black bg-slate-50/30">
+                              <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
+                                QTY
+                              </td>
+                              <td className="p-2 flex items-center gap-2">
+                                <input
+                                  type="text"
+                                  className="font-black text-slate-900 outline-none bg-transparent flex-1"
+                                  value={item.qty || ''}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setActiveDoc(prev => prev ? {
+                                      ...prev,
+                                      boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                        ...b,
+                                        items: b.items.map((it, idx) => idx === itIdx ? { ...it, qty: val } : it)
+                                      } : b)
+                                    } : null);
+                                  }}
+                                  onBlur={(e) => {
+                                    const formatted = formatQtyWithComma(e.target.value);
+                                    if (formatted !== item.qty) {
+                                      setActiveDoc(prev => prev ? {
+                                        ...prev,
+                                        boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                          ...b,
+                                          items: b.items.map((it, idx) => idx === itIdx ? { ...it, qty: formatted } : it)
+                                        } : b)
+                                      } : null);
+                                    }
+                                  }}
+                                  placeholder="1,200"
+                                />
+                                <input
+                                  type="text"
+                                  className="w-16 font-bold text-slate-500 text-center outline-none bg-transparent border-b border-dashed border-slate-300"
+                                  value={item.unit || 'PCS'}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setActiveDoc(prev => prev ? {
+                                      ...prev,
+                                      boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                                        ...b,
+                                        items: b.items.map((it, idx) => idx === itIdx ? { ...it, unit: val } : it)
+                                      } : b)
+                                    } : null);
+                                  }}
+                                />
+                              </td>
+                            </tr>
+                          </React.Fragment>
+                        ))}
 
-                      {/* MADE IN ROW */}
-                      <tr className="bg-amber-50/40">
-                        <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
-                          MADE
-                        </td>
-                        <td className="p-2">
-                          <input
-                            type="text"
-                            className="w-full font-black uppercase outline-none bg-transparent tracking-widest text-slate-900"
-                            value={box.madeIn || 'KOREA'}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              setActiveDoc(prev => prev ? {
-                                ...prev,
-                                boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, madeIn: val } : b)
-                              } : null);
-                            }}
-                          />
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+                        {/* MADE IN ROW */}
+                        <tr className="bg-amber-50/40">
+                          <td className="border-r border-black p-2 font-black uppercase text-slate-800 align-middle">
+                            MADE
+                          </td>
+                          <td className="p-2">
+                            <input
+                              type="text"
+                              className="w-full font-black uppercase outline-none bg-transparent tracking-widest text-slate-900"
+                              value={box.madeIn || 'KOREA'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setActiveDoc(prev => prev ? {
+                                  ...prev,
+                                  boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, madeIn: val } : b)
+                                } : null);
+                              }}
+                            />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Box Item Add Button */}
+                  <div className="flex justify-between items-center pt-1">
+                    <button
+                      onClick={() => {
+                        setActiveDoc(prev => prev ? {
+                          ...prev,
+                          boxes: prev.boxes.map((b, i) => i === boxIdx ? {
+                            ...b,
+                            items: [...b.items, { name: '', qty: '', unit: 'PCS' }]
+                          } : b)
+                        } : null);
+                      }}
+                      className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                    >
+                      + 품목 추가 (혼재 박스)
+                    </button>
+
+                    <span className="text-[10px] font-bold text-slate-400">
+                      {box.items.length}개 품목 포함
+                    </span>
+                  </div>
                 </div>
-
-                {/* Box Item Add Button */}
-                <div className="flex justify-between items-center pt-1">
-                  <button
-                    onClick={() => {
-                      setActiveDoc(prev => prev ? {
-                        ...prev,
-                        boxes: prev.boxes.map((b, i) => i === boxIdx ? {
-                          ...b,
-                          items: [...b.items, { name: '', qty: '', unit: 'PCS' }]
-                        } : b)
-                      } : null);
-                    }}
-                    className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1"
-                  >
-                    + 품목 추가 (혼재 박스)
-                  </button>
-
-                  <span className="text-[10px] font-bold text-slate-400">
-                    {box.items.length}개 품목 포함
-                  </span>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
@@ -1013,100 +1168,100 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           </button>
         </div>
       ) : viewMode === 'ICON' ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        /* 3/4 Scaled compact Grid */
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
           {filteredDocs.map(doc => {
             const author = doc.authorInitials || doc.authorId || 'AJIN';
             const totalBoxes = (doc.boxes || []).length;
             const modelSummary = doc.boxes[0]?.model || 'MODEL TRAIN PARTS';
+            const canDelete = isMaster || doc.authorId === currentUser.id || doc.authorId === currentUser.loginId;
 
             return (
               <div
                 key={doc.id}
                 onClick={() => setActiveDoc(doc)}
-                className="bg-white rounded-[2rem] border border-amber-200/90 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between p-6 group"
+                className="bg-white rounded-2xl border border-amber-200/90 shadow-2xs hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col justify-between p-4 group relative"
               >
-                {/* Background decorative badge */}
-                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-100/40 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150" />
-
-                <div className="relative">
+                <div>
                   {/* Top Bar */}
-                  <div className="flex justify-between items-start mb-4">
+                  <div className="flex justify-between items-start mb-2.5">
                     <div className="flex flex-col">
-                      <span className="text-[10px] font-black text-amber-800 bg-amber-100 px-2.5 py-1 rounded-lg uppercase tracking-wider w-fit mb-1">
+                      <span className="text-[9px] font-black text-amber-800 bg-amber-100 px-2 py-0.5 rounded uppercase tracking-wider w-fit mb-0.5">
                         {doc.date}
                       </span>
                       {doc.invoiceNo && (
-                        <span className="text-[10px] font-bold text-slate-400 ml-1">
+                        <span className="text-[9px] font-bold text-slate-400">
                           INV: {doc.invoiceNo}
                         </span>
                       )}
                     </div>
 
-                    <div className="w-10 h-10 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
-                      </svg>
+                    <div className="flex items-center gap-1">
+                      {/* Delete button cleanly positioned inside top-right, visible and unclipped */}
+                      {canDelete && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (confirm(`'${doc.date} / ${doc.recipient}' 라벨 문서를 삭제하시겠습니까?`)) {
+                              handleDeleteDoc(doc.id);
+                            }
+                          }}
+                          className="p-1 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-200 transition-colors"
+                          title="문서 삭제"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                        </button>
+                      )}
+
+                      <div className="w-7 h-7 bg-amber-50 rounded-xl flex items-center justify-center text-amber-600 group-hover:bg-amber-500 group-hover:text-white transition-colors">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                      </div>
                     </div>
                   </div>
 
                   {/* Recipient / Title */}
-                  <h3 className="text-lg font-black text-slate-900 mb-1 truncate group-hover:text-amber-600 transition-colors">
+                  <h3 className="text-sm font-black text-slate-900 mb-1.5 truncate group-hover:text-amber-600 transition-colors" title={doc.recipient}>
                     {doc.recipient || '(수신처 미지정)'}
                   </h3>
 
                   {/* Model Summary */}
-                  <div className="mb-4 bg-amber-50/60 border border-amber-200/60 rounded-xl px-3 py-2 flex items-center gap-2">
-                    <span className="text-[9px] font-black text-amber-900 bg-amber-200 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                  <div className="mb-3 bg-amber-50/70 border border-amber-200/70 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5">
+                    <span className="text-[8px] font-black text-amber-900 bg-amber-200 px-1 py-0.2 rounded uppercase tracking-wider shrink-0">
                       MODEL
                     </span>
-                    <span className="text-xs font-bold text-slate-800 truncate" title={modelSummary}>
+                    <span className="text-[11px] font-bold text-slate-800 truncate" title={modelSummary}>
                       {modelSummary}
                     </span>
                   </div>
                 </div>
 
                 {/* Footer Bar */}
-                <div className="flex justify-between items-end pt-4 border-t border-slate-100 mt-2">
+                <div className="flex justify-between items-end pt-2.5 border-t border-slate-100">
                   <div className="flex flex-col">
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">총 카톤 수</span>
-                    <span className="text-xl font-black text-slate-900 tracking-tight">
-                      {totalBoxes} <span className="text-xs font-normal text-slate-500">CTN</span>
+                    <span className="text-[8px] font-black text-slate-400 uppercase tracking-tighter">카톤 수</span>
+                    <span className="text-sm font-black text-slate-900 tracking-tight">
+                      {totalBoxes} <span className="text-[10px] font-normal text-slate-500">CTN</span>
                     </span>
                   </div>
 
                   {/* Author */}
-                  <div className="flex items-center gap-1.5" title={`작성자: ${author}`}>
-                    <span className="text-[9px] font-bold text-slate-400">작성자</span>
-                    <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center border border-amber-200">
-                      <span className="text-[8px] font-black">{author.slice(0, 2)}</span>
+                  <div className="flex items-center gap-1" title={`작성자: ${author}`}>
+                    <div className="w-4 h-4 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center border border-amber-200">
+                      <span className="text-[7px] font-black">{author.slice(0, 2)}</span>
                     </div>
-                    <span className="text-[10px] font-black text-slate-700 uppercase">{author}</span>
+                    <span className="text-[9px] font-black text-slate-600 uppercase">{author}</span>
                   </div>
                 </div>
-
-                {/* Delete button for Master / Author */}
-                {(isMaster || doc.authorId === currentUser.id || doc.authorId === currentUser.loginId) && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (confirm(`'${doc.date} / ${doc.recipient}' 라벨 문서를 삭제하시겠습니까?`)) {
-                        handleDeleteDoc(doc.id);
-                      }
-                    }}
-                    className="absolute -top-2 -right-2 bg-rose-600 text-white w-8 h-8 rounded-full shadow-lg hover:bg-rose-700 flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="문서 삭제"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                )}
               </div>
             );
           })}
         </div>
       ) : (
-        <div className="bg-white rounded-[2rem] border border-amber-200 overflow-hidden shadow-sm overflow-x-auto">
+        <div className="bg-white rounded-3xl border border-amber-200 overflow-hidden shadow-sm overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
             <thead>
               <tr className="bg-amber-50/50 border-b border-amber-100">
@@ -1115,7 +1270,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">참조 인보이스</th>
                 <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">대표 모델</th>
                 <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest">카톤 수</th>
-                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest text-right">작성자</th>
+                <th className="px-6 py-5 text-[10px] font-black text-amber-900 uppercase tracking-widest text-right">작성자 / 관리</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -1123,6 +1278,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 const author = doc.authorInitials || doc.authorId || 'AJIN';
                 const totalBoxes = (doc.boxes || []).length;
                 const modelSummary = doc.boxes[0]?.model || 'MODEL TRAIN PARTS';
+                const canDelete = isMaster || doc.authorId === currentUser.id || doc.authorId === currentUser.loginId;
 
                 return (
                   <tr
@@ -1152,11 +1308,29 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                       <span className="text-xs font-black text-slate-900">{totalBoxes} CTN</span>
                     </td>
                     <td className="px-6 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center border border-amber-200">
-                          <span className="text-[8px] font-black">{author.slice(0, 2)}</span>
+                      <div className="flex items-center justify-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <div className="w-5 h-5 rounded-full bg-amber-100 text-amber-800 flex items-center justify-center border border-amber-200">
+                            <span className="text-[8px] font-black">{author.slice(0, 2)}</span>
+                          </div>
+                          <span className="text-xs font-black text-slate-700 uppercase">{author}</span>
                         </div>
-                        <span className="text-xs font-black text-slate-700 uppercase">{author}</span>
+                        {canDelete && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (confirm(`'${doc.date} / ${doc.recipient}' 라벨 문서를 삭제하시겠습니까?`)) {
+                                handleDeleteDoc(doc.id);
+                              }
+                            }}
+                            className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+                            title="삭제"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
