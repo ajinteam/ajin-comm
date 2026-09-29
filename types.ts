@@ -310,6 +310,7 @@ export interface PackingLabelBox {
   items: PackingLabelItemRow[];
   madeIn: string; // "KOREA"
   layoutType: '4-UP' | '2-UP';
+  printCount?: number; // Number of label copies to print (default 1)
 }
 
 export interface PackingLabelDoc {

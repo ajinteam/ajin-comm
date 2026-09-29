@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { 
   PackingLabelDoc, 
   PackingLabelBox, 
+  PackingLabelItemRow, 
   UserAccount, 
   ViewState, 
   NationalInvoiceSubCategory, 
@@ -158,7 +159,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
               model: defaultModel,
               items: [],
               madeIn: 'KOREA',
-              layoutType: '4-UP'
+              layoutType: '4-UP',
+              printCount: 1
             };
           }
           boxesMap[ctnKey].items.push({
@@ -176,7 +178,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             model: defaultModel,
             items: [],
             madeIn: 'KOREA',
-            layoutType: '4-UP'
+            layoutType: '4-UP',
+            printCount: 1
           };
         }
         boxesMap[ctnKey].items.push({
@@ -193,7 +196,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             model: defaultModel,
             items: [],
             madeIn: 'KOREA',
-            layoutType: '4-UP'
+            layoutType: '4-UP',
+            printCount: 1
           };
         }
         boxesMap[ctnKey].items.push({
@@ -227,7 +231,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
         model: defaultModel,
         items: [{ name: '', qty: '', unit: 'PCS' }],
         madeIn: 'KOREA',
-        layoutType: '4-UP'
+        layoutType: '4-UP',
+        printCount: 1
       }
     ];
   };
@@ -276,7 +281,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           model: 'MODEL TRAIN PARTS',
           items: [{ name: '', qty: '', unit: 'PCS' }],
           madeIn: 'KOREA',
-          layoutType: '4-UP'
+          layoutType: '4-UP',
+          printCount: 1
         }
       ]
     };
@@ -357,7 +363,39 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     setSelectedBoxIds(new Set());
   };
 
-  // Print Formtec Labels with landscape orientation, outer border removed, and adaptive height compression
+  // Set all carton copy counts
+  const setAllPrintCounts = (count: number) => {
+    if (!activeDoc) return;
+    setActiveDoc(prev => prev ? {
+      ...prev,
+      boxes: prev.boxes.map(b => ({ ...b, printCount: Math.max(1, count) }))
+    } : null);
+  };
+
+  // Update single carton copy count
+  const updateBoxPrintCount = (boxIdx: number, delta: number) => {
+    if (!activeDoc) return;
+    setActiveDoc(prev => {
+      if (!prev) return null;
+      const currentBox = prev.boxes[boxIdx];
+      const newCount = Math.max(1, Math.min(99, (currentBox.printCount || 1) + delta));
+      return {
+        ...prev,
+        boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, printCount: newCount } : b)
+      };
+    });
+  };
+
+  const setBoxPrintCountDirect = (boxIdx: number, val: number) => {
+    if (!activeDoc) return;
+    const count = Math.max(1, Math.min(99, isNaN(val) ? 1 : val));
+    setActiveDoc(prev => prev ? {
+      ...prev,
+      boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, printCount: count } : b)
+    } : null);
+  };
+
+  // Print Formtec Labels with landscape orientation, outer border removed, and multi-copy expansion
   const handlePrint = (
     docToPrint: PackingLabelDoc, 
     filterMode?: 'ALL' | '4-UP_ONLY' | '2-UP_ONLY'
@@ -369,17 +407,17 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     }
 
     // Determine target boxes based on filterMode or current selection
-    let targetBoxes = allBoxes;
+    let baseBoxes = allBoxes;
 
     if (filterMode === '4-UP_ONLY') {
-      targetBoxes = allBoxes.filter(b => b.layoutType !== '2-UP');
-      if (targetBoxes.length === 0) {
+      baseBoxes = allBoxes.filter(b => b.layoutType !== '2-UP');
+      if (baseBoxes.length === 0) {
         alert('인쇄할 4칸 라벨 카톤이 없습니다.');
         return;
       }
     } else if (filterMode === '2-UP_ONLY') {
-      targetBoxes = allBoxes.filter(b => b.layoutType === '2-UP');
-      if (targetBoxes.length === 0) {
+      baseBoxes = allBoxes.filter(b => b.layoutType === '2-UP');
+      if (baseBoxes.length === 0) {
         alert('인쇄할 2칸 라벨 카톤이 없습니다.');
         return;
       }
@@ -387,24 +425,36 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       // General print with active selection
       const activeSelection = selectedBoxIds;
       if (activeSelection && activeSelection.size > 0) {
-        targetBoxes = allBoxes.filter(b => activeSelection.has(b.id));
+        baseBoxes = allBoxes.filter(b => activeSelection.has(b.id));
       }
     }
 
-    if (targetBoxes.length === 0) {
-      targetBoxes = allBoxes;
+    if (baseBoxes.length === 0) {
+      baseBoxes = allBoxes;
       setSelectedBoxIds(new Set(allBoxes.map(b => b.id)));
     }
 
-    // Group selected boxes by layoutType: 4-UP and 2-UP
-    const boxes4Up = targetBoxes.filter(b => b.layoutType !== '2-UP');
-    const boxes2Up = targetBoxes.filter(b => b.layoutType === '2-UP');
+    // Expand boxes based on their printCount (인쇄 매수만큼 라벨 복제하여 순서대로 채움)
+    const expandedBoxes4Up: PackingLabelBox[] = [];
+    const expandedBoxes2Up: PackingLabelBox[] = [];
+
+    baseBoxes.forEach(box => {
+      const copies = Math.max(1, box.printCount || 1);
+      const is2Up = box.layoutType === '2-UP';
+      for (let c = 0; c < copies; c++) {
+        if (is2Up) {
+          expandedBoxes2Up.push(box);
+        } else {
+          expandedBoxes4Up.push(box);
+        }
+      }
+    });
 
     // Helper to generate a single label HTML card with outer-border removed and row-compression for many items
     const renderLabelBoxHtml = (box: PackingLabelBox, is2Up: boolean) => {
       const itemCount = box.items.length;
       
-      // Dynamic Smart Row Compression (행 높이 및 폰트 압축)
+      // Dynamic Smart Row Compression
       let baseFontSize = '18px';
       let headerFontSize = '16px';
       let ctnBadgeSize = '20px';
@@ -415,7 +465,6 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
       let lineHeight = '1.2';
 
       if (is2Up) {
-        // 2-UP on landscape (Wide full-height label)
         if (itemCount <= 2) {
           baseFontSize = '24px';
           headerFontSize = '21px';
@@ -453,7 +502,6 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           tablePadding = '2px 5px';
           lineHeight = '1.05';
         } else {
-          // 9 items or more (Compress tightly so MADE: KOREA is guaranteed to fit)
           baseFontSize = '11px';
           headerFontSize = '10.5px';
           ctnBadgeSize = '13px';
@@ -464,7 +512,6 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           lineHeight = '1.0';
         }
       } else {
-        // 4-UP on landscape (2x2 grid on A4 Landscape)
         if (itemCount <= 1) {
           baseFontSize = '19px';
           headerFontSize = '17px';
@@ -534,9 +581,9 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     let pagesHtml = '';
 
     // 1. Render 4-UP Pages (Formtec 4-label on A4 Landscape, 2 columns x 2 rows)
-    if (boxes4Up.length > 0) {
-      for (let i = 0; i < boxes4Up.length; i += 4) {
-        const pageBoxes = boxes4Up.slice(i, i + 4);
+    if (expandedBoxes4Up.length > 0) {
+      for (let i = 0; i < expandedBoxes4Up.length; i += 4) {
+        const pageBoxes = expandedBoxes4Up.slice(i, i + 4);
         while (pageBoxes.length < 4) {
           pageBoxes.push(null as any);
         }
@@ -549,10 +596,10 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     }
 
     // 2. Render 2-UP Pages (Formtec 2-label on A4 Landscape, 2 columns x 1 row)
-    if (boxes2Up.length > 0) {
-      for (let i = 0; i < boxes2Up.length; i += 2) {
-        const b1 = boxes2Up[i];
-        const b2 = boxes2Up[i + 1];
+    if (expandedBoxes2Up.length > 0) {
+      for (let i = 0; i < expandedBoxes2Up.length; i += 2) {
+        const b1 = expandedBoxes2Up[i];
+        const b2 = expandedBoxes2Up[i + 1];
         pagesHtml += `
           <div class="a4-page page-2up-landscape">
             ${b1 ? renderLabelBoxHtml(b1, true) : '<div class="label-card empty-card"></div>'}
@@ -742,11 +789,16 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
   // If editing an active doc, render editor
   if (activeDoc) {
     const totalBoxesCount = activeDoc.boxes.length;
-    const selectedBoxesCount = selectedBoxIds.size;
-    const count4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP').length;
-    const count2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP').length;
-    const selected4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP' && selectedBoxIds.has(b.id)).length;
-    const selected2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP' && selectedBoxIds.has(b.id)).length;
+    
+    // Calculate total label copies based on printCount
+    const boxes4Up = activeDoc.boxes.filter(b => b.layoutType !== '2-UP');
+    const boxes2Up = activeDoc.boxes.filter(b => b.layoutType === '2-UP');
+    
+    const total4UpCopies = boxes4Up.reduce((sum, b) => sum + (b.printCount || 1), 0);
+    const total2UpCopies = boxes2Up.reduce((sum, b) => sum + (b.printCount || 1), 0);
+
+    const selectedBoxes = activeDoc.boxes.filter(b => selectedBoxIds.has(b.id));
+    const selectedCopies = selectedBoxes.reduce((sum, b) => sum + (b.printCount || 1), 0);
 
     return (
       <div className="space-y-6 text-left pb-16">
@@ -793,30 +845,30 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             </button>
 
             {/* Direct 4-UP Label Sheet Print */}
-            {count4Up > 0 && (
+            {boxes4Up.length > 0 && (
               <button
                 onClick={() => handlePrint(activeDoc, '4-UP_ONLY')}
                 className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
-                title="4칸 라벨용지에 인쇄합니다"
+                title="4칸 라벨용지에 지정된 매수만큼 인쇄합니다"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
-                <span>4칸라벨 인쇄 ({count4Up}개)</span>
+                <span>4칸라벨 인쇄 (총 {total4UpCopies}장)</span>
               </button>
             )}
 
             {/* Direct 2-UP Label Sheet Print */}
-            {count2Up > 0 && (
+            {boxes2Up.length > 0 && (
               <button
                 onClick={() => handlePrint(activeDoc, '2-UP_ONLY')}
                 className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white text-xs font-black rounded-xl shadow-sm transition-all flex items-center gap-1.5"
-                title="2칸 라벨용지에 인쇄합니다"
+                title="2칸 라벨용지에 지정된 매수만큼 인쇄합니다"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
                 </svg>
-                <span>2칸라벨 인쇄 ({count2Up}개)</span>
+                <span>2칸라벨 인쇄 (총 {total2UpCopies}장)</span>
               </button>
             )}
 
@@ -824,12 +876,12 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
             <button
               onClick={() => handlePrint(activeDoc, 'ALL')}
               className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-black rounded-xl shadow-md shadow-emerald-700/20 transition-all flex items-center gap-1.5"
-              title="현재 선택된 카톤들을 각각의 4칸/2칸 규격에 맞춰 인쇄"
+              title="현재 선택된 카톤들을 각각의 4칸/2칸 규격에 맞춰 지정된 매수대로 인쇄"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z" />
               </svg>
-              <span>선택 인쇄 ({selectedBoxesCount > 0 ? selectedBoxesCount : totalBoxesCount}개)</span>
+              <span>선택 인쇄 (총 {selectedCopies > 0 ? selectedCopies : total4UpCopies + total2UpCopies}장)</span>
             </button>
           </div>
         </div>
@@ -869,8 +921,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
         {/* Carton Boxes Section */}
         <div className="space-y-4">
-          {/* Header Bar with Carton Selectors & Filters */}
-          <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-3xl flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+          {/* Header Bar with Carton Selectors, Copy Batch Tools & Filters */}
+          <div className="bg-amber-50/70 border border-amber-200 p-4 rounded-3xl flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3">
             <div className="flex flex-wrap items-center gap-2">
               <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <span>카톤별 라벨 목록</span>
@@ -879,17 +931,43 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                 </span>
               </h2>
               <span className="text-xs font-bold text-slate-600">
-                (4칸용지: <b className="text-blue-700">{count4Up}개</b> [선택 {selected4Up}개] / 2칸용지: <b className="text-amber-800">{count2Up}개</b> [선택 {selected2Up}개])
+                (4칸용지: <b className="text-blue-700">{boxes4Up.length}개 ({total4UpCopies}장)</b> / 2칸용지: <b className="text-amber-800">{boxes2Up.length}개 ({total2UpCopies}장)</b>)
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+              {/* Batch Copy Count Setters */}
+              <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs text-[11px] font-bold">
+                <span className="text-slate-400 px-1 text-[10px] font-black">매수 일괄:</span>
+                <button
+                  onClick={() => setAllPrintCounts(1)}
+                  className="px-2 py-0.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                  title="모든 카톤의 인쇄 매수를 1장으로 설정"
+                >
+                  각 1장
+                </button>
+                <button
+                  onClick={() => setAllPrintCounts(2)}
+                  className="px-2 py-0.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                  title="모든 카톤의 인쇄 매수를 2장으로 설정"
+                >
+                  각 2장
+                </button>
+                <button
+                  onClick={() => setAllPrintCounts(3)}
+                  className="px-2 py-0.5 rounded-lg text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                  title="모든 카톤의 인쇄 매수를 3장으로 설정"
+                >
+                  각 3장
+                </button>
+              </div>
+
               {/* Filter Selection Buttons */}
               <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-amber-200 shadow-2xs">
                 <button
                   onClick={selectAllBoxes}
                   className={`px-2.5 py-1 text-[11px] font-black rounded-lg transition-colors ${
-                    selectedBoxesCount === totalBoxesCount ? 'bg-amber-100 text-amber-900' : 'text-slate-700 hover:bg-slate-100'
+                    selectedBoxIds.size === totalBoxesCount ? 'bg-amber-100 text-amber-900' : 'text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   전체 선택
@@ -924,7 +1002,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                     model: activeDoc.boxes[0]?.model || 'MODEL TRAIN PARTS',
                     items: [{ name: '', qty: '', unit: 'PCS' }],
                     madeIn: 'KOREA',
-                    layoutType: '4-UP'
+                    layoutType: '4-UP',
+                    printCount: 1
                   };
                   setActiveDoc(prev => prev ? {
                     ...prev,
@@ -942,6 +1021,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {activeDoc.boxes.map((box, boxIdx) => {
               const isSelected = selectedBoxIds.has(box.id);
+              const printCopies = box.printCount || 1;
 
               return (
                 <div 
@@ -953,8 +1033,8 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                   }`}
                 >
                   {/* Carton Header Bar */}
-                  <div className="flex justify-between items-center border-b pb-2">
-                    <div className="flex items-center gap-2.5">
+                  <div className="flex flex-wrap justify-between items-center border-b pb-2 gap-2">
+                    <div className="flex items-center gap-2">
                       {/* Checkbox for Print selection */}
                       <label className="flex items-center gap-1.5 cursor-pointer select-none">
                         <input
@@ -970,7 +1050,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
 
                       <input
                         type="text"
-                        className="w-16 px-1.5 py-0.5 border rounded text-xs font-bold text-center"
+                        className="w-14 px-1.5 py-0.5 border rounded text-xs font-bold text-center"
                         value={box.cartonNo}
                         onChange={(e) => {
                           const val = e.target.value;
@@ -979,11 +1059,39 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                             boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, cartonNo: val } : b)
                           } : null);
                         }}
-                        placeholder="카톤번호"
+                        placeholder="카톤"
                       />
                     </div>
 
                     <div className="flex items-center gap-2">
+                      {/* Print Copy Counter Stepper */}
+                      <div className="flex items-center bg-slate-100 rounded-lg p-0.5 border border-slate-200">
+                        <span className="text-[10px] font-black text-slate-500 px-1.5">인쇄</span>
+                        <button
+                          onClick={() => updateBoxPrintCount(boxIdx, -1)}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-white hover:bg-slate-200 text-slate-700 font-black text-xs shadow-2xs"
+                          title="인쇄 매수 감소"
+                        >
+                          -
+                        </button>
+                        <input
+                          type="number"
+                          min={1}
+                          max={99}
+                          value={printCopies}
+                          onChange={(e) => setBoxPrintCountDirect(boxIdx, parseInt(e.target.value, 10))}
+                          className="w-8 text-center text-xs font-black bg-transparent outline-none py-0.5 text-slate-900"
+                        />
+                        <button
+                          onClick={() => updateBoxPrintCount(boxIdx, 1)}
+                          className="w-5 h-5 flex items-center justify-center rounded bg-white hover:bg-slate-200 text-slate-700 font-black text-xs shadow-2xs"
+                          title="인쇄 매수 증가"
+                        >
+                          +
+                        </button>
+                        <span className="text-[10px] font-bold text-slate-500 pr-1">장</span>
+                      </div>
+
                       {/* Layout Type Toggle: 2칸 라벨 vs 4칸 라벨 */}
                       <button
                         onClick={() => {
@@ -993,14 +1101,14 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                             boxes: prev.boxes.map((b, i) => i === boxIdx ? { ...b, layoutType: newLayout } : b)
                           } : null);
                         }}
-                        className={`text-[10px] font-black px-2.5 py-1 rounded-lg transition-colors flex items-center gap-1 ${
+                        className={`text-[10px] font-black px-2 py-1 rounded-lg transition-colors flex items-center gap-1 ${
                           box.layoutType === '2-UP' 
                             ? 'bg-amber-600 text-white shadow-xs' 
                             : 'bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100'
                         }`}
                         title="클릭하여 4칸(4-UP)과 2칸(2-UP) 규격 전환"
                       >
-                        <span>{box.layoutType === '2-UP' ? '📄 2칸 라벨' : '📑 4칸 라벨'}</span>
+                        <span>{box.layoutType === '2-UP' ? '2칸' : '4칸'}</span>
                       </button>
 
                       {/* Delete Carton Button */}
@@ -1018,7 +1126,7 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
                             });
                           }
                         }}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
                         title="카톤 삭제"
                       >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
