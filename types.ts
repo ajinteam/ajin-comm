@@ -468,6 +468,18 @@ export interface ShippingReportRow {
   boxInfo: string;
   boxQty: string;
   memo?: string;
+  modifications?: Record<string, {
+    initials: string;
+    date: string;
+    prevValue?: string;
+  }>;
+}
+
+export interface ShippingReportRevision {
+  initials: string;
+  date: string;
+  changeCount?: number;
+  action?: string;
 }
 
 export interface ShippingReportItem {
@@ -478,6 +490,9 @@ export interface ShippingReportItem {
   dataDate: string;
   model: string;
   rows: ShippingReportRow[];
+  lastModifiedBy?: string;
+  lastModifiedAt?: string;
+  revisionHistory?: ShippingReportRevision[];
 }
 
 export interface UserAccount {
