@@ -36,7 +36,7 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
   const SINGLE_PAGE_MAX = 25; // Fits up to 25 rows (headers + items + subtotal) on 1 single page with Grand Total & Signature
-  const MULTI_PAGE1_MAX = 25; // In multi-page mode, page 1 takes up to 25 rows without overflowing
+  const MULTI_PAGE1_MAX = 29; // In multi-page mode, page 1 fills cleanly down to 10mm bottom margin with 29 rows
   const SUBSEQUENT_PAGE_LIMIT = 30;
 
   const validRows = rows || [];
@@ -50,8 +50,8 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
   }
 
   // Multi-page scenario (validRows.length >= 26):
-  // Fill Page 1 cleanly up to MULTI_PAGE1_MAX (25 rows) without overflowing.
-  // The remaining rows (from row 25 onwards) naturally overflow to Page 2 alongside Grand Total & Signature.
+  // Fill Page 1 cleanly up to MULTI_PAGE1_MAX (29 rows) down to bottom margin.
+  // The remaining rows naturally overflow to Page 2 alongside Grand Total & Signature.
   const splitIndex = Math.min(validRows.length, MULTI_PAGE1_MAX);
   const remainingRowsCount = validRows.length - splitIndex;
   const totalPages = 1 + Math.max(1, Math.ceil(remainingRowsCount / SUBSEQUENT_PAGE_LIMIT));
@@ -1490,7 +1490,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         
         @page { 
           size: A4 portrait; 
-          margin: 12mm 10mm; 
+          margin: 12mm 10mm 10mm 10mm; 
         }
         
         body { 
