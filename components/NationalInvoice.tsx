@@ -34,14 +34,47 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
   '패킹라벨': 'Packing Label'
 };
 
+export const calculateRowUnits = (row: NationalInvoiceRow): number => {
+  if (!row) return 1;
+
+  if (row.type === 'HEADER') {
+    const leftLines = (row.headerLeft || '').split(/\r?\n/).length;
+    const rightLines = (row.headerRight || '').split(/\r?\n/).length;
+    return Math.max(1, leftLines, rightLines);
+  }
+
+  if (row.type === 'TOTAL') {
+    return 1;
+  }
+
+  // Description column is ~35% of A4 width
+  const desc = row.description || '';
+  const descParagraphs = desc.split(/\r?\n/);
+  let descLineCount = 0;
+  for (const para of descParagraphs) {
+    if (para.length === 0) {
+      descLineCount += 1;
+    } else {
+      descLineCount += Math.max(1, Math.ceil(para.length / 34));
+    }
+  }
+
+  const pkg = (row.plPkgNo !== undefined && row.plPkgNo !== '') ? row.plPkgNo : (row.pkgNo || '');
+  const pkgLines = (pkg || '').split(/\r?\n/).length;
+
+  return Math.max(1, descLineCount, pkgLines);
+};
+
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
-  const SINGLE_PAGE_MAX = 25; // Fits up to 25 rows (headers + items + subtotal) on 1 single page with Grand Total & Signature
-  const MULTI_PAGE1_MAX = 29; // In multi-page mode, page 1 fills cleanly down to 10mm bottom margin with 29 rows
-  const SUBSEQUENT_PAGE_LIMIT = 30;
+  const SINGLE_PAGE_MAX_UNITS = 25; // Fits comfortably with signature & footer on 1 single page
+  const MULTI_PAGE1_MAX_UNITS = 32; // In multi-page mode (no signature on page 1), fits up to 32 line units cleanly
+  const SUBSEQUENT_PAGE_UNITS = 32;
 
   const validRows = rows || [];
+  const totalUnits = validRows.reduce((sum, r) => sum + calculateRowUnits(r), 0);
 
-  if (validRows.length <= SINGLE_PAGE_MAX) {
+  // If all rows fit within single page limit (<= 25 line units), 1 page complete
+  if (totalUnits <= SINGLE_PAGE_MAX_UNITS) {
     return {
       isMultiPage: false,
       splitIndex: validRows.length,
@@ -49,12 +82,31 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
     };
   }
 
-  // Multi-page scenario (validRows.length >= 26):
-  // Fill Page 1 cleanly up to MULTI_PAGE1_MAX (29 rows) down to bottom margin.
-  // The remaining rows naturally overflow to Page 2 alongside Grand Total & Signature.
-  const splitIndex = Math.min(validRows.length, MULTI_PAGE1_MAX);
-  const remainingRowsCount = validRows.length - splitIndex;
-  const totalPages = 1 + Math.max(1, Math.ceil(remainingRowsCount / SUBSEQUENT_PAGE_LIMIT));
+  // Multi-page mode:
+  // Accumulate units row-by-row for Page 1.
+  // If adding the next row exceeds MULTI_PAGE1_MAX_UNITS (32), move that entire row to Page 2!
+  let page1Units = 0;
+  let splitIndex = 0;
+
+  for (let i = 0; i < validRows.length; i++) {
+    const rUnits = calculateRowUnits(validRows[i]);
+    if (page1Units + rUnits > MULTI_PAGE1_MAX_UNITS) {
+      break;
+    }
+    page1Units += rUnits;
+    splitIndex = i + 1;
+  }
+
+  if (splitIndex === 0) {
+    splitIndex = 1;
+  }
+  if (splitIndex >= validRows.length) {
+    splitIndex = validRows.length - 1;
+  }
+
+  const remainingRows = validRows.slice(splitIndex);
+  const remainingUnits = remainingRows.reduce((sum, r) => sum + calculateRowUnits(r), 0);
+  const totalPages = 1 + Math.max(1, Math.ceil(remainingUnits / SUBSEQUENT_PAGE_UNITS));
 
   return {
     isMultiPage: true,
