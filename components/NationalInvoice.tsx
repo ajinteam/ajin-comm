@@ -34,7 +34,7 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
   '패킹라벨': 'Packing Label'
 };
 
-export const calculateTextVisualLines = (text: string, maxLineWidthUnits = 36): number => {
+export const calculateTextVisualLines = (text: string, maxLineWidthUnits = 44): number => {
   if (!text) return 1;
   const paragraphs = text.split(/\r?\n/);
   let totalLines = 0;
@@ -70,8 +70,8 @@ export const calculateRowUnits = (row: NationalInvoiceRow): number => {
   if (!row) return 1;
 
   if (row.type === 'HEADER') {
-    const leftLines = calculateTextVisualLines(row.headerLeft || '', 36);
-    const rightLines = calculateTextVisualLines(row.headerRight || '', 36);
+    const leftLines = calculateTextVisualLines(row.headerLeft || '', 44);
+    const rightLines = calculateTextVisualLines(row.headerRight || '', 44);
     return Math.max(1, leftLines, rightLines);
   }
 
@@ -79,25 +79,25 @@ export const calculateRowUnits = (row: NationalInvoiceRow): number => {
     return 1;
   }
 
-  // Description column is ~35% of A4 width (approx 36 latin units or 20 korean units per line)
-  const descLines = calculateTextVisualLines(row.description || '', 36);
+  // Description column is ~35% of A4 width (approx 44 latin units or 24 korean units per line)
+  const descLines = calculateTextVisualLines(row.description || '', 44);
 
-  // Shipping mark / Pkg No column (approx 20 latin units per line)
+  // Shipping mark / Pkg No column (approx 22 latin units per line)
   const pkg = (row.plPkgNo !== undefined && row.plPkgNo !== '') ? row.plPkgNo : (row.pkgNo || '');
-  const pkgLines = calculateTextVisualLines(pkg || '', 20);
+  const pkgLines = calculateTextVisualLines(pkg || '', 22);
 
   return Math.max(1, descLines, pkgLines);
 };
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
-  const SINGLE_PAGE_MAX_UNITS = 25; // Fits comfortably with signature & footer on 1 single page
-  const MULTI_PAGE1_MAX_UNITS = 32; // In multi-page mode (no signature on page 1), fits up to 32 line units cleanly
-  const SUBSEQUENT_PAGE_UNITS = 32;
+  const SINGLE_PAGE_MAX_UNITS = 27; // Fits comfortably with signature & footer on 1 single page
+  const MULTI_PAGE1_MAX_UNITS = 33; // In multi-page mode (no signature on page 1), fits up to 33 line units cleanly
+  const SUBSEQUENT_PAGE_UNITS = 33;
 
   const validRows = rows || [];
   const totalUnits = validRows.reduce((sum, r) => sum + calculateRowUnits(r), 0);
 
-  // If all rows fit within single page limit (<= 25 line units), 1 page complete
+  // If all rows fit within single page limit (<= 27 line units), 1 page complete
   if (totalUnits <= SINGLE_PAGE_MAX_UNITS) {
     return {
       isMultiPage: false,
@@ -108,7 +108,7 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
 
   // Multi-page mode:
   // Accumulate units row-by-row for Page 1.
-  // If adding the next row exceeds MULTI_PAGE1_MAX_UNITS (32), move that entire row to Page 2!
+  // If adding the next row exceeds MULTI_PAGE1_MAX_UNITS (33), move that entire row to Page 2!
   let page1Units = 0;
   let splitIndex = 0;
 
@@ -124,8 +124,14 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
   if (splitIndex === 0) {
     splitIndex = 1;
   }
+
+  // If all rows fit on page 1, keep as single page
   if (splitIndex >= validRows.length) {
-    splitIndex = validRows.length - 1;
+    return {
+      isMultiPage: false,
+      splitIndex: validRows.length,
+      totalPages: 1
+    };
   }
 
   const remainingRows = validRows.slice(splitIndex);
