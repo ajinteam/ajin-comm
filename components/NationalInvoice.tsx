@@ -47,7 +47,8 @@ export const calculateRowUnits = (row: NationalInvoiceRow): number => {
     return 1;
   }
 
-  // Description column is ~35% of A4 width
+  // Description column fits ~58 characters in 10.5px/11px font before auto-wrapping.
+  // Explicit newlines (\n) are counted as distinct lines.
   const desc = row.description || '';
   const descParagraphs = desc.split(/\r?\n/);
   let descLineCount = 0;
@@ -55,7 +56,7 @@ export const calculateRowUnits = (row: NationalInvoiceRow): number => {
     if (para.length === 0) {
       descLineCount += 1;
     } else {
-      descLineCount += Math.max(1, Math.ceil(para.length / 34));
+      descLineCount += Math.max(1, Math.ceil(para.length / 58));
     }
   }
 
