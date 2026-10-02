@@ -35,9 +35,9 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
 };
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
-  const SINGLE_PAGE_MAX = 18; // In single page mode with full signature box & comfortable legible fonts
-  const MULTI_PAGE1_MAX = 25; // In multi-page mode (no signature box on page 1)
-  const SUBSEQUENT_PAGE_LIMIT = 30;
+  const SINGLE_PAGE_MAX = 23; // In single page mode with full signature box (fits up to 23 rows comfortably)
+  const MULTI_PAGE1_MAX = 29; // In multi-page mode (no signature box on page 1, fills table down to bottom margin)
+  const SUBSEQUENT_PAGE_LIMIT = 32;
 
   const validRows = rows || [];
 
@@ -49,12 +49,12 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
     };
   }
 
-  // Multi-page scenario: Pure sequential overflow (순차적 자연 밀림)
-  // Page 1 takes up to MULTI_PAGE1_MAX rows.
-  // If validRows.length is between 19 and 25, we ensure at least 3 rows overflow to page 2 alongside Grand Total & Signature.
+  // Multi-page scenario (validRows.length >= 24): Pure sequential overflow (순차적 자연 밀림)
+  // Page 1 fills down to MULTI_PAGE1_MAX (29 rows).
+  // If validRows.length is between 24 and 28, ensure at least 2-3 rows go to Page 2 alongside Grand Total & Signature.
   let splitIndex = MULTI_PAGE1_MAX;
   if (validRows.length <= MULTI_PAGE1_MAX) {
-    splitIndex = Math.max(14, validRows.length - 3);
+    splitIndex = Math.max(21, validRows.length - 3);
   }
 
   const remainingRowsCount = validRows.length - splitIndex;
