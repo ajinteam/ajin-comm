@@ -1438,6 +1438,11 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         ? formData.plPageNo 
         : (formData.pageNo && formData.pageNo.trim() !== '' ? formData.pageNo : `PAGE #1 OF ${calculatedPlPages}`);
 
+      const hasTrackingNo = formData.showTrackingNo !== false && formData.trackingNo && formData.trackingNo.trim() !== '';
+      const hasRemarks = formData.showRemarks !== false && formData.remarks && formData.remarks.trim() !== '';
+      const hasPlExtraRemarks = formData.showPlExtraRemarks !== false && formData.plExtraRemarks && formData.plExtraRemarks.trim() !== '';
+      const hasPlRemarks = formData.showPlRemarks !== false && formData.plRemarks && formData.plRemarks.trim() !== '';
+
       const html = `
   <html>
     <head>
@@ -1448,19 +1453,18 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         
         @page { 
           size: A4 portrait; 
-          margin: 15mm 10mm; 
+          margin: 10mm 10mm; 
         }
         
         /* 2. 인쇄 보정 속성 추가 */
         body { 
-          /* 굴림 대신 굵기 표현이 정확한 Noto Sans를 우선 적용 */
           font-family: 'Inter', 'Noto Sans KR', sans-serif; 
           color: black; 
-          line-height: 1.2; 
-          font-size: 11px; 
+          line-height: 1.15; 
+          font-size: 10.5px; 
           margin: 0; 
           padding: 0;
-          -webkit-print-color-adjust: exact; /* 인쇄 시 색상/굵기 강제 유지 */
+          -webkit-print-color-adjust: exact;
           print-color-adjust: exact;
           -webkit-font-smoothing: antialiased;
           box-sizing: border-box;
@@ -1469,15 +1473,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         /* 3. 각 클래스에 !important를 붙여 굵기 고정 */
         .header-title { 
           text-align: center; 
-          font-size: 24px; 
+          font-size: 21px; 
           font-weight: 900 !important; 
           text-decoration: underline; 
-          margin-bottom: 20px; 
-          letter-spacing: 2px; 
+          margin-bottom: 12px; 
+          letter-spacing: 1.5px; 
         }
 
         .label { 
-          font-size: 10px; 
+          font-size: 9.5px; 
           font-weight: 800 !important; 
           text-transform: uppercase; 
           margin-bottom: 2px; 
@@ -1485,7 +1489,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
 
         .content-bold { 
-          font-size: 16px; 
+          font-size: 15px; 
           font-weight: 900 !important; 
           text-transform: uppercase; 
           white-space: pre-wrap; 
@@ -1493,30 +1497,29 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
 
         .content-large { 
-          font-size: 20px; 
+          font-size: 19px; 
           font-weight: 900 !important; 
           text-transform: uppercase; 
           text-align: center; 
         }
 
         .content-medium { 
-          font-weight: 400 !important; /* 600보다 확실한 700 권장 */
-          font-size: 10.5px; 
+          font-weight: 400 !important;
+          font-size: 10px; 
         }
 
         /* 테이블 헤더(TH) 굵기 강화 */
         th { 
           border: none; 
           border-bottom: none; 
-          padding: 2px 8px; 
+          padding: 3px 6px; 
           background: transparent; 
-          font-size: 10.5px; 
+          font-size: 10px; 
           font-weight: 900 !important; 
           text-align: left; 
         }
 
-        /* 1. 상단 그리드 컨테이너 전체 설정 (전부 1px로 통일) */
-.grid-container {
+        .grid-container {
           display: grid;
           grid-template-columns: 1.5fr 1fr 1.5fr 1fr;
           border-top: 1px solid black !important;
@@ -1528,7 +1531,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           border: none !important;
           border-right: 1px solid black !important;
           border-bottom: 1px solid black !important;
-          padding: 2px; min-height : 16px;
+          padding: 2px 4px;
+          min-height: 15px;
           vertical-align: middle !important;
         }
 
@@ -1544,8 +1548,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           border: none !important;
           border-right: 1px solid black !important;
           border-bottom: 1px solid black !important;
-          padding: 2px;
-          min-height: 16px;
+          padding: 2px 4px;
+          min-height: 15px;
           vertical-align: middle !important;
         }
 
@@ -1553,30 +1557,41 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           vertical-align: middle !important;
         }
 
+        tr {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+        }
 
-        .sub-label { font-size: 9px; font-weight: 700 !important; color: #000; margin-bottom: 4px; display: block; }
-        .content-normal { font-weight: 400; white-space: pre-wrap; font-size: 9.5px; }
+        .sub-label { font-size: 8.5px; font-weight: 700 !important; color: #000; margin-bottom: 3px; display: block; }
+        .content-normal { font-weight: 400; white-space: pre-wrap; font-size: 9px; }
         
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; border: none; }
+        table { width: 100%; border-collapse: collapse; margin-top: 4px; border: none; }
         
-        .signature-box { border: 1px solid black; padding: 10px; width: 280px; }
+        .signature-box { border: 1px solid black; padding: 8px; width: 280px; }
         .signature-font { font-family: 'Brush Script MT', 'Dancing Script', 'Brush Script Std', cursive; font-size: 15px; color: #000; }
-        .footer-info { font-size: 11px; font-weight: bold; color: #000; }
+        .footer-info { font-size: 10px; font-weight: bold; color: #000; }
         .clear { clear: both; }
+
+        /* 절대 잘리지 않아야 하는 서명 블록 */
+        .prevent-split {
+          page-break-inside: avoid !important;
+          break-inside: avoid !important;
+          -webkit-column-break-inside: avoid !important;
+        }
       </style>
           </head>
           <body>
-            <div id="invoice-content" style="display: flex; flex-direction: column; min-height: 260mm;">
+            <div id="invoice-content" style="display: flex; flex-direction: column; min-height: 255mm;">
               <div class="header-title">${formData.invoiceType} INVOICE</div>
               
-              <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 10px;">
+              <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 6px;">
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; position: relative;">
                   <span class="label">SHIPPER/ SELLER</span>
                   <span class="sub-label">EXPORTER, IMPORTER & MANUFACTURER</span>
                   <div class="content-bold">${formData.shipperName || ''}</div>
                   <div class="content-normal" style="width: 80%;">${formData.shipperAddress || ''}</div>
-                  <div style="position: absolute; top: 6px; right: 10px; text-align: right; width: 120px;">
-                    <span class="label" style="margin-bottom: 2px;">ID CODE</span>
+                  <div style="position: absolute; top: 4px; right: 8px; text-align: right; width: 120px;">
+                    <span class="label" style="margin-bottom: 1px;">ID CODE</span>
                     <div class="content-medium">${formData.idCode || ''}</div>
                   </div>
                 </div>
@@ -1606,7 +1621,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 3 / span 3;">
                   <span class="label">CONSIGNEE</span>
                   <div class="content-bold">${formData.consigneeName || ''}</div>
-                  <div class="content-normal" style="line-height: 1.2;">${formData.consigneeAddress || ''}</div>
+                  <div class="content-normal" style="line-height: 1.15;">${formData.consigneeAddress || ''}</div>
                   <div style="margin-top: 2px; line-height: 1.1;">
                     ${formData.consigneeTaxId ? `<div class="content-normal">TAX ID: ${formData.consigneeTaxId}</div>` : ''}
                     ${formData.consigneeTel ? `<div class="content-normal">TEL: ${formData.consigneeTel}</div>` : ''}
@@ -1616,17 +1631,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 
                 <div class="cell" style="grid-column: 3 / span 2;">
                   <span class="label">BUYER (IF OTHER THAN CONSIGNEE)</span>
-                  <div class="content-medium" style="text-align: center; margin-top: 15px;">${formData.buyer || ''}</div>
+                  <div class="content-medium" style="text-align: center; margin-top: 10px;">${formData.buyer || ''}</div>
                 </div>
                 
                 <div class="cell" style="grid-column: 3 / span 2; grid-row: 4 / span 3;">
                   <span class="label">OTHER REFERENCE</span>
-                  <div class="content-medium" style="white-space: pre-wrap; min-height: 60px;">${formData.otherRef || ''}</div>
+                  <div class="content-medium" style="white-space: pre-wrap; min-height: 45px;">${formData.otherRef || ''}</div>
                 </div>
                 
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 6;">
                   <span class="label">DEPARTURE DATE</span>
-                  <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 3px;">${formatDateToEnglish(formData.departureDate)}</div>
+                  <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 2px;">${formatDateToEnglish(formData.departureDate)}</div>
                 </div>
                 
                 <div class="cell" style="grid-column: 1;">
@@ -1654,47 +1669,48 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
                   <thead>
                     <tr>
-                      <th style="width: 20%; border-bottom: 1px solid black;">SHIPPING MARK</th>
-                      <th style="width: 35%; border-bottom: 1px solid black;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                      <th style="width: 10%; border-bottom: 1px solid black;">QUANTITY</th>
-                      <th style="width: 10%; border-bottom: 1px solid black;">PROC (${formData.currencySymbol})</th>
-                      <th style="width: 10%; border-bottom: 1px solid black;">PROC AMT (${formData.currencySymbol})</th>
-                      <th style="width: 7%; border-bottom: 1px solid black;">PRICE (${formData.currencySymbol})</th>
-                      <th style="width: 8%; border-bottom: 1px solid black;">AMOUNT (${formData.currencySymbol})</th>
+                      <th style="width: 20%; border-bottom: 1px solid black; padding: 3px 6px;">SHIPPING MARK</th>
+                      <th style="width: 35%; border-bottom: 1px solid black; padding: 3px 6px;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                      <th style="width: 10%; border-bottom: 1px solid black; padding: 3px 6px;">QUANTITY</th>
+                      <th style="width: 10%; border-bottom: 1px solid black; padding: 3px 6px;">PROC (${formData.currencySymbol})</th>
+                      <th style="width: 10%; border-bottom: 1px solid black; padding: 3px 6px;">PROC AMT (${formData.currencySymbol})</th>
+                      <th style="width: 7%; border-bottom: 1px solid black; padding: 3px 6px;">PRICE (${formData.currencySymbol})</th>
+                      <th style="width: 8%; border-bottom: 1px solid black; padding: 3px 6px;">AMOUNT (${formData.currencySymbol})</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${rowsHtml}
-                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                      <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
+                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                      <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                           <span>GRAND TOTAL</span>
                           <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
                         </div>
                       </td>
-                      <td style="padding: 11px 8px;"></td>
-                      <td style="padding: 11px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
-                      <td style="padding: 11px 8px;"></td>
-                      <td style="padding: 11px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
+                      <td style="padding: 6px 8px;"></td>
+                      <td style="padding: 6px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
+                      <td style="padding: 6px 8px;"></td>
+                      <td style="padding: 6px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
                     </tr>
                   </tbody>
                 </table>
 
-                ${formData.showTrackingNo !== false ? `<div style="margin-top: 10px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 6px 0;">${formData.trackingNo || ''}</div>` : ''}
+                ${hasTrackingNo ? `<div style="margin-top: 6px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 0; font-size: 10px;">${formData.trackingNo}</div>` : ''}
                 
-                ${formData.showRemarks !== false ? `<div style="margin-top: 6px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks || ''}</div>` : ''}
+                ${hasRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks}</div>` : ''}
 
-                <div style="margin-top: auto; border-top: 1px solid black; padding: 8px;">
+                <!-- Complete Unified Signature Box with page-break protection -->
+                <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                    <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                    <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
                       <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
                       <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
                     </div>
                     
-                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
-                      <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
+                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                      <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
                       <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                        <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
+                        <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
                           ${formData.signedTitle || ''}
                         </div>
                         <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
@@ -1708,17 +1724,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <!-- PACKING LIST PAGE BREAK -->
             <div style="page-break-before: always;"></div>
 
-            <div id="packing-list-content" style="display: flex; flex-direction: column; min-height: 260mm; counter-reset: page;">
+            <div id="packing-list-content" style="display: flex; flex-direction: column; min-height: 255mm; counter-reset: page;">
               <div class="header-title">PACKING LIST</div>
 
-              <div class="grid-container">
+              <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 6px;">
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 1 / span 2; display: flex; flex-direction: column; position: relative;">
                   <span class="label">SHIPPER/ SELLER</span>
                   <span class="sub-label">EXPORTER, IMPORTER & MANUFACTURER</span>
                   <div class="content-bold">${formData.shipperName || ''}</div>
                   <div class="content-normal" style="width: 80%;">${formData.plShipperAddress || ''}</div>
-                  <div style="position: absolute; top: 6px; right: 10px; text-align: right; width: 120px;">
-                    <span class="label" style="margin-bottom: 2px;">ID CODE</span>
+                  <div style="position: absolute; top: 4px; right: 8px; text-align: right; width: 120px;">
+                    <span class="label" style="margin-bottom: 1px;">ID CODE</span>
                     <div class="content-medium">${formData.idCode || ''}</div>
                   </div>
                 </div>
@@ -1744,7 +1760,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 3 / span 3;">
                   <span class="label">CONSIGNEE</span>
                   <div class="content-bold">${formData.consigneeName || ''}</div>
-                  <div class="content-normal" style="line-height: 1.2;">${formData.plConsigneeAddress || ''}</div>
+                  <div class="content-normal" style="line-height: 1.15;">${formData.plConsigneeAddress || ''}</div>
                   <div style="margin-top: 2px; line-height: 1.1;">
                     ${formData.consigneeTaxId ? `<div class="content-normal">TAX ID: ${formData.consigneeTaxId}</div>` : ''}
                     ${formData.consigneeTel ? `<div class="content-normal">TEL: ${formData.consigneeTel}</div>` : ''}
@@ -1754,17 +1770,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 
                 <div class="cell" style="grid-column: 3 / span 2;">
                   <span class="label">BUYER (IF OTHER THAN CONSIGNEE)</span>
-                  <div class="content-medium" style="text-align: center; margin-top: 15px;">${formData.buyer || ''}</div>
+                  <div class="content-medium" style="text-align: center; margin-top: 10px;">${formData.buyer || ''}</div>
                 </div>
                 
                 <div class="cell" style="grid-column: 3 / span 2; grid-row: 4 / span 3;">
                   <span class="label">OTHER REFERENCE</span>
-                  <div class="content-medium" style="white-space: pre-wrap; min-height: 60px;">${formData.otherRef || ''}</div>
+                  <div class="content-medium" style="white-space: pre-wrap; min-height: 45px;">${formData.otherRef || ''}</div>
                 </div>
                 
                 <div class="cell" style="grid-column: 1 / span 2; grid-row: 6;">
                   <span class="label">DEPARTURE DATE</span>
-                  <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 3px;">${formatDateToEnglish(formData.departureDate)}</div>
+                  <div class="content-medium" style="text-align: center; font-weight: 900; margin-top: 2px;">${formatDateToEnglish(formData.departureDate)}</div>
                 </div>
                 
                 <div class="cell" style="grid-column: 1;">
@@ -1792,47 +1808,48 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
                   <thead>
                     <tr>
-                      <th style="width: 20%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">SHIPPING MARK</th>
-                      <th style="width: 35%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
-                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">QUANTITY</th>
-                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">${formData.packingPackageType || 'CTN'}</th>
-                      <th style="width: 10%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">NET WEIGHT (kg)</th>
-                      <th style="width: 8%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">GROSS WEIGHT (kg)</th>
-                      <th style="width: 7%; font-size: 10.5px; vertical-align: middle; border-bottom: 1px solid black;">CBM (M3)</th>
+                      <th style="width: 20%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">SHIPPING MARK</th>
+                      <th style="width: 35%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                      <th style="width: 10%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">QUANTITY</th>
+                      <th style="width: 10%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">${formData.packingPackageType || 'CTN'}</th>
+                      <th style="width: 10%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">NET WEIGHT (kg)</th>
+                      <th style="width: 8%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">GROSS WEIGHT (kg)</th>
+                      <th style="width: 7%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">CBM (M3)</th>
                     </tr>
                   </thead>
                   <tbody>
                     ${packingRowsHtml}
-                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 11px;">
-                      <td colspan="3" style="padding: 11px 8px; text-align: left; vertical-align: middle;">
+                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                      <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
                         <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                           <span>GRAND TOTAL</span>
                           <span style="flex-grow: 1; text-align: right;">${plTotalQtyText || formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
                         </div>
                       </td>
-                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty, false, 'quantity') || ''}</td>
-                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight, false, 'decimal') || ''}</td>
-                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight, false, 'decimal') || ''}</td>
-                      <td style="padding: 11px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm, false, 'decimal') || ''}</td>
+                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty, false, 'quantity') || ''}</td>
+                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight, false, 'decimal') || ''}</td>
+                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight, false, 'decimal') || ''}</td>
+                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm, false, 'decimal') || ''}</td>
                     </tr>
                   </tbody>
                 </table>
 
-                ${formData.showPlExtraRemarks !== false ? `<div style="margin-top: 10px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 6px 8px; white-space: pre-wrap;">${formData.plExtraRemarks || ''}</div>` : ''}
+                ${hasPlExtraRemarks ? `<div style="margin-top: 6px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 8px; font-size: 9.5px; white-space: pre-wrap;">${formData.plExtraRemarks}</div>` : ''}
                 
-                ${formData.showPlRemarks !== false ? `<div style="margin-top: 6px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks || ''}</div>` : ''}
+                ${hasPlRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks}</div>` : ''}
 
-                <div style="margin-top: auto; border-top: 1px solid black; padding: 8px;">
+                <!-- Complete Unified Signature Box with page-break protection -->
+                <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
                   <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                    <div style="font-size: 10px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                    <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
                       <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
                       <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
                     </div>
                     
-                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px;">
-                      <div style="font-weight: 900; font-size: 11px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 16px;">${formData.signedBy || ''}</span></div>
+                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                      <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
                       <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                        <div style="font-weight: bold; font-size: 11.5px; white-space: nowrap;">
+                        <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
                           ${formData.signedTitle || ''}
                         </div>
                         <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
