@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import { saveAs } from 'file-saver';
@@ -32,6 +32,46 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
   '인보이스임시': 'Draft Invoices',
   '인보이스완료': 'Completed Invoices',
   '패킹라벨': 'Packing Label'
+};
+
+export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
+  const SINGLE_PAGE_MAX = 24; // When everything (including signature box & total) fits on 1 single page
+  const MULTI_PAGE1_MAX = 33; // When NO signature box on page 1, table can fill down to the bottom margin (32-34 rows)
+  const MULTI_PAGE1_MIN_BREAK = 27; // Search for a clean Model/Header boundary starting around row 27
+  const SUBSEQUENT_PAGE_LIMIT = 35;
+
+  const validRows = rows || [];
+
+  if (validRows.length <= SINGLE_PAGE_MAX) {
+    return {
+      isMultiPage: false,
+      splitIndex: validRows.length,
+      totalPages: 1
+    };
+  }
+
+  // Multi-page: find the best split point between MULTI_PAGE1_MIN_BREAK and MULTI_PAGE1_MAX
+  let bestSplit = Math.min(validRows.length, MULTI_PAGE1_MAX);
+  
+  // Look backwards from MULTI_PAGE1_MAX down to MULTI_PAGE1_MIN_BREAK for a HEADER row or row with headerLeft or model indicator
+  for (let i = Math.min(validRows.length - 1, MULTI_PAGE1_MAX); i >= MULTI_PAGE1_MIN_BREAK; i--) {
+    const row = validRows[i];
+    if (!row) continue;
+    const isSectionStart = row.type === 'HEADER' || (row.headerLeft && row.headerLeft.trim() !== '');
+    if (isSectionStart) {
+      bestSplit = i;
+      break;
+    }
+  }
+
+  const remainingRowsCount = validRows.length - bestSplit;
+  const totalPages = 1 + Math.max(1, Math.ceil(remainingRowsCount / SUBSEQUENT_PAGE_LIMIT));
+
+  return {
+    isMultiPage: true,
+    splitIndex: bestSplit,
+    totalPages
+  };
 };
 
 interface NationalInvoiceProps {
@@ -124,6 +164,23 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const [history, setHistory] = useState<Partial<NationalInvoiceItem>[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoAction = useRef(false);
+
+  const invoicePagination = useMemo(() => computeSmartPagination(formData.rows || []), [formData.rows]);
+  const plPagination = useMemo(() => computeSmartPagination(formData.packingRows || formData.rows || []), [formData.packingRows, formData.rows]);
+
+  const currentInvoicePageText = useMemo(() => {
+    if (formData.pageNo && formData.pageNo.trim() !== '' && !formData.pageNo.includes('PAGE #1 OF')) {
+      return formData.pageNo;
+    }
+    return `PAGE #1 OF ${invoicePagination.totalPages}`;
+  }, [formData.pageNo, invoicePagination.totalPages]);
+
+  const currentPlPageText = useMemo(() => {
+    if (formData.plPageNo && formData.plPageNo.trim() !== '' && !formData.plPageNo.includes('PAGE #1 OF')) {
+      return formData.plPageNo;
+    }
+    return `PAGE #1 OF ${plPagination.totalPages}`;
+  }, [formData.plPageNo, plPagination.totalPages]);
 
   // History tracking
   useEffect(() => {
@@ -1286,22 +1343,23 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const docDate = formData.invoiceDate || '';
       const filename = `${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
-      const FIRST_PAGE_LIMIT = 25;
-      const SUBSEQUENT_PAGE_LIMIT = 35;
-
       const invoiceRows = formData.rows || [];
-      const isInvoiceMultiPage = invoiceRows.length > FIRST_PAGE_LIMIT;
-      const totalInvoicePages = isInvoiceMultiPage ? (1 + Math.ceil((invoiceRows.length - FIRST_PAGE_LIMIT) / SUBSEQUENT_PAGE_LIMIT)) : 1;
+      const invoicePagination = computeSmartPagination(invoiceRows);
+      const isInvoiceMultiPage = invoicePagination.isMultiPage;
+      const totalInvoicePages = invoicePagination.totalPages;
+      const invoiceSplitIndex = invoicePagination.splitIndex;
 
-      const invoicePage1Text = (formData.pageNo && formData.pageNo.trim() !== '' && !formData.pageNo.includes('PAGE #1 OF 1')) 
+      const invoicePage1Text = (formData.pageNo && formData.pageNo.trim() !== '' && !formData.pageNo.includes('PAGE #1 OF')) 
         ? formData.pageNo 
         : `PAGE #1 OF ${totalInvoicePages}`;
 
       const plRowsList = formData.packingRows || formData.rows || [];
-      const isPlMultiPage = plRowsList.length > FIRST_PAGE_LIMIT;
-      const totalPlPages = isPlMultiPage ? (1 + Math.ceil((plRowsList.length - FIRST_PAGE_LIMIT) / SUBSEQUENT_PAGE_LIMIT)) : 1;
+      const plPagination = computeSmartPagination(plRowsList);
+      const isPlMultiPage = plPagination.isMultiPage;
+      const totalPlPages = plPagination.totalPages;
+      const plSplitIndex = plPagination.splitIndex;
 
-      const plPage1Text = (formData.plPageNo && formData.plPageNo.trim() !== '' && !formData.plPageNo.includes('PAGE #1 OF 1')) 
+      const plPage1Text = (formData.plPageNo && formData.plPageNo.trim() !== '' && !formData.plPageNo.includes('PAGE #1 OF')) 
         ? formData.plPageNo 
         : `PAGE #1 OF ${totalPlPages}`;
 
@@ -1666,7 +1724,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </tr>
                   </thead>
                   <tbody>
-                    ${renderInvoiceRows(isInvoiceMultiPage ? invoiceRows.slice(0, FIRST_PAGE_LIMIT) : invoiceRows, 0)}
+                    ${renderInvoiceRows(isInvoiceMultiPage ? invoiceRows.slice(0, invoiceSplitIndex) : invoiceRows, 0)}
                     ${!isInvoiceMultiPage ? `
                       <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
                         <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
@@ -1737,7 +1795,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </tr>
                     </thead>
                     <tbody>
-                      ${renderInvoiceRows(invoiceRows.slice(FIRST_PAGE_LIMIT), FIRST_PAGE_LIMIT)}
+                      ${renderInvoiceRows(invoiceRows.slice(invoiceSplitIndex), invoiceSplitIndex)}
                       <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
                         <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
                           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
@@ -1876,7 +1934,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </tr>
                   </thead>
                   <tbody>
-                    ${renderPackingRows(isPlMultiPage ? plRowsList.slice(0, FIRST_PAGE_LIMIT) : plRowsList, 0)}
+                    ${renderPackingRows(isPlMultiPage ? plRowsList.slice(0, plSplitIndex) : plRowsList, 0)}
                     ${!isPlMultiPage ? `
                       <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
                         <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
@@ -1947,7 +2005,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </tr>
                     </thead>
                     <tbody>
-                      ${renderPackingRows(plRowsList.slice(FIRST_PAGE_LIMIT), FIRST_PAGE_LIMIT)}
+                      ${renderPackingRows(plRowsList.slice(plSplitIndex), plSplitIndex)}
                       <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
                         <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
                           <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
@@ -2744,7 +2802,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   <label className="invoice-label text-center">PAGE</label>
   <input 
     className={`invoice-input text-center font-bold text-xs ${getEditedColor('pageNo')}`}
-    value={formData.pageNo !== undefined ? formData.pageNo : 'PAGE #1 OF 1'}
+    value={currentInvoicePageText}
     onChange={(e) => setFormData(prev => ({ ...prev, pageNo: e.target.value }))}
     placeholder="PAGE #1 OF 1"
   />
@@ -3368,7 +3426,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <label className="invoice-label text-center">PAGE</label>
               <input 
                 className={`invoice-input text-center font-bold text-xs ${getEditedColor('plPageNo')}`}
-                value={formData.plPageNo !== undefined ? formData.plPageNo : (formData.pageNo || 'PAGE #1 OF 1')}
+                value={currentPlPageText}
                 onChange={(e) => setFormData(prev => ({ ...prev, plPageNo: e.target.value }))}
                 placeholder="PAGE #1 OF 1"
               />
