@@ -35,10 +35,9 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
 };
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
-  const SINGLE_PAGE_MAX = 26; // Up to 26 rows (headers + items + subtotal) fit cleanly on 1 single page with Grand Total & Signature
-  const MULTI_PAGE1_MAX = 33; // When NO signature box on page 1, table can fill down to the bottom margin (up to 33 rows)
-  const MULTI_PAGE1_MIN_BREAK = 18; // Window to look for clean Model/Header boundary
-  const SUBSEQUENT_PAGE_LIMIT = 35;
+  const SINGLE_PAGE_MAX = 18; // In single page mode with full signature box & comfortable legible fonts
+  const MULTI_PAGE1_MAX = 25; // In multi-page mode (no signature box on page 1)
+  const SUBSEQUENT_PAGE_LIMIT = 30;
 
   const validRows = rows || [];
 
@@ -50,59 +49,20 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
     };
   }
 
-  // Multi-page scenario (validRows.length >= 27)
-  let bestSplit = -1;
-
-  // 1. Search backwards from max page 1 limit for a Section/Model header
-  const searchStart = Math.min(validRows.length - 1, MULTI_PAGE1_MAX);
-  for (let i = searchStart; i >= MULTI_PAGE1_MIN_BREAK; i--) {
-    const row = validRows[i];
-    if (!row) continue;
-    const isSectionStart = row.type === 'HEADER' || (row.headerLeft && row.headerLeft.trim() !== '');
-    if (isSectionStart) {
-      bestSplit = i;
-      break;
-    }
+  // Multi-page scenario: Pure sequential overflow (순차적 자연 밀림)
+  // Page 1 takes up to MULTI_PAGE1_MAX rows.
+  // If validRows.length is between 19 and 25, we ensure at least 3 rows overflow to page 2 alongside Grand Total & Signature.
+  let splitIndex = MULTI_PAGE1_MAX;
+  if (validRows.length <= MULTI_PAGE1_MAX) {
+    splitIndex = Math.max(14, validRows.length - 3);
   }
 
-  // 2. If no section header found in the preferred window:
-  if (bestSplit === -1) {
-    // Check if there is any section header earlier (from MULTI_PAGE1_MIN_BREAK - 1 down to index 2)
-    for (let i = MULTI_PAGE1_MIN_BREAK - 1; i >= 2; i--) {
-      const row = validRows[i];
-      if (!row) continue;
-      const isSectionStart = row.type === 'HEADER' || (row.headerLeft && row.headerLeft.trim() !== '');
-      if (isSectionStart) {
-        bestSplit = i;
-        break;
-      }
-    }
-  }
-
-  // 3. If still no section header found (e.g. single continuous item list):
-  if (bestSplit === -1) {
-    if (validRows.length <= MULTI_PAGE1_MAX) {
-      // Split evenly / ensure at least 3-4 rows go to page 2 alongside Grand Total & Signature
-      bestSplit = Math.min(24, validRows.length - 3);
-    } else {
-      bestSplit = MULTI_PAGE1_MAX;
-    }
-  }
-
-  // Safety fallback: Ensure splitIndex is at least 1 and strictly less than validRows.length
-  if (bestSplit >= validRows.length) {
-    bestSplit = Math.max(1, validRows.length - 3);
-  }
-  if (bestSplit < 1) {
-    bestSplit = 1;
-  }
-
-  const remainingRowsCount = validRows.length - bestSplit;
+  const remainingRowsCount = validRows.length - splitIndex;
   const totalPages = 1 + Math.max(1, Math.ceil(remainingRowsCount / SUBSEQUENT_PAGE_LIMIT));
 
   return {
     isMultiPage: true,
-    splitIndex: bestSplit,
+    splitIndex,
     totalPages
   };
 };
@@ -1404,24 +1364,24 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const renderInvoiceRows = (rows: NationalInvoiceRow[], startIdx = 0) => {
         return rows.map((row, rIdx) => {
           const idx = startIdx + rIdx;
-          const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
+          const rowStyle = `font-size: ${row.fontSize || 11}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 26}px;`;
           const borderStyle = `none;`; 
           
           const hasMark = !!formData.shippingMarkType;
           const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
           const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
           const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
-          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 3px 6px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
+          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 6px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
           
           if (row.type === 'HEADER') {
             return `
               <tr style="${rowStyle}">
                 ${shippingMarkCell}
-                <td style="${borderStyle} padding: 3px 6px; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 4px 6px; text-decoration: underline; vertical-align: middle;">
                   ${row.headerLeft || ''}
                 </td>
-                <td style="${borderStyle} padding: 3px 6px; vertical-align: middle;"></td>
-                <td colspan="4" style="${borderStyle} padding: 3px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 4px 6px; vertical-align: middle;"></td>
+                <td colspan="4" style="${borderStyle} padding: 4px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
                   ${row.headerRight || ''}
                 </td>
               </tr>
@@ -1438,16 +1398,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
             return `
               <tr style="${rowStyle}">
-                <td colspan="3" style="${totalBorderStyle} padding: 3px 6px; text-align: left; vertical-align: middle; font-weight: 900;">
+                <td colspan="3" style="${totalBorderStyle} padding: 4px 6px; text-align: left; vertical-align: middle; font-weight: 900;">
                   <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <span>${row.description || 'TOTAL'}</span>
                     <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
                   </div>
                 </td>
-                <td style="${totalBorderStyle} padding: 3px 6px; vertical-align: middle;"></td>
-                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedProcAmt}</td>
-                <td style="${totalBorderStyle} padding: 3px 6px; vertical-align: middle;"></td>
-                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedAmount}</td>
+                <td style="${totalBorderStyle} padding: 4px 6px; vertical-align: middle;"></td>
+                <td style="${totalBorderStyle} padding: 4px 6px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedProcAmt}</td>
+                <td style="${totalBorderStyle} padding: 4px 6px; vertical-align: middle;"></td>
+                <td style="${totalBorderStyle} padding: 4px 6px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedAmount}</td>
               </tr>
             `;
           }
@@ -1455,12 +1415,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           return `
             <tr style="${rowStyle}">
               ${shippingMarkCell}
-              <td style="${borderStyle} padding: 3px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
+              <td style="${borderStyle} padding: 4px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
             </tr>
           `;
         }).join('');
@@ -1469,7 +1429,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const renderPackingRows = (rows: NationalInvoiceRow[], startIdx = 0) => {
         return rows.map((row, rIdx) => {
           const idx = startIdx + rIdx;
-          const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
+          const rowStyle = `font-size: ${row.fontSize || 11}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 26}px;`;
           const borderStyle = `none;`; 
           
           const hasMark = !!formData.shippingMarkType;
@@ -1477,17 +1437,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
           const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
           const plPkgNo = row.plPkgNo !== undefined && row.plPkgNo !== '' ? row.plPkgNo : row.pkgNo;
-          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 3px 1px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
+          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 2px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
 
           if (row.type === 'HEADER') {
             return `
               <tr style="${rowStyle}">
                 ${shippingMarkCell}
-                <td style="${borderStyle} padding: 3px 6px; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 4px 6px; text-decoration: underline; vertical-align: middle;">
                   ${row.headerLeft || ''}
                 </td>
-                <td style="${borderStyle} padding: 3px 6px; vertical-align: middle;"></td>
-                <td colspan="4" style="${borderStyle} padding: 3px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 4px 6px; vertical-align: middle;"></td>
+                <td colspan="4" style="${borderStyle} padding: 4px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
                   ${row.headerRight || ''}
                 </td>
               </tr>
@@ -1498,28 +1458,28 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
             return `
               <tr style="${rowStyle}">
-                <td colspan="3" style="${totalBorderStyle} padding: 3px 6px; text-align: left; vertical-align: middle; font-weight: 900;">
+                <td colspan="3" style="${totalBorderStyle} padding: 4px 6px; text-align: left; vertical-align: middle; font-weight: 900;">
                   <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
                     <span>${row.description || 'TOTAL'}</span>
                     <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
                   </div>
                 </td>
-                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
-                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
-                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
-                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
+                <td style="${totalBorderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+                <td style="${totalBorderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+                <td style="${totalBorderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+                <td style="${totalBorderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
               </tr>
             `;
           }
           return `
             <tr style="${rowStyle}">
               ${shippingMarkCell}
-              <td style="${borderStyle} padding: 3px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
-              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
             </tr>
           `;
         }).join('');
@@ -1534,14 +1494,14 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         
         @page { 
           size: A4 portrait; 
-          margin: 10mm 10mm; 
+          margin: 12mm 10mm; 
         }
         
         body { 
           font-family: 'Inter', 'Noto Sans KR', sans-serif; 
           color: black; 
-          line-height: 1.15; 
-          font-size: 10.5px; 
+          line-height: 1.25; 
+          font-size: 11px; 
           margin: 0; 
           padding: 0;
           -webkit-print-color-adjust: exact;
@@ -1552,15 +1512,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
         .header-title { 
           text-align: center; 
-          font-size: 21px; 
+          font-size: 22px; 
           font-weight: 900 !important; 
           text-decoration: underline; 
-          margin-bottom: 12px; 
-          letter-spacing: 1.5px; 
+          margin-bottom: 14px; 
+          letter-spacing: 2px; 
         }
 
         .label { 
-          font-size: 9.5px; 
+          font-size: 10px; 
           font-weight: 800 !important; 
           text-transform: uppercase; 
           margin-bottom: 2px; 
@@ -1568,7 +1528,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
 
         .content-bold { 
-          font-size: 15px; 
+          font-size: 16px; 
           font-weight: 900 !important; 
           text-transform: uppercase; 
           white-space: pre-wrap; 
@@ -1576,7 +1536,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
 
         .content-large { 
-          font-size: 19px; 
+          font-size: 20px; 
           font-weight: 900 !important; 
           text-transform: uppercase; 
           text-align: center; 
@@ -1584,15 +1544,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
 
         .content-medium { 
           font-weight: 400 !important;
-          font-size: 10px; 
+          font-size: 10.5px; 
         }
 
         th { 
           border: none; 
           border-bottom: none; 
-          padding: 3px 6px; 
+          padding: 4px 6px; 
           background: transparent; 
-          font-size: 10px; 
+          font-size: 10.5px; 
           font-weight: 900 !important; 
           text-align: left; 
         }
@@ -1609,8 +1569,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           border: none !important;
           border-right: 1px solid black !important;
           border-bottom: 1px solid black !important;
-          padding: 2px 4px;
-          min-height: 15px;
+          padding: 3px 5px;
+          min-height: 17px;
           vertical-align: middle !important;
         }
 
@@ -1623,13 +1583,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           break-inside: avoid !important;
         }
 
-        .sub-label { font-size: 8.5px; font-weight: 700 !important; color: #000; margin-bottom: 3px; display: block; }
-        .content-normal { font-weight: 400; white-space: pre-wrap; font-size: 9px; }
+        .sub-label { font-size: 9px; font-weight: 700 !important; color: #000; margin-bottom: 3px; display: block; }
+        .content-normal { font-weight: 400; white-space: pre-wrap; font-size: 9.5px; }
         
         table { width: 100%; border-collapse: collapse; margin-top: 4px; border: none; }
         
-        .signature-box { border: 1px solid black; padding: 8px; width: 280px; }
-        .signature-font { font-family: 'Brush Script MT', 'Dancing Script', 'Brush Script Std', cursive; font-size: 15px; color: #000; }
+        .signature-box { border: 1px solid black; padding: 8px; width: 290px; }
+        .signature-font { font-family: 'Brush Script MT', 'Dancing Script', 'Brush Script Std', cursive; font-size: 17px; color: #000; }
         .footer-info { font-size: 10px; font-weight: bold; color: #000; }
         .clear { clear: both; }
 
@@ -1640,9 +1600,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
 
         .page-container {
-          height: 275mm;
-          min-height: 275mm;
-          max-height: 275mm;
+          height: 272mm;
+          min-height: 272mm;
+          max-height: 272mm;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
