@@ -35,9 +35,9 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
 };
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
-  const SINGLE_PAGE_MAX = 24; // When everything (including signature box & total) fits on 1 single page
-  const MULTI_PAGE1_MAX = 33; // When NO signature box on page 1, table can fill down to the bottom margin (32-34 rows)
-  const MULTI_PAGE1_MIN_BREAK = 27; // Search for a clean Model/Header boundary starting around row 27
+  const SINGLE_PAGE_MAX = 26; // Up to 26 rows (headers + items + subtotal) fit cleanly on 1 single page with Grand Total & Signature
+  const MULTI_PAGE1_MAX = 33; // When NO signature box on page 1, table can fill down to the bottom margin (up to 33 rows)
+  const MULTI_PAGE1_MIN_BREAK = 18; // Window to look for clean Model/Header boundary
   const SUBSEQUENT_PAGE_LIMIT = 35;
 
   const validRows = rows || [];
@@ -50,11 +50,12 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
     };
   }
 
-  // Multi-page: find the best split point between MULTI_PAGE1_MIN_BREAK and MULTI_PAGE1_MAX
-  let bestSplit = Math.min(validRows.length, MULTI_PAGE1_MAX);
-  
-  // Look backwards from MULTI_PAGE1_MAX down to MULTI_PAGE1_MIN_BREAK for a HEADER row or row with headerLeft or model indicator
-  for (let i = Math.min(validRows.length - 1, MULTI_PAGE1_MAX); i >= MULTI_PAGE1_MIN_BREAK; i--) {
+  // Multi-page scenario (validRows.length >= 27)
+  let bestSplit = -1;
+
+  // 1. Search backwards from max page 1 limit for a Section/Model header
+  const searchStart = Math.min(validRows.length - 1, MULTI_PAGE1_MAX);
+  for (let i = searchStart; i >= MULTI_PAGE1_MIN_BREAK; i--) {
     const row = validRows[i];
     if (!row) continue;
     const isSectionStart = row.type === 'HEADER' || (row.headerLeft && row.headerLeft.trim() !== '');
@@ -62,6 +63,38 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
       bestSplit = i;
       break;
     }
+  }
+
+  // 2. If no section header found in the preferred window:
+  if (bestSplit === -1) {
+    // Check if there is any section header earlier (from MULTI_PAGE1_MIN_BREAK - 1 down to index 2)
+    for (let i = MULTI_PAGE1_MIN_BREAK - 1; i >= 2; i--) {
+      const row = validRows[i];
+      if (!row) continue;
+      const isSectionStart = row.type === 'HEADER' || (row.headerLeft && row.headerLeft.trim() !== '');
+      if (isSectionStart) {
+        bestSplit = i;
+        break;
+      }
+    }
+  }
+
+  // 3. If still no section header found (e.g. single continuous item list):
+  if (bestSplit === -1) {
+    if (validRows.length <= MULTI_PAGE1_MAX) {
+      // Split evenly / ensure at least 3-4 rows go to page 2 alongside Grand Total & Signature
+      bestSplit = Math.min(24, validRows.length - 3);
+    } else {
+      bestSplit = MULTI_PAGE1_MAX;
+    }
+  }
+
+  // Safety fallback: Ensure splitIndex is at least 1 and strictly less than validRows.length
+  if (bestSplit >= validRows.length) {
+    bestSplit = Math.max(1, validRows.length - 3);
+  }
+  if (bestSplit < 1) {
+    bestSplit = 1;
   }
 
   const remainingRowsCount = validRows.length - bestSplit;
