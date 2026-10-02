@@ -91,13 +91,13 @@ export const calculateRowUnits = (row: NationalInvoiceRow): number => {
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
   const SINGLE_PAGE_MAX_UNITS = 27; // Fits comfortably with signature & footer on 1 single page
-  const MULTI_PAGE1_MAX_UNITS = 33; // In multi-page mode (no signature on page 1), fits up to 33 line units cleanly
-  const SUBSEQUENT_PAGE_UNITS = 33;
+  const MULTI_PAGE1_MAX_UNITS = 30; // In multi-page mode, fills Page 1 down to bottom margin with solid closed border
+  const SUBSEQUENT_PAGE_UNITS = 30;
 
   const validRows = rows || [];
   const totalUnits = validRows.reduce((sum, r) => sum + calculateRowUnits(r), 0);
 
-  // If all rows fit within single page limit (<= 27 line units), 1 page complete
+  // If all rows fit within single page limit (<= 27 line units), 1 page complete with signature
   if (totalUnits <= SINGLE_PAGE_MAX_UNITS) {
     return {
       isMultiPage: false,
@@ -106,9 +106,9 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
     };
   }
 
-  // Multi-page mode:
-  // Accumulate units row-by-row for Page 1.
-  // If adding the next row exceeds MULTI_PAGE1_MAX_UNITS (33), move that entire row to Page 2!
+  // Multi-page mode (totalUnits >= 28):
+  // Accumulate units row-by-row for Page 1 up to MULTI_PAGE1_MAX_UNITS (30).
+  // If adding the next row (especially a multiline row) exceeds 30, that row moves to Page 2!
   let page1Units = 0;
   let splitIndex = 0;
 
@@ -1442,24 +1442,24 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const renderInvoiceRows = (rows: NationalInvoiceRow[], startIdx = 0) => {
         return rows.map((row, rIdx) => {
           const idx = startIdx + rIdx;
-          const rowStyle = `font-size: ${row.fontSize || 11}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 26}px;`;
+          const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; line-height: 1.25;`;
           const borderStyle = `none;`; 
           
           const hasMark = !!formData.shippingMarkType;
           const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
           const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
           const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
-          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 6px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
+          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 3px 6px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
           
           if (row.type === 'HEADER') {
             return `
               <tr style="${rowStyle}">
                 ${shippingMarkCell}
-                <td style="${borderStyle} padding: 4px 6px; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 3px 6px; text-decoration: underline; vertical-align: middle;">
                   ${row.headerLeft || ''}
                 </td>
-                <td style="${borderStyle} padding: 4px 6px; vertical-align: middle;"></td>
-                <td colspan="4" style="${borderStyle} padding: 4px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 3px 6px; vertical-align: middle;"></td>
+                <td colspan="4" style="${borderStyle} padding: 3px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
                   ${row.headerRight || ''}
                 </td>
               </tr>
@@ -1493,12 +1493,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           return `
             <tr style="${rowStyle}">
               ${shippingMarkCell}
-              <td style="${borderStyle} padding: 4px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
             </tr>
           `;
         }).join('');
@@ -1507,7 +1507,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const renderPackingRows = (rows: NationalInvoiceRow[], startIdx = 0) => {
         return rows.map((row, rIdx) => {
           const idx = startIdx + rIdx;
-          const rowStyle = `font-size: ${row.fontSize || 11}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 26}px;`;
+          const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; line-height: 1.25;`;
           const borderStyle = `none;`; 
           
           const hasMark = !!formData.shippingMarkType;
@@ -1515,17 +1515,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
           const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
           const plPkgNo = row.plPkgNo !== undefined && row.plPkgNo !== '' ? row.plPkgNo : row.pkgNo;
-          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 2px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
+          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 3px 2px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
 
           if (row.type === 'HEADER') {
             return `
               <tr style="${rowStyle}">
                 ${shippingMarkCell}
-                <td style="${borderStyle} padding: 4px 6px; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 3px 6px; text-decoration: underline; vertical-align: middle;">
                   ${row.headerLeft || ''}
                 </td>
-                <td style="${borderStyle} padding: 4px 6px; vertical-align: middle;"></td>
-                <td colspan="4" style="${borderStyle} padding: 4px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                <td style="${borderStyle} padding: 3px 6px; vertical-align: middle;"></td>
+                <td colspan="4" style="${borderStyle} padding: 3px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
                   ${row.headerRight || ''}
                 </td>
               </tr>
@@ -1552,12 +1552,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           return `
             <tr style="${rowStyle}">
               ${shippingMarkCell}
-              <td style="${borderStyle} padding: 4px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
-              <td style="${borderStyle} padding: 4px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
             </tr>
           `;
         }).join('');
