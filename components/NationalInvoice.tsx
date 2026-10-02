@@ -1282,173 +1282,163 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         `;
       };
 
-      const rowsHtml = (formData.rows || []).map((row, idx) => {
-        const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
-        const borderStyle = `none;`; 
-        
-        const hasMark = !!formData.shippingMarkType;
-        const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
-        const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
-        const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
-        const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 8px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
-        
-        if (row.type === 'HEADER') {
-          return `
-            <tr style="${rowStyle}">
-              ${shippingMarkCell}
-              <td style="${borderStyle} padding: 4px 8px; text-decoration: underline; vertical-align: middle;">
-                ${row.headerLeft || ''}
-              </td>
-              <td style="${borderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td colspan="4" style="${borderStyle} padding: 4px 8px; text-align: left; text-decoration: underline; vertical-align: middle;">
-                ${row.headerRight || ''}
-              </td>
-            </tr>
-          `;
-        } else if (row.type === 'TOTAL') {
-          const totalBorderStyle = `border: none; border-top: 1px solid black;`;
-          const amountVal = parseFloat(parseNumber(row.amount || '0'));
-          const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (['JPY', 'KRW', 'VND'].includes(formData.currency) ? '0' : '0.00');
-          
-          const procAmtSum = parseFloat(parseNumber(row.procAmount || '0'));
-          const formattedProcAmt = procAmtSum !== 0 ? `${formData.currencySymbol}${formatNumber(row.procAmount)}` : '';
-          
-          const qtyText = row.unitBreakdown || `${formatNumber(row.quantity, false, 'quantity') || '0'} ${row.unit || 'UNIT'}`;
-
-          return `
-            <tr style="${rowStyle}">
-              <td colspan="3" style="${totalBorderStyle} padding: 4px 8px; text-align: left; vertical-align: middle; font-weight: 900;">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                  <span>${row.description || 'TOTAL'}</span>
-                  <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
-                </div>
-              </td>
-              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedProcAmt}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedAmount}</td>
-            </tr>
-          `;
-        }
-        
-        return `
-          <tr style="${rowStyle}">
-            ${shippingMarkCell}
-            <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const plRowsList = formData.packingRows || formData.rows || [];
-      const packingRowsHtml = plRowsList.map((row, idx) => {
-        const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
-        const borderStyle = `none;`; 
-        
-        const hasMark = !!formData.shippingMarkType;
-        const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
-        const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
-        const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
-        const plPkgNo = row.plPkgNo !== undefined && row.plPkgNo !== '' ? row.plPkgNo : row.pkgNo;
-        const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 4px 1px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
-
-        if (row.type === 'HEADER') {
-          return `
-            <tr style="${rowStyle}">
-              ${shippingMarkCell}
-              <td style="${borderStyle} padding: 4px 8px; text-decoration: underline; vertical-align: middle;">
-                ${row.headerLeft || ''}
-              </td>
-              <td style="${borderStyle} padding: 4px 8px; vertical-align: middle;"></td>
-              <td colspan="4" style="${borderStyle} padding: 4px 8px; text-align: left; text-decoration: underline; vertical-align: middle;">
-                ${row.headerRight || ''}
-              </td>
-            </tr>
-          `;
-        } else if (row.type === 'TOTAL') {
-          const totalBorderStyle = `border: none; border-top: 1px solid black;`;
-          const qtyText = row.unitBreakdown || (row.quantity && row.quantity !== '0' ? `${formatNumber(row.quantity, false, 'quantity')} ${row.unit || 'UNIT'}` : '');
-
-          return `
-            <tr style="${rowStyle}">
-              <td colspan="3" style="${totalBorderStyle} padding: 4px 8px; text-align: left; vertical-align: middle; font-weight: 900;">
-                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                  <span>${row.description || 'TOTAL'}</span>
-                  <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
-                </div>
-              </td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
-              <td style="${totalBorderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
-            </tr>
-          `;
-        }
-        return `
-          <tr style="${rowStyle}">
-            ${shippingMarkCell}
-            <td style="${borderStyle} padding: 4px 8px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
-            <td style="${borderStyle} padding: 4px 8px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const plTotalCtQty = formData.plTotalCtQty || '';
-      const plTotalNetWeight = formData.plTotalNetWeight || '';
-      const plTotalGrossWeight = formData.plTotalGrossWeight || '';
-      const plTotalCbm = formData.plTotalCbm || '';
-
-      const plTotalUnits: { [unit: string]: number } = {};
-      let plTotalQtySum = 0;
-      plRowsList.filter(r => r.type === 'ITEM').forEach(r => {
-        const q = parseFloat(parseNumber(r.quantity || '0')) || 0;
-        plTotalQtySum += q;
-        const u = (r.unit || 'PCS').toUpperCase();
-        plTotalUnits[u] = (plTotalUnits[u] || 0) + q;
-      });
-      const plTotalUnitEntries = Object.entries(plTotalUnits).filter(([_, val]) => val > 0);
-      let plTotalQtyText = '';
-      if (plTotalUnitEntries.length > 0) {
-        plTotalQtyText = plTotalUnitEntries.map(([unit, val]) => `${formatNumber(val)} ${unit}`).join(' / ');
-      } else if (plTotalQtySum > 0) {
-        plTotalQtyText = `${formatNumber(plTotalQtySum)} UNIT`;
-      }
-
       const consignee = formData.consigneeName || 'Client';
       const docDate = formData.invoiceDate || '';
       const filename = `${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
-      const invoiceRowsCount = (formData.rows || []).length;
-      const calculatedInvoicePages = invoiceRowsCount > 20 ? Math.ceil(invoiceRowsCount / 18) : 1;
-      const invoicePageText = (formData.pageNo && formData.pageNo.trim() !== '') 
-        ? formData.pageNo 
-        : `PAGE #1 OF ${calculatedInvoicePages}`;
+      const FIRST_PAGE_LIMIT = 18;
+      const SUBSEQUENT_PAGE_LIMIT = 28;
 
-      const plRowsCount = plRowsList.length;
-      const calculatedPlPages = plRowsCount > 20 ? Math.ceil(plRowsCount / 18) : 1;
-      const plPageText = (formData.plPageNo && formData.plPageNo.trim() !== '') 
+      const invoiceRows = formData.rows || [];
+      const isInvoiceMultiPage = invoiceRows.length > FIRST_PAGE_LIMIT;
+      const totalInvoicePages = isInvoiceMultiPage ? (1 + Math.ceil((invoiceRows.length - FIRST_PAGE_LIMIT) / SUBSEQUENT_PAGE_LIMIT)) : 1;
+
+      const invoicePage1Text = (formData.pageNo && formData.pageNo.trim() !== '' && !formData.pageNo.includes('PAGE #1 OF 1')) 
+        ? formData.pageNo 
+        : `PAGE #1 OF ${totalInvoicePages}`;
+
+      const plRowsList = formData.packingRows || formData.rows || [];
+      const isPlMultiPage = plRowsList.length > FIRST_PAGE_LIMIT;
+      const totalPlPages = isPlMultiPage ? (1 + Math.ceil((plRowsList.length - FIRST_PAGE_LIMIT) / SUBSEQUENT_PAGE_LIMIT)) : 1;
+
+      const plPage1Text = (formData.plPageNo && formData.plPageNo.trim() !== '' && !formData.plPageNo.includes('PAGE #1 OF 1')) 
         ? formData.plPageNo 
-        : (formData.pageNo && formData.pageNo.trim() !== '' ? formData.pageNo : `PAGE #1 OF ${calculatedPlPages}`);
+        : `PAGE #1 OF ${totalPlPages}`;
 
       const hasTrackingNo = formData.showTrackingNo !== false && formData.trackingNo && formData.trackingNo.trim() !== '';
       const hasRemarks = formData.showRemarks !== false && formData.remarks && formData.remarks.trim() !== '';
       const hasPlExtraRemarks = formData.showPlExtraRemarks !== false && formData.plExtraRemarks && formData.plExtraRemarks.trim() !== '';
       const hasPlRemarks = formData.showPlRemarks !== false && formData.plRemarks && formData.plRemarks.trim() !== '';
 
+      const renderInvoiceRows = (rows: NationalInvoiceRow[], startIdx = 0) => {
+        return rows.map((row, rIdx) => {
+          const idx = startIdx + rIdx;
+          const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
+          const borderStyle = `none;`; 
+          
+          const hasMark = !!formData.shippingMarkType;
+          const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
+          const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
+          const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
+          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 3px 6px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${row.pkgNo || ''}</td>` : '';
+          
+          if (row.type === 'HEADER') {
+            return `
+              <tr style="${rowStyle}">
+                ${shippingMarkCell}
+                <td style="${borderStyle} padding: 3px 6px; text-decoration: underline; vertical-align: middle;">
+                  ${row.headerLeft || ''}
+                </td>
+                <td style="${borderStyle} padding: 3px 6px; vertical-align: middle;"></td>
+                <td colspan="4" style="${borderStyle} padding: 3px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                  ${row.headerRight || ''}
+                </td>
+              </tr>
+            `;
+          } else if (row.type === 'TOTAL') {
+            const totalBorderStyle = `border: none; border-top: 1px solid black;`;
+            const amountVal = parseFloat(parseNumber(row.amount || '0'));
+            const formattedAmount = amountVal !== 0 ? `${formData.currencySymbol}${formatNumber(row.amount)}` : (['JPY', 'KRW', 'VND'].includes(formData.currency) ? '0' : '0.00');
+            
+            const procAmtSum = parseFloat(parseNumber(row.procAmount || '0'));
+            const formattedProcAmt = procAmtSum !== 0 ? `${formData.currencySymbol}${formatNumber(row.procAmount)}` : '';
+            
+            const qtyText = row.unitBreakdown || `${formatNumber(row.quantity, false, 'quantity') || '0'} ${row.unit || 'UNIT'}`;
+
+            return `
+              <tr style="${rowStyle}">
+                <td colspan="3" style="${totalBorderStyle} padding: 3px 6px; text-align: left; vertical-align: middle; font-weight: 900;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>${row.description || 'TOTAL'}</span>
+                    <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
+                  </div>
+                </td>
+                <td style="${totalBorderStyle} padding: 3px 6px; vertical-align: middle;"></td>
+                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedProcAmt}</td>
+                <td style="${totalBorderStyle} padding: 3px 6px; vertical-align: middle;"></td>
+                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle; font-weight: 900;">${formattedAmount}</td>
+              </tr>
+            `;
+          }
+          
+          return `
+            <tr style="${rowStyle}">
+              ${shippingMarkCell}
+              <td style="${borderStyle} padding: 3px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.proc) : (row.proc ? formatNumber(row.proc) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.procAmount) : (row.procAmount ? formatNumber(row.procAmount) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.price) : (row.price ? formatNumber(row.price) : '')}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${row.unit ? formatNumber(row.amount) : (row.amount ? formatNumber(row.amount) : '')}</td>
+            </tr>
+          `;
+        }).join('');
+      };
+
+      const renderPackingRows = (rows: NationalInvoiceRow[], startIdx = 0) => {
+        return rows.map((row, rIdx) => {
+          const idx = startIdx + rIdx;
+          const rowStyle = `font-size: ${row.fontSize || 10.5}px; font-weight: ${row.isBold ? 'bold' : 'normal'}; min-height: ${row.fontSize ? row.fontSize * 2.5 : 25}px;`;
+          const borderStyle = `none;`; 
+          
+          const hasMark = !!formData.shippingMarkType;
+          const shouldSkipMark = hasMark && (idx === 1 || idx === 2);
+          const rowSpan = (idx === 0 && hasMark) ? 'rowspan="3"' : '';
+          const markHtml = (idx === 0 && hasMark) ? getShippingMarkHtml(formData.shippingMarkType) : '';
+          const plPkgNo = row.plPkgNo !== undefined && row.plPkgNo !== '' ? row.plPkgNo : row.pkgNo;
+          const shippingMarkCell = !shouldSkipMark ? `<td ${rowSpan} style="${borderStyle} padding: 3px 1px; text-align: center; vertical-align: middle; white-space: pre-wrap;">${markHtml}${plPkgNo || ''}</td>` : '';
+
+          if (row.type === 'HEADER') {
+            return `
+              <tr style="${rowStyle}">
+                ${shippingMarkCell}
+                <td style="${borderStyle} padding: 3px 6px; text-decoration: underline; vertical-align: middle;">
+                  ${row.headerLeft || ''}
+                </td>
+                <td style="${borderStyle} padding: 3px 6px; vertical-align: middle;"></td>
+                <td colspan="4" style="${borderStyle} padding: 3px 6px; text-align: left; text-decoration: underline; vertical-align: middle;">
+                  ${row.headerRight || ''}
+                </td>
+              </tr>
+            `;
+          } else if (row.type === 'TOTAL') {
+            const totalBorderStyle = `border: none; border-top: 1px solid black;`;
+            const qtyText = row.unitBreakdown || (row.quantity && row.quantity !== '0' ? `${formatNumber(row.quantity, false, 'quantity')} ${row.unit || 'UNIT'}` : '');
+
+            return `
+              <tr style="${rowStyle}">
+                <td colspan="3" style="${totalBorderStyle} padding: 3px 6px; text-align: left; vertical-align: middle; font-weight: 900;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <span>${row.description || 'TOTAL'}</span>
+                    <span style="flex-grow: 1; text-align: right; padding-right: 2px;">${qtyText}</span>
+                  </div>
+                </td>
+                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+                <td style="${totalBorderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
+              </tr>
+            `;
+          }
+          return `
+            <tr style="${rowStyle}">
+              ${shippingMarkCell}
+              <td style="${borderStyle} padding: 3px 6px; white-space: pre-wrap; vertical-align: middle;">${row.description || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.quantity, false, 'quantity') || ''} ${row.unit || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProc, false, 'quantity') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plProcAmount, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plPrice, false, 'decimal') || ''}</td>
+              <td style="${borderStyle} padding: 3px 6px; text-align: right; vertical-align: middle;">${formatNumber(row.plAmount, false, 'decimal') || ''}</td>
+            </tr>
+          `;
+        }).join('');
+      };
+
       const html = `
   <html>
     <head>
       <title>${filename}</title>
       <style>
-        /* 1. 굵기 데이터(700, 900) 및 필기체 폰트 명시적 호출 */
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Great+Vibes&family=Inter:wght@400;700;900&family=Noto+Sans+KR:wght@400;700;900&display=swap');
         
         @page { 
@@ -1456,7 +1446,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           margin: 10mm 10mm; 
         }
         
-        /* 2. 인쇄 보정 속성 추가 */
         body { 
           font-family: 'Inter', 'Noto Sans KR', sans-serif; 
           color: black; 
@@ -1470,7 +1459,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           box-sizing: border-box;
         }
 
-        /* 3. 각 클래스에 !important를 붙여 굵기 고정 */
         .header-title { 
           text-align: center; 
           font-size: 21px; 
@@ -1508,7 +1496,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           font-size: 10px; 
         }
 
-        /* 테이블 헤더(TH) 굵기 강화 */
         th { 
           border: none; 
           border-bottom: none; 
@@ -1536,23 +1523,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           vertical-align: middle !important;
         }
 
-        .invoice-grid {
-          display: grid;
-          grid-template-columns: 1.5fr 1fr 1.5fr 1fr;
-          border-top: 1px solid black !important;
-          border-left: 1px solid black !important;
-          border-collapse: collapse !important;
-        }
-
-        .invoice-cell {
-          border: none !important;
-          border-right: 1px solid black !important;
-          border-bottom: 1px solid black !important;
-          padding: 2px 4px;
-          min-height: 15px;
-          vertical-align: middle !important;
-        }
-
         table td, table th {
           vertical-align: middle !important;
         }
@@ -1572,16 +1542,26 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         .footer-info { font-size: 10px; font-weight: bold; color: #000; }
         .clear { clear: both; }
 
-        /* 절대 잘리지 않아야 하는 서명 블록 */
         .prevent-split {
           page-break-inside: avoid !important;
           break-inside: avoid !important;
           -webkit-column-break-inside: avoid !important;
         }
+
+        .page-container {
+          height: 275mm;
+          min-height: 275mm;
+          max-height: 275mm;
+          box-sizing: border-box;
+          display: flex;
+          flex-direction: column;
+          position: relative;
+        }
       </style>
           </head>
           <body>
-            <div id="invoice-content" style="display: flex; flex-direction: column; min-height: 255mm;">
+            <!-- COMMERCIAL INVOICE PAGE 1 -->
+            <div class="page-container" id="invoice-page-1">
               <div class="header-title">${formData.invoiceType} INVOICE</div>
               
               <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 6px;">
@@ -1604,7 +1584,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                   <span class="label" style="text-align: center;">PAGE</span>
                   <div class="content-medium" style="font-weight: 900 !important; text-align: center;">
-                    ${invoicePageText}
+                    ${invoicePage1Text}
                   </div>
                 </div>
 
@@ -1664,7 +1644,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
               </div>
 
-              <!-- Outer Enclosed Border Container for Table, Remarks, and Signature -->
+              <!-- Outer Enclosed Border Container for Table -->
               <div style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
                 <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
                   <thead>
@@ -1679,52 +1659,123 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </tr>
                   </thead>
                   <tbody>
-                    ${rowsHtml}
-                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
-                      <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                          <span>GRAND TOTAL</span>
-                          <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
-                        </div>
-                      </td>
-                      <td style="padding: 6px 8px;"></td>
-                      <td style="padding: 6px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
-                      <td style="padding: 6px 8px;"></td>
-                      <td style="padding: 6px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
-                    </tr>
+                    ${renderInvoiceRows(isInvoiceMultiPage ? invoiceRows.slice(0, FIRST_PAGE_LIMIT) : invoiceRows, 0)}
+                    ${!isInvoiceMultiPage ? `
+                      <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>GRAND TOTAL</span>
+                            <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
+                          </div>
+                        </td>
+                        <td style="padding: 6px 8px;"></td>
+                        <td style="padding: 6px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
+                        <td style="padding: 6px 8px;"></td>
+                        <td style="padding: 6px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
+                      </tr>
+                    ` : ''}
                   </tbody>
                 </table>
 
-                ${hasTrackingNo ? `<div style="margin-top: 6px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 0; font-size: 10px;">${formData.trackingNo}</div>` : ''}
+                ${!isInvoiceMultiPage && hasTrackingNo ? `<div style="margin-top: 6px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 0; font-size: 10px;">${formData.trackingNo}</div>` : ''}
                 
-                ${hasRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks}</div>` : ''}
+                ${!isInvoiceMultiPage && hasRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks}</div>` : ''}
 
-                <!-- Complete Unified Signature Box with page-break protection -->
-                <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                    <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
-                      <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
-                      <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
-                    </div>
-                    
-                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
-                      <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
-                      <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                        <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
-                          ${formData.signedTitle || ''}
+                ${!isInvoiceMultiPage ? `
+                  <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                      <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                        <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                        <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                      </div>
+                      
+                      <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                          <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
+                            ${formData.signedTitle || ''}
+                          </div>
+                          <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                         </div>
-                        <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
+                      </div>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- COMMERCIAL INVOICE PAGE 2 (IF MULTI-PAGE) -->
+            ${isInvoiceMultiPage ? `
+              <div style="page-break-before: always;"></div>
+              <div class="page-container" id="invoice-page-2">
+                <!-- Continuation Header on Page 2 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid black; padding-bottom: 4px; margin-bottom: 6px; font-weight: 900; font-size: 10px;">
+                  <span style="font-size: 12px; font-weight: 900; text-decoration: underline;">${formData.invoiceType} INVOICE (CONTINUED)</span>
+                  <span>INVOICE NO: <strong>${formData.invoiceNo || ''}</strong></span>
+                  <span>DATE: ${formatDateToEnglish(formData.invoiceDate)}</span>
+                  <span style="border: 1px solid black; padding: 2px 6px; font-weight: 900;">PAGE #2 OF ${totalInvoicePages}</span>
+                </div>
+
+                <div style="border: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
+                  <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
+                    <thead>
+                      <tr>
+                        <th style="width: 20%; border-bottom: 1px solid black; padding: 3px 6px;">SHIPPING MARK</th>
+                        <th style="width: 35%; border-bottom: 1px solid black; padding: 3px 6px;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                        <th style="width: 10%; border-bottom: 1px solid black; padding: 3px 6px;">QUANTITY</th>
+                        <th style="width: 10%; border-bottom: 1px solid black; padding: 3px 6px;">PROC (${formData.currencySymbol})</th>
+                        <th style="width: 10%; border-bottom: 1px solid black; padding: 3px 6px;">PROC AMT (${formData.currencySymbol})</th>
+                        <th style="width: 7%; border-bottom: 1px solid black; padding: 3px 6px;">PRICE (${formData.currencySymbol})</th>
+                        <th style="width: 8%; border-bottom: 1px solid black; padding: 3px 6px;">AMOUNT (${formData.currencySymbol})</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${renderInvoiceRows(invoiceRows.slice(FIRST_PAGE_LIMIT), FIRST_PAGE_LIMIT)}
+                      <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>GRAND TOTAL</span>
+                            <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
+                          </div>
+                        </td>
+                        <td style="padding: 6px 8px;"></td>
+                        <td style="padding: 6px 8px; text-align: right;">${(parseFloat(parseNumber(formData.totalProcAmount || '0')) !== 0) ? `${formData.currencySymbol}${formatNumber(formData.totalProcAmount)}` : ''}</td>
+                        <td style="padding: 6px 8px;"></td>
+                        <td style="padding: 6px 8px; text-align: right;">${formData.currencySymbol}${formatNumber(formData.totalAmount) || ''}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  ${hasTrackingNo ? `<div style="margin-top: 6px; text-align: center; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 0; font-size: 10px;">${formData.trackingNo}</div>` : ''}
+                  
+                  ${hasRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks}</div>` : ''}
+
+                  <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                      <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                        <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                        <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                      </div>
+                      
+                      <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                          <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
+                            ${formData.signedTitle || ''}
+                          </div>
+                          <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ` : ''}
 
-            <!-- PACKING LIST PAGE BREAK -->
+            <!-- PACKING LIST PAGE 1 -->
             <div style="page-break-before: always;"></div>
 
-            <div id="packing-list-content" style="display: flex; flex-direction: column; min-height: 255mm; counter-reset: page;">
+            <div class="page-container" id="packing-list-page-1">
               <div class="header-title">PACKING LIST</div>
 
               <div class="grid-container" style="display: grid; grid-template-columns: 1.5fr 1fr 1.5fr 1fr; margin-bottom: 6px;">
@@ -1745,7 +1796,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 <div class="cell" style="grid-column: 4; grid-row: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;">
                   <span class="label" style="text-align: center;">PAGE</span>
                   <div class="content-medium" style="font-weight: 900 !important; text-align: center;">
-                    ${plPageText}
+                    ${plPage1Text}
                   </div>
                 </div>
                 <div class="cell" style="grid-column: 3; grid-row: 2;">
@@ -1803,7 +1854,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 </div>
               </div>
 
-              <!-- Outer Enclosed Border Container for Table, Remarks, and Signature -->
+              <!-- Outer Enclosed Border Container for Table -->
               <div style="border-left: 1px solid black; border-right: 1px solid black; border-bottom: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
                 <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
                   <thead>
@@ -1818,47 +1869,118 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     </tr>
                   </thead>
                   <tbody>
-                    ${packingRowsHtml}
-                    <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
-                      <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                          <span>GRAND TOTAL</span>
-                          <span style="flex-grow: 1; text-align: right;">${plTotalQtyText || formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
-                        </div>
-                      </td>
-                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCtQty, false, 'quantity') || ''}</td>
-                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalNetWeight, false, 'decimal') || ''}</td>
-                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalGrossWeight, false, 'decimal') || ''}</td>
-                      <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(plTotalCbm, false, 'decimal') || ''}</td>
-                    </tr>
+                    ${renderPackingRows(isPlMultiPage ? plRowsList.slice(0, FIRST_PAGE_LIMIT) : plRowsList, 0)}
+                    ${!isPlMultiPage ? `
+                      <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>GRAND TOTAL</span>
+                            <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
+                          </div>
+                        </td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalCtQty, false, 'quantity') || ''}</td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalNetWeight, false, 'decimal') || ''}</td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalGrossWeight, false, 'decimal') || ''}</td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalCbm, false, 'decimal') || ''}</td>
+                      </tr>
+                    ` : ''}
                   </tbody>
                 </table>
 
-                ${hasPlExtraRemarks ? `<div style="margin-top: 6px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 8px; font-size: 9.5px; white-space: pre-wrap;">${formData.plExtraRemarks}</div>` : ''}
+                ${!isPlMultiPage && hasPlExtraRemarks ? `<div style="margin-top: 6px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 8px; font-size: 9.5px; white-space: pre-wrap;">${formData.plExtraRemarks}</div>` : ''}
                 
-                ${hasPlRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks}</div>` : ''}
+                ${!isPlMultiPage && hasPlRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks}</div>` : ''}
 
-                <!-- Complete Unified Signature Box with page-break protection -->
-                <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                    <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
-                      <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
-                      <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
-                    </div>
-                    
-                    <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
-                      <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
-                      <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
-                        <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
-                          ${formData.signedTitle || ''}
+                ${!isPlMultiPage ? `
+                  <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                      <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                        <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                        <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                      </div>
+                      
+                      <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                          <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
+                            ${formData.signedTitle || ''}
+                          </div>
+                          <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
                         </div>
-                        <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
+                      </div>
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+
+            <!-- PACKING LIST PAGE 2 (IF MULTI-PAGE) -->
+            ${isPlMultiPage ? `
+              <div style="page-break-before: always;"></div>
+              <div class="page-container" id="packing-list-page-2">
+                <!-- Continuation Header on Page 2 -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid black; padding-bottom: 4px; margin-bottom: 6px; font-weight: 900; font-size: 10px;">
+                  <span style="font-size: 12px; font-weight: 900; text-decoration: underline;">PACKING LIST (CONTINUED)</span>
+                  <span>PACKING LIST NO: <strong>${formData.invoiceNo || ''}</strong></span>
+                  <span>DATE: ${formatDateToEnglish(formData.invoiceDate)}</span>
+                  <span style="border: 1px solid black; padding: 2px 6px; font-weight: 900;">PAGE #2 OF ${totalPlPages}</span>
+                </div>
+
+                <div style="border: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
+                  <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
+                    <thead>
+                      <tr>
+                        <th style="width: 20%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">SHIPPING MARK</th>
+                        <th style="width: 35%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">NO. & KINDS OF PKGS; GOODS DESCRIPTION</th>
+                        <th style="width: 10%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">QUANTITY</th>
+                        <th style="width: 10%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">${formData.packingPackageType || 'CTN'}</th>
+                        <th style="width: 10%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">NET WEIGHT (kg)</th>
+                        <th style="width: 8%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">GROSS WEIGHT (kg)</th>
+                        <th style="width: 7%; font-size: 10px; vertical-align: middle; border-bottom: 1px solid black; padding: 3px 6px;">CBM (M3)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${renderPackingRows(plRowsList.slice(FIRST_PAGE_LIMIT), FIRST_PAGE_LIMIT)}
+                      <tr style="font-weight: 900; border-top: 1.5px solid black; font-size: 10.5px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <td colspan="3" style="padding: 6px 8px; text-align: left; vertical-align: middle;">
+                          <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                            <span>GRAND TOTAL</span>
+                            <span style="flex-grow: 1; text-align: right;">${formData.totalQuantityBreakdown || `${formatNumber(formData.totalQuantity, false, 'quantity') || ''}`}</span>
+                          </div>
+                        </td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalCtQty, false, 'quantity') || ''}</td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalNetWeight, false, 'decimal') || ''}</td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalGrossWeight, false, 'decimal') || ''}</td>
+                        <td style="padding: 6px 8px; text-align: right; vertical-align: middle;">${formatNumber(formData.plTotalCbm, false, 'decimal') || ''}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+
+                  ${hasPlExtraRemarks ? `<div style="margin-top: 6px; text-align: left; font-weight: 900; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 4px 8px; font-size: 9.5px; white-space: pre-wrap;">${formData.plExtraRemarks}</div>` : ''}
+                  
+                  ${hasPlRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks}</div>` : ''}
+
+                  <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                      <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
+                        <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
+                        <div>FACIMILE NO.: ${formData.footerFax || ''}</div>
+                      </div>
+                      
+                      <div style="border-left: 1px solid black; padding-left: 15px; width: 400px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                        <div style="font-weight: 900; font-size: 10.5px; margin-bottom: 1px;">SIGNED BY <span style="font-size: 15px;">${formData.signedBy || ''}</span></div>
+                        <div style="display: flex; align-items: center; gap: 15px; margin-top: 0px;">
+                          <div style="font-weight: bold; font-size: 11px; white-space: nowrap;">
+                            ${formData.signedTitle || ''}
+                          </div>
+                          <span class="signature-font" style="font-size: 16px; opacity: 0.9;">${formData.signatureName || ''}</span>
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
-            </div>
+            ` : ''}
           </body>
         </html>
       `;
