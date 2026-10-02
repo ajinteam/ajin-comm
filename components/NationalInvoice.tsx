@@ -35,9 +35,9 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
 };
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
-  const SINGLE_PAGE_MAX = 23; // In single page mode with full signature box (fits up to 23 rows comfortably)
-  const MULTI_PAGE1_MAX = 29; // In multi-page mode (no signature box on page 1, fills table down to bottom margin)
-  const SUBSEQUENT_PAGE_LIMIT = 32;
+  const SINGLE_PAGE_MAX = 25; // Fits up to 25 rows (headers + items + subtotal) on 1 single page with Grand Total & Signature
+  const MULTI_PAGE1_MAX = 25; // In multi-page mode, page 1 takes up to 25 rows without overflowing
+  const SUBSEQUENT_PAGE_LIMIT = 30;
 
   const validRows = rows || [];
 
@@ -49,14 +49,10 @@ export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
     };
   }
 
-  // Multi-page scenario (validRows.length >= 24): Pure sequential overflow (순차적 자연 밀림)
-  // Page 1 fills down to MULTI_PAGE1_MAX (29 rows).
-  // If validRows.length is between 24 and 28, ensure at least 2-3 rows go to Page 2 alongside Grand Total & Signature.
-  let splitIndex = MULTI_PAGE1_MAX;
-  if (validRows.length <= MULTI_PAGE1_MAX) {
-    splitIndex = Math.max(21, validRows.length - 3);
-  }
-
+  // Multi-page scenario (validRows.length >= 26):
+  // Fill Page 1 cleanly up to MULTI_PAGE1_MAX (25 rows) without overflowing.
+  // The remaining rows (from row 25 onwards) naturally overflow to Page 2 alongside Grand Total & Signature.
+  const splitIndex = Math.min(validRows.length, MULTI_PAGE1_MAX);
   const remainingRowsCount = validRows.length - splitIndex;
   const totalPages = 1 + Math.max(1, Math.ceil(remainingRowsCount / SUBSEQUENT_PAGE_LIMIT));
 
@@ -1600,9 +1596,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         }
 
         .page-container {
-          height: 272mm;
-          min-height: 272mm;
-          max-height: 272mm;
+          min-height: 265mm;
           box-sizing: border-box;
           display: flex;
           flex-direction: column;
