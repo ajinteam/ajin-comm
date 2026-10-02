@@ -34,12 +34,44 @@ const NATIONAL_INVOICE_LABELS: Record<string, string> = {
   '패킹라벨': 'Packing Label'
 };
 
+export const calculateTextVisualLines = (text: string, maxLineWidthUnits = 36): number => {
+  if (!text) return 1;
+  const paragraphs = text.split(/\r?\n/);
+  let totalLines = 0;
+
+  for (const para of paragraphs) {
+    if (para.length === 0) {
+      totalLines += 1;
+      continue;
+    }
+
+    let currentLineWidth = 0;
+    let linesInPara = 1;
+
+    for (let i = 0; i < para.length; i++) {
+      const code = para.charCodeAt(i);
+      // Korean, CJK, and full-width characters have ~1.8x visual width of latin chars
+      const charWidth = (code > 255) ? 1.8 : 1.0;
+
+      if (currentLineWidth + charWidth > maxLineWidthUnits) {
+        linesInPara += 1;
+        currentLineWidth = charWidth;
+      } else {
+        currentLineWidth += charWidth;
+      }
+    }
+    totalLines += linesInPara;
+  }
+
+  return Math.max(1, totalLines);
+};
+
 export const calculateRowUnits = (row: NationalInvoiceRow): number => {
   if (!row) return 1;
 
   if (row.type === 'HEADER') {
-    const leftLines = (row.headerLeft || '').split(/\r?\n/).length;
-    const rightLines = (row.headerRight || '').split(/\r?\n/).length;
+    const leftLines = calculateTextVisualLines(row.headerLeft || '', 36);
+    const rightLines = calculateTextVisualLines(row.headerRight || '', 36);
     return Math.max(1, leftLines, rightLines);
   }
 
@@ -47,22 +79,14 @@ export const calculateRowUnits = (row: NationalInvoiceRow): number => {
     return 1;
   }
 
-  // Description column is ~35% of A4 width
-  const desc = row.description || '';
-  const descParagraphs = desc.split(/\r?\n/);
-  let descLineCount = 0;
-  for (const para of descParagraphs) {
-    if (para.length === 0) {
-      descLineCount += 1;
-    } else {
-      descLineCount += Math.max(1, Math.ceil(para.length / 34));
-    }
-  }
+  // Description column is ~35% of A4 width (approx 36 latin units or 20 korean units per line)
+  const descLines = calculateTextVisualLines(row.description || '', 36);
 
+  // Shipping mark / Pkg No column (approx 20 latin units per line)
   const pkg = (row.plPkgNo !== undefined && row.plPkgNo !== '') ? row.plPkgNo : (row.pkgNo || '');
-  const pkgLines = (pkg || '').split(/\r?\n/).length;
+  const pkgLines = calculateTextVisualLines(pkg || '', 20);
 
-  return Math.max(1, descLineCount, pkgLines);
+  return Math.max(1, descLines, pkgLines);
 };
 
 export const computeSmartPagination = (rows: NationalInvoiceRow[]) => {
