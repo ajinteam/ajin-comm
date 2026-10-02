@@ -1286,8 +1286,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       const docDate = formData.invoiceDate || '';
       const filename = `${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
-      const FIRST_PAGE_LIMIT = 18;
-      const SUBSEQUENT_PAGE_LIMIT = 28;
+      const FIRST_PAGE_LIMIT = 25;
+      const SUBSEQUENT_PAGE_LIMIT = 35;
 
       const invoiceRows = formData.rows || [];
       const isInvoiceMultiPage = invoiceRows.length > FIRST_PAGE_LIMIT;
@@ -1557,6 +1557,13 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           flex-direction: column;
           position: relative;
         }
+
+        .page-container-subsequent {
+          min-height: auto;
+          box-sizing: border-box;
+          display: block;
+          position: relative;
+        }
       </style>
           </head>
           <body>
@@ -1707,16 +1714,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <!-- COMMERCIAL INVOICE PAGE 2 (IF MULTI-PAGE) -->
             ${isInvoiceMultiPage ? `
               <div style="page-break-before: always;"></div>
-              <div class="page-container" id="invoice-page-2">
+              <div class="page-container-subsequent" id="invoice-page-2">
                 <!-- Continuation Header on Page 2 -->
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid black; padding-bottom: 4px; margin-bottom: 6px; font-weight: 900; font-size: 10px;">
-                  <span style="font-size: 12px; font-weight: 900; text-decoration: underline;">${formData.invoiceType} INVOICE (CONTINUED)</span>
+                  <span style="font-size: 12px; font-weight: 900; text-decoration: underline;">${formData.invoiceType} INVOICE</span>
                   <span>INVOICE NO: <strong>${formData.invoiceNo || ''}</strong></span>
                   <span>DATE: ${formatDateToEnglish(formData.invoiceDate)}</span>
                   <span style="border: 1px solid black; padding: 2px 6px; font-weight: 900;">PAGE #2 OF ${totalInvoicePages}</span>
                 </div>
 
-                <div style="border: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
+                <div style="border: 1px solid black; display: block;">
                   <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
                     <thead>
                       <tr>
@@ -1750,7 +1757,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   
                   ${hasRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.remarks}</div>` : ''}
 
-                  <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                  <div class="prevent-split" style="margin-top: 0; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
                       <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
                         <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
@@ -1917,16 +1924,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <!-- PACKING LIST PAGE 2 (IF MULTI-PAGE) -->
             ${isPlMultiPage ? `
               <div style="page-break-before: always;"></div>
-              <div class="page-container" id="packing-list-page-2">
+              <div class="page-container-subsequent" id="packing-list-page-2">
                 <!-- Continuation Header on Page 2 -->
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1.5px solid black; padding-bottom: 4px; margin-bottom: 6px; font-weight: 900; font-size: 10px;">
-                  <span style="font-size: 12px; font-weight: 900; text-decoration: underline;">PACKING LIST (CONTINUED)</span>
+                  <span style="font-size: 12px; font-weight: 900; text-decoration: underline;">PACKING LIST</span>
                   <span>PACKING LIST NO: <strong>${formData.invoiceNo || ''}</strong></span>
                   <span>DATE: ${formatDateToEnglish(formData.invoiceDate)}</span>
                   <span style="border: 1px solid black; padding: 2px 6px; font-weight: 900;">PAGE #2 OF ${totalPlPages}</span>
                 </div>
 
-                <div style="border: 1px solid black; display: flex; flex-direction: column; flex-grow: 1;">
+                <div style="border: 1px solid black; display: block;">
                   <table style="width: 100%; border-collapse: collapse; margin-top: 0; border: none;">
                     <thead>
                       <tr>
@@ -1960,7 +1967,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   
                   ${hasPlRemarks ? `<div style="margin-top: 4px; padding: 0 8px; font-size: 8px; color: #000; white-space: pre-wrap;">${formData.plRemarks}</div>` : ''}
 
-                  <div class="prevent-split" style="margin-top: auto; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
+                  <div class="prevent-split" style="margin-top: 0; border-top: 1px solid black; padding: 6px 8px; page-break-inside: avoid !important; break-inside: avoid !important;">
                     <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
                       <div style="font-size: 9.5px; font-weight: bold; line-height: 1.2; margin-top: 2px;">
                         <div>TELEPHONE NO.: ${formData.footerTel || ''}</div>
