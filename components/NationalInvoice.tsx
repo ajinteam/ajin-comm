@@ -170,16 +170,49 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   
   const getInitialFormData = (type: 'COMMERCIAL' | 'NON-COMMERCIAL' | 'SAMPLE' | 'PROFORMA' = 'COMMERCIAL'): Partial<NationalInvoiceItem> => {
     const isNonCommercial = type === 'NON-COMMERCIAL';
+    const isSample = type === 'SAMPLE';
+    const isProforma = type === 'PROFORMA';
+
+    let defaultHeaderLeft = 'TOY TRAIN PARTS';
+    let defaultHeaderRight = 'DECLARED VALUE';
+    let defaultDeliveryTerms = 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE';
+    let defaultRemarks = '';
+    let defaultPlExtraRemarks = '';
+    let defaultPkgNo = 'ADDRESS';
+
+    if (isNonCommercial) {
+      defaultHeaderLeft = 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ';
+      defaultHeaderRight = 'EX. FACTORY';
+      defaultDeliveryTerms = 'NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)';
+      defaultRemarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
+      defaultPlExtraRemarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
+      defaultPkgNo = '';
+    } else if (isSample) {
+      defaultHeaderLeft = 'TOY TRAIN PARTS SAMPLE';
+      defaultHeaderRight = 'EX.FACTORY';
+      defaultDeliveryTerms = 'TOY TRAIN SAMPLE\nNO COMMERCIAL VALUE';
+      defaultRemarks = '';
+      defaultPlExtraRemarks = '';
+      defaultPkgNo = 'ADDRESS';
+    } else if (isProforma) {
+      defaultHeaderLeft = 'TOY TRAIN PARTS';
+      defaultHeaderRight = 'EX.FACTORY';
+      defaultDeliveryTerms = 'EX. FACTORY & T/T BASE';
+      defaultRemarks = '';
+      defaultPlExtraRemarks = '';
+      defaultPkgNo = 'ADDRESS';
+    }
+
     const initialRows: NationalInvoiceRow[] = [
       { 
         id: 'h1', 
         type: 'HEADER', 
-        headerLeft: isNonCommercial ? 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ' : 'TOY TRAIN PARTS', 
-        headerRight: isNonCommercial ? 'EX. FACTORY' : 'DECLARED VALUE', 
+        headerLeft: defaultHeaderLeft, 
+        headerRight: defaultHeaderRight, 
         fontSize: 11, 
         isBold: true, 
-        pkgNo: isNonCommercial ? '' : 'ADDRESS', 
-        plPkgNo: '' 
+        pkgNo: defaultPkgNo, 
+        plPkgNo: defaultPkgNo ? 'ADDRESS' : '' 
       },
       { id: '1', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
       { id: '2', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
@@ -210,9 +243,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       plShipperAddress: '',
       plConsigneeAddress: '',
       plRemarks: '',
-      plExtraRemarks: isNonCommercial 
-        ? '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY'
-        : '',
+      plExtraRemarks: defaultPlExtraRemarks,
       poNo: '',
       factoryOutDate: new Date().toISOString().split('T')[0],
       buyer: 'SAME AS CONSIGNEE',
@@ -221,12 +252,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       vesselFlight: 'FEDEX',
       from: 'SEOUL, KOREA',
       to: '',
-      deliveryTerms: isNonCommercial 
-        ? 'NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)'
-        : 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE',
-      remarks: isNonCommercial 
-        ? '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY'
-        : '',
+      deliveryTerms: defaultDeliveryTerms,
+      remarks: defaultRemarks,
       totalQuantity: '0',
       totalAmount: '0',
       totalProcAmount: '0',
@@ -2864,6 +2891,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                 setFormData(prev => {
                   const updated: Partial<NationalInvoiceItem> = { ...prev, invoiceType: newType };
                   const currentRows = [...(prev.rows || [])];
+                  const currentPRows = [...(prev.packingRows || [])];
+                  const focText = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
                   
                   if (newType === 'NON-COMMERCIAL') {
                     if (currentRows[0] && currentRows[0].type === 'HEADER') {
@@ -2874,7 +2903,6 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         pkgNo: ''
                       };
                     }
-                    const currentPRows = [...(prev.packingRows || [])];
                     if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
                       currentPRows[0] = {
                         ...currentPRows[0],
@@ -2887,32 +2915,81 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                     }
                     updated.deliveryTerms = 'NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)';
                     if (!updated.remarks || updated.remarks.trim() === '') {
-                      updated.remarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
+                      updated.remarks = focText;
                     }
                     if (!updated.plExtraRemarks || updated.plExtraRemarks.trim() === '') {
-                      updated.plExtraRemarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
+                      updated.plExtraRemarks = focText;
                     }
-                  } else if (newType === 'COMMERCIAL') {
-                    if (currentRows[0] && currentRows[0].type === 'HEADER') {
-                      currentRows[0] = {
-                        ...currentRows[0],
-                        headerLeft: 'TOY TRAIN PARTS',
-                        headerRight: 'DECLARED VALUE',
-                        pkgNo: currentRows[0].pkgNo || 'ADDRESS'
-                      };
+                  } else {
+                    // SAMPLE, PROFORMA, COMMERCIAL: 사각표(세관 특기 문구) 일체 제거 및 각 타입별 기본값 설정
+                    if (updated.remarks === focText || (updated.remarks && updated.remarks.includes('FREE OF CHARGE (FOC)'))) {
+                      updated.remarks = '';
                     }
-                    const currentPRows = [...(prev.packingRows || [])];
-                    if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
-                      currentPRows[0] = {
-                        ...currentPRows[0],
-                        headerLeft: 'TOY TRAIN PARTS',
-                        headerRight: 'DECLARED VALUE',
-                        pkgNo: currentPRows[0].pkgNo || 'ADDRESS',
-                        plPkgNo: currentPRows[0].plPkgNo || 'ADDRESS'
-                      };
-                      updated.packingRows = currentPRows;
+                    if (updated.plExtraRemarks === focText || (updated.plExtraRemarks && updated.plExtraRemarks.includes('FREE OF CHARGE (FOC)'))) {
+                      updated.plExtraRemarks = '';
                     }
-                    updated.deliveryTerms = 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE';
+
+                    if (newType === 'SAMPLE') {
+                      if (currentRows[0] && currentRows[0].type === 'HEADER') {
+                        currentRows[0] = {
+                          ...currentRows[0],
+                          headerLeft: 'TOY TRAIN PARTS SAMPLE',
+                          headerRight: 'EX.FACTORY',
+                          pkgNo: currentRows[0].pkgNo || 'ADDRESS'
+                        };
+                      }
+                      if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
+                        currentPRows[0] = {
+                          ...currentPRows[0],
+                          headerLeft: 'TOY TRAIN PARTS SAMPLE',
+                          headerRight: 'EX.FACTORY',
+                          pkgNo: currentPRows[0].pkgNo || 'ADDRESS',
+                          plPkgNo: currentPRows[0].plPkgNo || 'ADDRESS'
+                        };
+                        updated.packingRows = currentPRows;
+                      }
+                      updated.deliveryTerms = 'TOY TRAIN SAMPLE\nNO COMMERCIAL VALUE';
+                    } else if (newType === 'PROFORMA') {
+                      if (currentRows[0] && currentRows[0].type === 'HEADER') {
+                        currentRows[0] = {
+                          ...currentRows[0],
+                          headerLeft: 'TOY TRAIN PARTS',
+                          headerRight: 'EX.FACTORY',
+                          pkgNo: currentRows[0].pkgNo || 'ADDRESS'
+                        };
+                      }
+                      if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
+                        currentPRows[0] = {
+                          ...currentPRows[0],
+                          headerLeft: 'TOY TRAIN PARTS',
+                          headerRight: 'EX.FACTORY',
+                          pkgNo: currentPRows[0].pkgNo || 'ADDRESS',
+                          plPkgNo: currentPRows[0].plPkgNo || 'ADDRESS'
+                        };
+                        updated.packingRows = currentPRows;
+                      }
+                      updated.deliveryTerms = 'EX. FACTORY & T/T BASE';
+                    } else if (newType === 'COMMERCIAL') {
+                      if (currentRows[0] && currentRows[0].type === 'HEADER') {
+                        currentRows[0] = {
+                          ...currentRows[0],
+                          headerLeft: 'TOY TRAIN PARTS',
+                          headerRight: 'DECLARED VALUE',
+                          pkgNo: currentRows[0].pkgNo || 'ADDRESS'
+                        };
+                      }
+                      if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
+                        currentPRows[0] = {
+                          ...currentPRows[0],
+                          headerLeft: 'TOY TRAIN PARTS',
+                          headerRight: 'DECLARED VALUE',
+                          pkgNo: currentPRows[0].pkgNo || 'ADDRESS',
+                          plPkgNo: currentPRows[0].plPkgNo || 'ADDRESS'
+                        };
+                        updated.packingRows = currentPRows;
+                      }
+                      updated.deliveryTerms = 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE';
+                    }
                   }
                   
                   updated.rows = currentRows;
