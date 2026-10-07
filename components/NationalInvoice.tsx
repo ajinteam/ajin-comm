@@ -168,9 +168,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
   const isMaster = currentUser.loginId === 'AJ5200';
   const remarksRef = useRef<HTMLTextAreaElement>(null);
   
-  const getInitialFormData = (): Partial<NationalInvoiceItem> => {
+  const getInitialFormData = (type: 'COMMERCIAL' | 'NON-COMMERCIAL' | 'SAMPLE' | 'PROFORMA' = 'COMMERCIAL'): Partial<NationalInvoiceItem> => {
+    const isNonCommercial = type === 'NON-COMMERCIAL';
     const initialRows: NationalInvoiceRow[] = [
-      { id: 'h1', type: 'HEADER', headerLeft: 'TOY TRAIN PARTS SAMPLE', headerRight: 'EX.FACTORY', fontSize: 11, isBold: true, pkgNo: 'ADDRESS', plPkgNo: '' },
+      { 
+        id: 'h1', 
+        type: 'HEADER', 
+        headerLeft: isNonCommercial ? 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ' : 'TOY TRAIN PARTS', 
+        headerRight: isNonCommercial ? '' : 'DECLARED VALUE', 
+        fontSize: 11, 
+        isBold: true, 
+        pkgNo: isNonCommercial ? '' : 'ADDRESS', 
+        plPkgNo: '' 
+      },
       { id: '1', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
       { id: '2', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
       { id: '3', type: 'ITEM', description: '', quantity: '', unit: 'PCS', proc: '', procAmount: '', price: '', amount: '', fontSize: 10.5, isBold: false, pkgNo: '', plPkgNo: '', plProc: '', plProcAmount: '', plPrice: '', plAmount: '' },
@@ -182,7 +192,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     return {
       rows: JSON.parse(JSON.stringify(initialRows)),
       packingRows: JSON.parse(JSON.stringify(initialRows)),
-      invoiceType: 'COMMERCIAL',
+      invoiceType: type,
       currency: 'USD',
       currencySymbol: '$',
       shipperName: 'AJIN PRECISION MFG., INC.',
@@ -208,7 +218,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       vesselFlight: 'FEDEX',
       from: 'SEOUL, KOREA',
       to: '',
-      deliveryTerms: 'TOY TRAIN PARTS SAMPLE\nCOMMERCIAL VALUE',
+      deliveryTerms: isNonCommercial 
+        ? 'NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)'
+        : 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE',
+      remarks: isNonCommercial 
+        ? '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY'
+        : '',
       totalQuantity: '0',
       totalAmount: '0',
       totalProcAmount: '0',
@@ -2732,11 +2747,46 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
             <select 
               className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter bg-transparent border-none outline-none cursor-pointer hover:text-blue-600 transition-colors"
               value={formData.invoiceType || 'COMMERCIAL'}
-              onChange={(e) => setFormData(prev => ({ ...prev, invoiceType: e.target.value as any }))}
+              onChange={(e) => {
+                const newType = e.target.value as any;
+                setFormData(prev => {
+                  const updated: Partial<NationalInvoiceItem> = { ...prev, invoiceType: newType };
+                  const currentRows = [...(prev.rows || [])];
+                  
+                  if (newType === 'NON-COMMERCIAL') {
+                    if (currentRows[0] && currentRows[0].type === 'HEADER') {
+                      currentRows[0] = {
+                        ...currentRows[0],
+                        headerLeft: 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ',
+                        headerRight: '',
+                        pkgNo: ''
+                      };
+                    }
+                    updated.deliveryTerms = 'NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)';
+                    if (!updated.remarks || updated.remarks.trim() === '') {
+                      updated.remarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
+                    }
+                  } else if (newType === 'COMMERCIAL') {
+                    if (currentRows[0] && currentRows[0].type === 'HEADER') {
+                      currentRows[0] = {
+                        ...currentRows[0],
+                        headerLeft: 'TOY TRAIN PARTS',
+                        headerRight: 'DECLARED VALUE',
+                        pkgNo: currentRows[0].pkgNo || 'ADDRESS'
+                      };
+                    }
+                    updated.deliveryTerms = 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE';
+                  }
+                  
+                  updated.rows = currentRows;
+                  return updated;
+                });
+              }}
             >
+              <option value="COMMERCIAL">COMMERCIAL</option>
+              <option value="NON-COMMERCIAL">NON-COMMERCIAL</option>
               <option value="SAMPLE">SAMPLE</option>
               <option value="PROFORMA">PROFORMA</option>
-              <option value="COMMERCIAL">COMMERCIAL</option>
             </select>
             <h1 className="text-2xl md:text-4xl font-black text-slate-900 tracking-tighter">INVOICE</h1>
           </div>
@@ -3003,15 +3053,16 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               <div className="flex justify-between items-center mb-1">
                 <label className="invoice-label mb-0">TERMS OF DELIVERY AND PAYMENT</label>
                 <select 
-                  className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print max-w-[120px]" 
+                  className="text-[8px] bg-slate-50 border border-slate-200 rounded px-1 no-print max-w-[140px]" 
                   value="" 
                   onChange={(e) => setFormData(prev => ({ ...prev, deliveryTerms: e.target.value }))}
                 >
                   <option value="">옵션 선택</option>
-                  <option value={"PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE"}>1. PROCESSING TOY TRAIN PARTS (CIF HANOI...)</option>
-                  <option value={"EX. FACTORY & T/T BASE\nWITHIN 2 WEEKS AFTER RECEIT OF B/L DATE"}>2. EX. FACTORY & T/T BASE (WITHIN 2 WEEKS...)</option>
-                  <option value="EX. FACTORY & T/T BASE">3. EX. FACTORY & T/T BASE</option>
-                  <option value={"TOY TRAIN SAMPLE\nNO COMMERCIAL VALUE"}>4. TOY TRAIN SAMPLE (NO COMMERCIAL...)</option>
+                  <option value={"NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)"}>1. NO COMMERCIAL VALUE (FREE OF CHARGE / CUSTOMS ONLY)</option>
+                  <option value={"PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE"}>2. PROCESSING TOY TRAIN PARTS (CIF HANOI...)</option>
+                  <option value={"EX. FACTORY & T/T BASE\nWITHIN 2 WEEKS AFTER RECEIT OF B/L DATE"}>3. EX. FACTORY & T/T BASE (WITHIN 2 WEEKS...)</option>
+                  <option value="EX. FACTORY & T/T BASE">4. EX. FACTORY & T/T BASE</option>
+                  <option value={"TOY TRAIN SAMPLE\nNO COMMERCIAL VALUE"}>5. TOY TRAIN SAMPLE (NO COMMERCIAL...)</option>
                 </select>
               </div>
               <textarea 

@@ -375,7 +375,7 @@ export interface NationalInvoiceItem {
   authorId: string;
   createdAt: string;
   
-  invoiceType: 'SAMPLE' | 'COMMERCIAL' | 'PROFORMA';
+  invoiceType: 'SAMPLE' | 'COMMERCIAL' | 'PROFORMA' | 'NON-COMMERCIAL';
   currency: 'USD' | 'EUR' | 'KRW' | 'JPY' | 'VND';
   currencySymbol: string;
   
