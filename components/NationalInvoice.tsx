@@ -360,17 +360,19 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
           };
           setFormData(loadedItem);
           setOriginalData(JSON.parse(JSON.stringify(loadedItem)));
+          setHistory([JSON.parse(JSON.stringify(loadedItem))]);
+          setHistoryIndex(0);
         }
       } else {
-        // No editId means "New Invoice"
-        // Only reset if we are currently showing an existing document
-        if (formData.id) {
-          setFormData(getInitialFormData());
-          setOriginalData(null);
-        }
+        // No editId means "신규 작성 (New Invoice)"
+        // Always reset to a clean initial form state!
+        setFormData(getInitialFormData());
+        setOriginalData(null);
+        setHistory([JSON.parse(JSON.stringify(getInitialFormData()))]);
+        setHistoryIndex(0);
       }
     }
-  }, [sub, editId, items]);
+  }, [sub, editId]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -1560,9 +1562,10 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         `;
       };
 
+      const typePrefix = (formData.invoiceType || 'COMMERCIAL').toUpperCase();
       const consignee = formData.consigneeName || 'Client';
       const docDate = formData.invoiceDate || '';
-      const filename = `${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
+      const filename = `${typePrefix}_${consignee}${docDate ? `_${docDate}` : ''}`.replace(/[/\\?%*:|"<>]/g, '-');
 
       const invoiceRows = formData.rows || [];
       const invoicePagination = computeSmartPagination(invoiceRows);
