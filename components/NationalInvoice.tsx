@@ -1232,6 +1232,111 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
     return '';
   };
 
+  const getInvoiceTypeTheme = (invoiceType?: string) => {
+    const type = (invoiceType || 'COMMERCIAL').toUpperCase();
+    if (type === 'NON-COMMERCIAL') {
+      return {
+        type: 'NON-COMMERCIAL',
+        label: 'NON-COMMERCIAL',
+        iconBg: 'bg-purple-600 text-white shadow-md shadow-purple-500/30',
+        badgeBg: 'bg-purple-50 text-purple-700 border border-purple-200',
+        circleBg: 'bg-purple-50/60'
+      };
+    }
+    if (type === 'SAMPLE') {
+      return {
+        type: 'SAMPLE',
+        label: 'SAMPLE',
+        iconBg: 'bg-amber-500 text-white shadow-md shadow-amber-500/30',
+        badgeBg: 'bg-amber-50 text-amber-700 border border-amber-200',
+        circleBg: 'bg-amber-50/60'
+      };
+    }
+    if (type === 'PROFORMA') {
+      return {
+        type: 'PROFORMA',
+        label: 'PROFORMA',
+        iconBg: 'bg-teal-600 text-white shadow-md shadow-teal-500/30',
+        badgeBg: 'bg-teal-50 text-teal-700 border border-teal-200',
+        circleBg: 'bg-teal-50/60'
+      };
+    }
+    return {
+      type: 'COMMERCIAL',
+      label: 'COMMERCIAL',
+      iconBg: 'bg-blue-600 text-white shadow-md shadow-blue-500/30',
+      badgeBg: 'bg-blue-50 text-blue-700 border border-blue-200',
+      circleBg: 'bg-blue-50/60'
+    };
+  };
+
+  const getConsigneeAddressTheme = (consigneeName?: string) => {
+    const name = (consigneeName || '').toUpperCase();
+    
+    if (name.includes('AJIN TRAIN VINA') || name.includes('VINA') || name.includes('VIETNAM')) {
+      return {
+        container: 'bg-sky-50/90 border-sky-200/90 text-sky-900',
+        badge: 'bg-sky-100 text-sky-800 border border-sky-300 font-black',
+        text: 'text-sky-950 font-bold'
+      };
+    }
+    if (name.includes('HORIZONT')) {
+      return {
+        container: 'bg-rose-50/90 border-rose-200/90 text-rose-900',
+        badge: 'bg-rose-100 text-rose-800 border border-rose-300 font-black',
+        text: 'text-rose-950 font-bold'
+      };
+    }
+    if (name.includes('WOLFGANG') || name.includes('LEMKE')) {
+      return {
+        container: 'bg-emerald-50/90 border-emerald-200/90 text-emerald-900',
+        badge: 'bg-emerald-100 text-emerald-800 border border-emerald-300 font-black',
+        text: 'text-emerald-950 font-bold'
+      };
+    }
+    if (name.includes('TOMY')) {
+      return {
+        container: 'bg-amber-50/90 border-amber-200/90 text-amber-900',
+        badge: 'bg-amber-100 text-amber-800 border border-amber-300 font-black',
+        text: 'text-amber-950 font-bold'
+      };
+    }
+    if (name.includes('AJIN PRECISION') || name.includes('AJIN KOREA')) {
+      return {
+        container: 'bg-indigo-50/90 border-indigo-200/90 text-indigo-900',
+        badge: 'bg-indigo-100 text-indigo-800 border border-indigo-300 font-black',
+        text: 'text-indigo-950 font-bold'
+      };
+    }
+    if (name.includes('KATO') || name.includes('MICRO-ACE') || name.includes('MICRO ACE')) {
+      return {
+        container: 'bg-violet-50/90 border-violet-200/90 text-violet-900',
+        badge: 'bg-violet-100 text-violet-800 border border-violet-300 font-black',
+        text: 'text-violet-950 font-bold'
+      };
+    }
+
+    // Fallback: Deterministic palette for any other consignees
+    const palettes = [
+      { container: 'bg-cyan-50/90 border-cyan-200/90', badge: 'bg-cyan-100 text-cyan-800 border border-cyan-300 font-black', text: 'text-cyan-950 font-bold' },
+      { container: 'bg-fuchsia-50/90 border-fuchsia-200/90', badge: 'bg-fuchsia-100 text-fuchsia-800 border border-fuchsia-300 font-black', text: 'text-fuchsia-950 font-bold' },
+      { container: 'bg-orange-50/90 border-orange-200/90', badge: 'bg-orange-100 text-orange-800 border border-orange-300 font-black', text: 'text-orange-950 font-bold' },
+      { container: 'bg-lime-50/90 border-lime-200/90', badge: 'bg-lime-100 text-lime-800 border border-lime-300 font-black', text: 'text-lime-950 font-bold' },
+      { container: 'bg-pink-50/90 border-pink-200/90', badge: 'bg-pink-100 text-pink-800 border border-pink-300 font-black', text: 'text-pink-950 font-bold' },
+      { container: 'bg-teal-50/90 border-teal-200/90', badge: 'bg-teal-100 text-teal-800 border border-teal-300 font-black', text: 'text-teal-950 font-bold' },
+      { container: 'bg-purple-50/90 border-purple-200/90', badge: 'bg-purple-100 text-purple-800 border border-purple-300 font-black', text: 'text-purple-950 font-bold' },
+      { container: 'bg-slate-50/90 border-slate-200/90', badge: 'bg-blue-100 text-blue-700 border border-blue-200 font-black', text: 'text-slate-800 font-bold' },
+    ];
+
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) {
+      hash = (hash << 5) - hash + name.charCodeAt(i);
+      hash |= 0;
+    }
+    const idx = Math.abs(hash) % palettes.length;
+    return palettes[idx];
+  };
+
   const handleSave = async (status: NationalInvoiceSubCategory) => {
     const isUpdate = !!formData.id;
     const isCompleting = status === NationalInvoiceSubCategory.COMPLETED;
@@ -2511,13 +2616,15 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
               const addressSummary = getAddressModelSummary(item);
               const authorInitials = getUserInitials(item.authorInitials || item.authorId);
               const finalModifier = item.modifiedByInitials || item.completedByInitials;
+              const invoiceTheme = getInvoiceTypeTheme(item.invoiceType);
+              const consigneeTheme = getConsigneeAddressTheme(item.consigneeName);
 
               return (
                 <div key={item.id} className="relative group">
                   <div className="bg-white p-6 rounded-[2rem] border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group relative overflow-hidden h-full flex flex-col justify-between" onClick={() => {
                     setView({ type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory.CREATE, editId: item.id });
                   }}>
-                    <div className="absolute top-0 right-0 w-24 h-24 bg-blue-50/50 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150" />
+                    <div className={`absolute top-0 right-0 w-24 h-24 rounded-full -mr-12 -mt-12 transition-transform group-hover:scale-150 ${invoiceTheme.circleBg}`} />
                     
                     <div className="relative">
                       <div className="flex justify-between items-start mb-5">
@@ -2525,7 +2632,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                           <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2.5 py-1 rounded-lg uppercase tracking-widest w-fit mb-1">{item.invoiceNo || 'NO-NUMBER'}</span>
                           <span className="text-[10px] font-bold text-slate-400 ml-1">{new Date(item.createdAt).toLocaleDateString()}</span>
                         </div>
-                        <div className="w-10 h-10 bg-slate-50 rounded-2xl flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                        {/* A: 인보이스 종류별 색상 아이콘 */}
+                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center transition-transform group-hover:scale-110 ${invoiceTheme.iconBg}`} title={`${invoiceTheme.label} INVOICE`}>
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                           </svg>
@@ -2535,12 +2643,12 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       <h3 className="text-lg font-black text-slate-900 mb-1 truncate group-hover:text-blue-600 transition-colors">{item.consigneeName}</h3>
                       <p className="text-xs font-bold text-slate-500 mb-3 truncate leading-relaxed">{item.shipperName}</p>
                       
-                      {/* ADDRESS (모델명) 정보 표시 영역 - 요청 사각 영역 */}
-                      <div className="mb-5 bg-slate-50/90 border border-slate-200/90 rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-xs">
-                        <span className="text-[9px] font-black text-blue-700 bg-blue-100/90 px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0">
+                      {/* B: ADDRESS (모델명) 정보 표시 영역 - 수신처별 색상 구분 */}
+                      <div className={`mb-5 border rounded-xl px-3 py-2 flex items-center gap-2 overflow-hidden shadow-xs transition-colors ${consigneeTheme.container}`}>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded uppercase tracking-wider shrink-0 ${consigneeTheme.badge}`}>
                           ADDRESS
                         </span>
-                        <span className="text-xs font-bold text-slate-800 truncate" title={addressSummary || '미입력'}>
+                        <span className={`text-xs truncate ${consigneeTheme.text}`} title={addressSummary || '미입력'}>
                           {addressSummary || <span className="text-slate-400 font-normal italic">미입력</span>}
                         </span>
                       </div>
@@ -2606,6 +2714,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                   const addressSummary = getAddressModelSummary(item);
                   const authorInitials = getUserInitials(item.authorInitials || item.authorId);
                   const finalModifier = item.modifiedByInitials || item.completedByInitials;
+                  const consigneeTheme = getConsigneeAddressTheme(item.consigneeName);
 
                   return (
                     <tr 
@@ -2627,8 +2736,8 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       </td>
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-1.5 max-w-[240px]">
-                          <span className="text-[8px] font-black text-blue-700 bg-blue-50 border border-blue-200 px-1 py-0.5 rounded uppercase shrink-0">ADDRESS</span>
-                          <span className="text-xs font-bold text-slate-700 truncate" title={addressSummary || '미입력'}>
+                          <span className={`text-[8px] px-1 py-0.5 rounded uppercase shrink-0 ${consigneeTheme.badge}`}>ADDRESS</span>
+                          <span className={`text-xs truncate ${consigneeTheme.text}`} title={addressSummary || '미입력'}>
                             {addressSummary || <span className="text-slate-400 italic font-normal">미입력</span>}
                           </span>
                         </div>
