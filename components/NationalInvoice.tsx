@@ -175,7 +175,7 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
         id: 'h1', 
         type: 'HEADER', 
         headerLeft: isNonCommercial ? 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ' : 'TOY TRAIN PARTS', 
-        headerRight: isNonCommercial ? '' : 'DECLARED VALUE', 
+        headerRight: isNonCommercial ? 'EX. FACTORY' : 'DECLARED VALUE', 
         fontSize: 11, 
         isBold: true, 
         pkgNo: isNonCommercial ? '' : 'ADDRESS', 
@@ -210,6 +210,9 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
       plShipperAddress: '',
       plConsigneeAddress: '',
       plRemarks: '',
+      plExtraRemarks: isNonCommercial 
+        ? '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY'
+        : '',
       poNo: '',
       factoryOutDate: new Date().toISOString().split('T')[0],
       buyer: 'SAME AS CONSIGNEE',
@@ -2758,13 +2761,27 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                       currentRows[0] = {
                         ...currentRows[0],
                         headerLeft: 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ',
-                        headerRight: '',
+                        headerRight: 'EX. FACTORY',
                         pkgNo: ''
                       };
+                    }
+                    const currentPRows = [...(prev.packingRows || [])];
+                    if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
+                      currentPRows[0] = {
+                        ...currentPRows[0],
+                        headerLeft: 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS ',
+                        headerRight: 'EX. FACTORY',
+                        pkgNo: '',
+                        plPkgNo: ''
+                      };
+                      updated.packingRows = currentPRows;
                     }
                     updated.deliveryTerms = 'NO COMMERCIAL VALUE (FREE OF CHARGE)\nNO PAYMENT REQUIRED (FOR CUSTOMS PURPOSES ONLY)';
                     if (!updated.remarks || updated.remarks.trim() === '') {
                       updated.remarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
+                    }
+                    if (!updated.plExtraRemarks || updated.plExtraRemarks.trim() === '') {
+                      updated.plExtraRemarks = '1. FREE OF CHARGE (FOC) / NO COMMERCIAL VALUE (NCV)\n2. CONTAINS BOTH RAW MATERIALS & CONSUMABLE SUPPLIES IN PKG\n3. FOR CUSTOMS PURPOSES ONLY';
                     }
                   } else if (newType === 'COMMERCIAL') {
                     if (currentRows[0] && currentRows[0].type === 'HEADER') {
@@ -2774,6 +2791,17 @@ const NationalInvoice: React.FC<NationalInvoiceProps> = ({ sub, editId, currentU
                         headerRight: 'DECLARED VALUE',
                         pkgNo: currentRows[0].pkgNo || 'ADDRESS'
                       };
+                    }
+                    const currentPRows = [...(prev.packingRows || [])];
+                    if (currentPRows[0] && currentPRows[0].type === 'HEADER') {
+                      currentPRows[0] = {
+                        ...currentPRows[0],
+                        headerLeft: 'TOY TRAIN PARTS',
+                        headerRight: 'DECLARED VALUE',
+                        pkgNo: currentPRows[0].pkgNo || 'ADDRESS',
+                        plPkgNo: currentPRows[0].plPkgNo || 'ADDRESS'
+                      };
+                      updated.packingRows = currentPRows;
                     }
                     updated.deliveryTerms = 'PROCESSING TOY TRAIN PARTS\nCIF HANOI & NO COMMERCIAL VALUE';
                   }

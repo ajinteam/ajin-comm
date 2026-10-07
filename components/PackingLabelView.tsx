@@ -166,7 +166,9 @@ export const PackingLabelView: React.FC<PackingLabelViewProps> = ({
     const defaultMadeIn = isVinaShipper ? 'VIETNAM' : 'KOREA';
 
     // 2. Determine default model name from invoice
-    let defaultModel = 'MODEL TRAIN PARTS';
+    let defaultModel = (invoice.invoiceType === 'NON-COMMERCIAL') 
+      ? 'CONSUMABLE SUPPLIES - NON-RETURNABLE GOODS' 
+      : 'TOY TRAIN PARTS';
     const headerRow = rows.find(r => r.type === 'HEADER' && r.headerLeft);
     if (headerRow && headerRow.headerLeft) {
       defaultModel = headerRow.headerLeft.replace(/^(MODEL|ITEM)\s*[:]?\s*/i, '').trim() || defaultModel;
