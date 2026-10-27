@@ -177,7 +177,7 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
           });
 
           units.push({
-            key: `${order.id}__${currentMoldName}`,
+            key: `${order.id}__${currentMoldName}__${units.length}`,
             orderId: order.id,
             orderTitle: order.title || 'AJ사출발주',
             orderDate: order.date || order.createdAt || '',
@@ -260,56 +260,53 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
   }, [ajOrders, crossModelIndex]);
 
   // Check if a row matches the active search query
-  const isRowMatch = (row: OrderRow, query: string, type: 'ALL' | 'DN' | 'PART_NAME' | 'MOLD' | 'MODEL'): boolean => {
-    if (!query) return false;
-    const dn = (row.dept || '').toLowerCase();
-    const itemName = (row.itemName || '').toLowerCase();
-    const material = (row.material || '').toLowerCase();
+  const isRowMatch = (row: OrderRow, q: string): boolean => {
+    if (!q) return false;
+    const query = q.trim().toLowerCase();
+    const dn = String(row.dept || '').trim().toLowerCase();
+    const itemName = String(row.itemName || '').trim().toLowerCase();
+    const material = String(row.material || '').trim().toLowerCase();
+    const remarks = String(row.remarksRSP || row.remarks || '').trim().toLowerCase();
 
-    if (type === 'DN') return dn.includes(query);
-    if (type === 'PART_NAME') return itemName.includes(query);
-    if (type === 'ALL') return dn.includes(query) || itemName.includes(query) || material.includes(query);
-    return false;
+    return dn.includes(query) || itemName.includes(query) || material.includes(query) || remarks.includes(query);
   };
 
   // Filter mold units based on user search term and active exclusions
   const filteredUnits = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
+    // Requirement: Show nothing below until a search term is entered
+    if (!query) return [];
+
     return moldUnits.filter(unit => {
       // Excluded from results
       if (excludedMoldKeys.includes(unit.key)) return false;
 
-      if (!query) return true; // Show all if search term is empty
+      const moldNameLower = unit.moldName.toLowerCase();
+      const displayMoldLower = unit.displayMoldName.toLowerCase();
+      const modelLower = unit.modelName.toLowerCase();
+      const orderTitleLower = unit.orderTitle.toLowerCase();
 
-      const moldMatch =
-        unit.moldName.toLowerCase().includes(query) ||
-        unit.displayMoldName.toLowerCase().includes(query);
-      const modelMatch =
-        unit.modelName.toLowerCase().includes(query) ||
-        unit.orderTitle.toLowerCase().includes(query);
-
-      // Check rows for DN or Part Name match
-      const hasMatchingRow = unit.rows.some(row => isRowMatch(row, query, filterType));
-
-      if (filterType === 'MOLD') {
-        // Only return when the mold matches
-        return moldMatch;
+      // Auto-detect 1: Mold search (contains '#')
+      if (query.includes('#')) {
+        return moldNameLower.includes(query) || displayMoldLower.includes(query);
       }
 
-      if (filterType === 'MODEL') {
-        return modelMatch;
+      // Auto-detect 2: Model search (CPH- or letters followed by hyphen)
+      if (/^[a-z]+-[0-9a-z]+/i.test(query)) {
+        const inModel = modelLower.includes(query) || orderTitleLower.includes(query);
+        const inShared = unit.sharedModelsForMold.some(m => m.toLowerCase().includes(query));
+        return inModel || inShared;
       }
 
-      if (filterType === 'DN' || filterType === 'PART_NAME') {
-        // Return molds that contain this DN or Part Name
-        return hasMatchingRow;
-      }
+      // Auto-detect 3: Row-level match (DN, Part Name, Material, Remarks)
+      const hasMatchingRow = unit.rows.some(row => isRowMatch(row, query));
+      if (hasMatchingRow) return true;
 
-      // FilterType === 'ALL'
-      return moldMatch || modelMatch || hasMatchingRow;
+      // Fallback: Check mold name or model name
+      return moldNameLower.includes(query) || displayMoldLower.includes(query) || modelLower.includes(query) || orderTitleLower.includes(query);
     });
-  }, [moldUnits, searchTerm, filterType, excludedMoldKeys]);
+  }, [moldUnits, searchTerm, excludedMoldKeys]);
 
   // Quick exclusion handler (제외/삭제)
   const handleExcludeMold = (unitKey: string, moldName: string) => {
@@ -340,26 +337,26 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
   };
 
   return (
-    <div className="space-y-5 pb-12">
-      {/* Top Header & Search Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-lg relative">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-cyan-400 shrink-0">
-              <Search className="w-5 h-5" />
+    <div className="space-y-4 pb-12">
+      {/* Top Header & Search Bar (Compact ERP Style) */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm relative">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-cyan-400 shrink-0">
+              <Search className="w-4 h-4" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-white tracking-wider">INJECTION SEARCH</h1>
-                <span className="px-2 py-0.5 text-[11px] font-bold bg-blue-500/10 text-cyan-400 border border-blue-500/30 rounded-md">
+                <h1 className="text-sm font-black text-white tracking-wider">INJECTION SEARCH</h1>
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-blue-500/10 text-cyan-400 border border-blue-500/30 rounded">
                   사출 검색
                 </span>
-                <span className="px-2 py-0.5 text-[11px] font-bold bg-slate-800 text-slate-300 border border-slate-700 rounded-md">
+                <span className="px-1.5 py-0.5 text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700 rounded">
                   AJ사출발주 전용
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
-                도번, 품명, 몰드번호로 검색하여 소속된 몰드 전체와 공용 적용 모델을 확인합니다.
+              <p className="text-[11px] text-slate-400">
+                도번, 품명, 몰드번호(#), 기종(CPH-)을 입력하면 소속 몰드 전체와 공용 모델을 자동 검색합니다.
               </p>
             </div>
           </div>
@@ -368,7 +365,7 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
             {excludedMoldKeys.length > 0 && (
               <button
                 onClick={() => setShowExcludedModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 text-amber-400 border border-amber-500/30 hover:bg-slate-700 transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold rounded-lg bg-slate-800 text-amber-400 border border-amber-500/30 hover:bg-slate-700 transition-colors"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 <span>제외된 몰드 ({excludedMoldKeys.length})</span>
@@ -377,74 +374,40 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
 
             <button
               onClick={() => setView({ type: 'DASHBOARD' })}
-              className="px-3.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-all"
+              className="px-3 py-1 text-xs font-semibold text-slate-300 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-all"
             >
               홈으로
             </button>
           </div>
         </div>
 
-        {/* Search Input Box */}
-        <div className="mt-4 space-y-3">
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
-              <Search className="w-4.5 h-4.5 text-cyan-400" />
-            </div>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              placeholder="도번(DN), 품명(PART NAME), 몰드번호(MOLD), 기종(MODEL)을 입력하세요..."
-              className="w-full pl-11 pr-10 py-2.5 bg-slate-950/90 border border-slate-700 focus:border-blue-500 rounded-xl text-white placeholder-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-medium"
-            />
-            {searchTerm && (
-              <button
-                onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
+        {/* Search Input Box (Unified & Smart Auto-detect) */}
+        <div className="mt-3 relative">
+          <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+            <Search className="w-4 h-4 text-cyan-400" />
           </div>
-
-          {/* Filter Pills */}
-          <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
-            <span className="text-[11px] font-bold text-slate-400 mr-1">검색 기준:</span>
-            {(['ALL', 'DN', 'PART_NAME', 'MOLD', 'MODEL'] as const).map(type => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-2.5 py-1 text-xs font-bold rounded-lg border transition-all ${
-                  filterType === type
-                    ? 'bg-blue-600 text-white border-blue-500 shadow-sm'
-                    : 'bg-slate-800/80 text-slate-400 border-slate-700 hover:text-white hover:bg-slate-700'
-                }`}
-              >
-                {type === 'ALL' && '전체 통합'}
-                {type === 'DN' && '도번 (DN)'}
-                {type === 'PART_NAME' && '품명 (PART NAME)'}
-                {type === 'MOLD' && '몰드 (MOLD)'}
-                {type === 'MODEL' && '기종 (MODEL)'}
-              </button>
-            ))}
-            {searchTerm && (
-              <button
-                onClick={() => {
-                  setSearchTerm('');
-                  setFilterType('ALL');
-                }}
-                className="ml-auto text-xs text-slate-400 hover:text-slate-200 underline underline-offset-2"
-              >
-                검색어 초기화
-              </button>
-            )}
-          </div>
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            placeholder="도번(예: 347120), 품명(예: SIDE LAMP), 몰드(예: 345#8), 기종(예: CPH-355) 입력..."
+            className="w-full pl-10 pr-10 py-2 bg-slate-950/90 border border-slate-700 focus:border-blue-500 rounded-lg text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all font-medium"
+            autoFocus
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm('')}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-white"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
 
       {/* Toast Notification */}
       {toastMessage && (
-        <div className="bg-slate-900 border border-blue-500/40 text-blue-200 px-4 py-2.5 rounded-xl shadow-xl flex items-center justify-between gap-3 animate-in fade-in duration-200">
+        <div className="bg-slate-900 border border-blue-500/40 text-blue-200 px-4 py-2 rounded-lg shadow-md flex items-center justify-between gap-3 animate-in fade-in duration-200">
           <div className="flex items-center gap-2 text-xs font-medium">
             <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
             <span>{toastMessage.text}</span>
@@ -460,57 +423,81 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
         </div>
       )}
 
-      {/* Search Result Count */}
-      <div className="flex items-center justify-between px-1">
-        <div className="text-xs text-slate-600 font-medium">
-          {searchTerm ? (
+      {/* Search Result Count (Visible only when search term is entered) */}
+      {searchTerm.trim() && (
+        <div className="flex items-center justify-between px-1">
+          <div className="text-xs text-slate-600 font-medium">
             <span>
               <strong className="text-blue-600 font-bold">"{searchTerm}"</strong> 검색 결과:{' '}
               <strong className="text-slate-900 font-bold">{filteredUnits.length}</strong>개 몰드 일치
             </span>
-          ) : (
-            <span>AJ사출발주 등록 몰드: <strong>{filteredUnits.length}</strong>개</span>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Results List: Rendered by MOLD Unit */}
-      {filteredUnits.length === 0 ? (
-        <div className="bg-white border border-slate-200 rounded-2xl p-12 text-center shadow-sm">
-          <div className="w-14 h-14 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+      {/* Results View */}
+      {!searchTerm.trim() ? (
+        /* Empty State: Initial screen before typing */
+        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-xs">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center">
             <Search className="w-6 h-6" />
           </div>
-          <h3 className="text-sm font-bold text-slate-800">일치하는 몰드 데이터가 없습니다</h3>
-          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-            {searchTerm
-              ? '다른 도번, 품명, 또는 몰드 번호로 다시 검색해 보세요.'
-              : '현재 저장된 AJ사출발주 데이터가 없습니다.'}
+          <h3 className="text-sm font-bold text-slate-800">사출 부품 및 몰드 검색</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto leading-relaxed">
+            도번(숫자), 품명(영문), 몰드번호(#), 또는 기종(CPH-)을 검색창에 입력하세요.<br />
+            AJ사출발주에 등록된 소속 몰드 전체와 공용 모델 정보를 불러옵니다.
           </p>
           {excludedMoldKeys.length > 0 && (
             <button
               onClick={() => setShowExcludedModal(true)}
-              className="mt-4 px-3.5 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors"
+              className="mt-4 px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors inline-flex items-center gap-1.5"
             >
+              <RotateCcw className="w-3.5 h-3.5" />
+              제외된 몰드 확인 및 복원 ({excludedMoldKeys.length}개)
+            </button>
+          )}
+        </div>
+      ) : filteredUnits.length === 0 ? (
+        /* No Match State */
+        <div className="bg-white border border-slate-200 rounded-xl p-12 text-center shadow-xs">
+          <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-slate-100 flex items-center justify-center text-slate-400">
+            <Search className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-slate-800">일치하는 몰드 데이터가 없습니다</h3>
+          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+            "{searchTerm}" 에 해당하는 도번, 품명, 몰드번호 또는 기종이 없습니다.
+          </p>
+          {excludedMoldKeys.length > 0 && (
+            <button
+              onClick={() => setShowExcludedModal(true)}
+              className="mt-4 px-3 py-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg transition-colors inline-flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
               제외된 몰드 확인 및 복원 ({excludedMoldKeys.length}개)
             </button>
           )}
         </div>
       ) : (
-        <div className="space-y-5">
+        /* Results List: Rendered by MOLD Unit */
+        <div className="space-y-4">
           {filteredUnits.map(unit => {
             const query = searchTerm.trim().toLowerCase();
+            // Shared models for this mold excluding current model
+            const otherMoldModels = unit.sharedModelsForMold.filter(
+              m => m.toUpperCase() !== unit.modelName.toUpperCase()
+            );
 
             return (
               <div
                 key={unit.key}
-                className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl shadow-sm transition-all overflow-hidden"
+                className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl shadow-xs transition-all overflow-hidden"
               >
                 {/* Mold Card Header */}
-                <div className="bg-slate-50/90 border-b border-slate-200 px-4 py-3 flex flex-col md:flex-row md:items-center justify-between gap-2.5">
+                <div className="bg-slate-50/90 border-b border-slate-200 px-4 py-2.5 flex flex-col md:flex-row md:items-center justify-between gap-2">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
                       {/* Mold Badge */}
-                      <div className="flex items-center gap-1.5 px-2.5 py-1 bg-blue-50 text-blue-800 border border-blue-200 rounded-lg text-xs font-black">
+                      <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 text-blue-800 border border-blue-200 rounded text-xs font-black">
                         <Box className="w-3.5 h-3.5 text-blue-600" />
                         <span>MOLD: {unit.displayMoldName}</span>
                       </div>
@@ -521,36 +508,33 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
                       </span>
 
                       {/* Source Document */}
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[11px] text-slate-400">
                         ({unit.orderTitle})
                       </span>
                     </div>
 
-                    {/* Mold Vendor & Injection Vendor info */}
+                    {/* Vendors & Cross-Model info */}
                     <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-600 pt-0.5">
                       {unit.moldVendor && (
-                        <span className="flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200">
+                        <span className="flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2 py-0.5 rounded border border-emerald-200 font-medium">
                           금형업체: <strong>{unit.moldVendor}</strong>
                         </span>
                       )}
                       {unit.injectionVendor && (
-                        <span className="flex items-center gap-1 bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200">
+                        <span className="flex items-center gap-1 bg-amber-50 text-amber-800 px-2 py-0.5 rounded border border-amber-200 font-medium">
                           <Factory className="w-3 h-3 text-amber-600" />
                           사출업체: <strong>{unit.injectionVendor}</strong>
                         </span>
                       )}
-                      {unit.sharedModelsForMold.length > 1 && (
+                      {otherMoldModels.length > 0 && (
                         <div className="flex items-center gap-1 text-[11px]">
                           <Layers className="w-3 h-3 text-indigo-500" />
-                          <span className="text-slate-500">몰드 공용 기종:</span>
-                          {unit.sharedModelsForMold.map(m => (
+                          <span className="text-slate-500 font-semibold">공용 기종:</span>
+                          {otherMoldModels.map(m => (
                             <span
                               key={m}
-                              onClick={() => {
-                                setSearchTerm(m);
-                                setFilterType('MODEL');
-                              }}
-                              className="px-1.5 py-0.2 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold cursor-pointer hover:bg-indigo-100"
+                              onClick={() => setSearchTerm(m)}
+                              className="px-1.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-200 rounded text-[10px] font-bold cursor-pointer hover:bg-indigo-100 transition-colors"
                               title="이 기종으로 검색"
                             >
                               {m}
@@ -584,40 +568,45 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
                         <th className="py-2 px-3 font-black text-slate-800">품명 (PART NAME)</th>
                         <th className="py-2 px-3 w-16 text-center">S</th>
                         <th className="py-2 px-3 w-20 text-center">Q'TY</th>
-                        <th className="py-2 px-3 w-32">재질 (MATERIAL)</th>
+                        <th className="py-2 px-3 w-36">재질 (MATERIAL)</th>
                         <th className="py-2 px-3">비고 / R.SP</th>
                         <th className="py-2 px-3 w-52">타 기종 적용 여부</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 text-slate-700 font-medium">
                       {unit.rows.map((row, idx) => {
-                        const isMatch = isRowMatch(row, query, filterType);
+                        const isMatch = isRowMatch(row, query);
+                        const dnStr = String(row.dept || '').trim();
+                        const nameStr = String(row.itemName || '').trim();
+                        const isDnMatched = !!query && dnStr.toLowerCase().includes(query);
+                        const isNameMatched = !!query && nameStr.toLowerCase().includes(query);
+
                         const sharedModels = unit.sharedModelsForParts[row.id] || [];
-                        const otherModels = sharedModels.filter(m => m !== unit.modelName);
+                        const otherModels = sharedModels.filter(m => m.toUpperCase() !== unit.modelName.toUpperCase());
 
                         return (
                           <tr
                             key={row.id || idx}
                             className={`transition-colors ${
                               isMatch
-                                ? 'bg-amber-50/90 font-semibold text-slate-900 border-l-4 border-l-amber-500'
-                                : 'hover:bg-slate-50'
+                                ? 'bg-amber-100/90 font-semibold text-slate-950 border-l-4 border-l-amber-500'
+                                : 'hover:bg-slate-50 text-slate-700'
                             }`}
                           >
-                            <td className="py-2 px-3 text-center text-slate-400">{idx + 1}</td>
-                            <td className="py-2 px-3 font-mono font-bold text-slate-800">
-                              <span className={isMatch && filterType === 'DN' ? 'bg-amber-200 px-1 py-0.5 rounded' : ''}>
-                                {row.dept || '-'}
+                            <td className="py-2 px-3 text-center text-slate-400 font-medium">{idx + 1}</td>
+                            <td className="py-2 px-3 font-mono">
+                              <span className={isDnMatched ? 'bg-amber-300 text-amber-950 font-black px-1.5 py-0.5 rounded shadow-xs' : 'font-bold text-slate-800'}>
+                                {dnStr || '-'}
                               </span>
                             </td>
-                            <td className="py-2 px-3 font-bold text-slate-900">
+                            <td className="py-2 px-3">
                               <div className="flex items-center gap-1.5">
-                                <span className={isMatch && filterType === 'PART_NAME' ? 'bg-amber-200 px-1 py-0.5 rounded' : ''}>
-                                  {row.itemName || '-'}
+                                <span className={isNameMatched ? 'bg-amber-300 text-amber-950 font-black px-1.5 py-0.5 rounded shadow-xs' : 'font-bold text-slate-900'}>
+                                  {nameStr || '-'}
                                 </span>
                                 {isMatch && (
-                                  <span className="px-1.5 py-0.2 bg-amber-300 text-amber-950 text-[10px] font-black rounded">
-                                    일치
+                                  <span className="px-1.5 py-0.5 bg-amber-500 text-white text-[10px] font-black rounded shrink-0 shadow-xs">
+                                    검색일치
                                   </span>
                                 )}
                               </div>
@@ -626,7 +615,7 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
                             <td className="py-2 px-3 text-center font-bold text-slate-800">
                               {row.qty || row.orderQty || row.cty || '-'}
                             </td>
-                            <td className="py-2 px-3 text-slate-600">{row.material || '-'}</td>
+                            <td className="py-2 px-3 text-slate-600 font-medium">{row.material || '-'}</td>
                             <td className="py-2 px-3 text-slate-500 text-[11px]">
                               {row.remarksRSP || row.remarks || '-'}
                             </td>
