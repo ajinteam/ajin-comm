@@ -336,6 +336,13 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
     }
   };
 
+  // Reset Search: clears search input & clears excluded molds
+  const handleResetSearch = () => {
+    setSearchTerm('');
+    updateExclusions([]);
+    setToastMessage({ text: '검색어 및 제외된 몰드가 모두 초기화(RESET)되었습니다.' });
+  };
+
   return (
     <div className="space-y-4 pb-12">
       {/* Top Header & Search Bar (Compact ERP Style) */}
@@ -362,6 +369,16 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            {/* RESET SEARCH Button (Location A) */}
+            <button
+              onClick={handleResetSearch}
+              title="검색어 및 제외된 몰드 전체 초기화"
+              className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold rounded-lg bg-slate-800 text-rose-300 border border-rose-500/40 hover:bg-rose-500/20 hover:text-white hover:border-rose-400 transition-all shadow-sm active:scale-95"
+            >
+              <RotateCcw className="w-3.5 h-3.5 text-rose-400" />
+              <span>RESET SEARCH</span>
+            </button>
+
             {excludedMoldKeys.length > 0 && (
               <button
                 onClick={() => setShowExcludedModal(true)}
