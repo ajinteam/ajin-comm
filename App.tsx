@@ -23,6 +23,7 @@ import AuthView from './components/AuthView';
 import Dashboard from './components/Dashboard';
 import { NoticeBoardView } from './components/NoticeBoardView';
 import { TrashView } from './components/TrashView';
+import { InjectionSearchView } from './components/InjectionSearchView';
 import { pullStateFromCloud, pushStateToCloud, supabase, subscribeToRealtime, cleanExpiredTrash } from './supabase';
 import { runTenDayAutoArchive } from './utils/autoArchive';
 
@@ -211,6 +212,7 @@ const App: React.FC = () => {
             {view.type === 'INVOICE' && <InvoiceView key={`invoice-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'PURCHASE' && view.sub !== PurchaseOrderSubCategory.INJECTION_ORDER && <PurchaseOrderView key={`purchase-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'INJECTION_ORDER_MAIN' && <InjectionOrderMain key={`injection-main-${view.sub}`} sub={view.sub} currentUser={currentUser} userAccounts={userAccounts} setView={handleSetView} dataVersion={dataVersion} />}
+            {view.type === 'INJECTION_SEARCH' && <InjectionSearchView currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'VIETNAM' && <VietnamOrderView key={`vietnam-${view.sub}`} sub={view.sub} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'NATIONAL_INVOICE' && <NationalInvoice key="national-invoice" sub={view.sub as NationalInvoiceSubCategory} editId={view.editId} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}
             {view.type === 'SHIPPING_REPORT' && <ShippingReportView key={`shipping-${view.sub}`} sub={view.sub as any} currentUser={currentUser} setView={handleSetView} dataVersion={dataVersion} />}

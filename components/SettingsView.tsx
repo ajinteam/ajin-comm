@@ -24,6 +24,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({ accounts, onUpdate, setView
   });
 
   const allMenus = [
+    MainCategory.INJECTION_SEARCH,
     MainCategory.SHIPPING_REPORT,
     MainCategory.INJECTION_ORDER_MAIN,
     MainCategory.ORDER,

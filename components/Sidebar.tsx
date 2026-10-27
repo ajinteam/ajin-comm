@@ -34,7 +34,9 @@ const BACKWARD_COMPAT_MENU_MAP: Record<string, string[]> = {
   'shipment_complete': ['shipment_complete', '출하보고서 완료'],
   '출하보고서작성': ['shipment_create', '출하보고서작성'],
   '출하보고서 임시': ['shipment_draft', '출하보고서 임시'],
-  '출하보고서 완료': ['shipment_complete', '출하보고서 완료']
+  '출하보고서 완료': ['shipment_complete', '출하보고서 완료'],
+  'INJECTION SEARCH': ['INJECTION SEARCH', '사출검색'],
+  '사출검색': ['INJECTION SEARCH', '사출검색']
 };
 
 const GLOBAL_SUB_LABELS: Record<string, string> = {
@@ -316,6 +318,31 @@ const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, user, isOpen, o
               )}
             </button>
           </div>
+
+          {/* Position B: INJECTION SEARCH */}
+          {isVisible(MainCategory.INJECTION_SEARCH) && (
+            <div className="mb-2">
+              <button
+                onClick={() => {
+                  collapseAllCategories();
+                  setView({ type: 'INJECTION_SEARCH' });
+                  if (window.innerWidth < 768) onClose();
+                }}
+                className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border transition-all ${
+                  currentView.type === 'INJECTION_SEARCH'
+                    ? 'bg-blue-600 text-white font-bold border-blue-500 shadow-md shadow-blue-500/20'
+                    : 'bg-slate-900/50 text-slate-300 hover:text-white hover:bg-slate-800/50 border-slate-800'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <svg xmlns="http://www.w3.org/2000/svg" className={`h-4.5 w-4.5 ${currentView.type === 'INJECTION_SEARCH' ? 'text-white' : 'text-cyan-400'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                  </svg>
+                  <span className="text-xs font-black uppercase tracking-widest">INJECTION SEARCH</span>
+                </div>
+              </button>
+            </div>
+          )}
 
           {(isVisible(MainCategory.INJECTION_ORDER_MAIN) || isVisible(InjectionOrderSubCategory.INBOX)) && (
             <div className="space-y-1">

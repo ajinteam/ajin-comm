@@ -7,7 +7,8 @@ export enum MainCategory {
   VIETNAM = 'VN베트남',
   STORAGE = '파일관리',
   NATIONAL_INVOICE = '국제인보이스',
-  SHIPPING_REPORT = '출하보고서'
+  SHIPPING_REPORT = '출하보고서',
+  INJECTION_SEARCH = 'INJECTION SEARCH'
 }
 
 export enum OrderSubCategory {
@@ -509,6 +510,7 @@ export type ViewState =
   | { type: 'INVOICE', sub: InvoiceSubCategory }
   | { type: 'PURCHASE', sub: PurchaseOrderSubCategory }
   | { type: 'INJECTION_ORDER_MAIN', sub: InjectionOrderSubCategory }
+  | { type: 'INJECTION_SEARCH' }
   | { type: 'VIETNAM', sub: VietnamSubCategory }
   | { type: 'NATIONAL_INVOICE', sub: NationalInvoiceSubCategory, editId?: string }
   | { type: 'SHIPPING_REPORT', sub: ShippingReportSubCategory, editId?: string }
