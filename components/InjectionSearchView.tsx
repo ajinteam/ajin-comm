@@ -259,16 +259,46 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
     return units;
   }, [ajOrders, crossModelIndex]);
 
+  // Helper to check if a drawing number (DN) matches query sequentially from the start
+  const isDrawingNumberMatch = (dnRaw: string, q: string): boolean => {
+    if (!q || !dnRaw) return false;
+    const query = q.trim().toLowerCase();
+    const dn = dnRaw.trim().toLowerCase();
+
+    // 1. Direct sequential prefix match (startsWith)
+    if (dn.startsWith(query)) return true;
+
+    // 2. Normalized alphanumeric prefix match (ignores hyphens, spaces, slashes)
+    const cleanDn = dn.replace(/[^a-z0-9]/gi, '');
+    const cleanQuery = query.replace(/[^a-z0-9]/gi, '');
+    if (cleanQuery && cleanDn.startsWith(cleanQuery)) return true;
+
+    return false;
+  };
+
   // Check if a row matches the active search query
   const isRowMatch = (row: OrderRow, q: string): boolean => {
     if (!q) return false;
     const query = q.trim().toLowerCase();
     const dn = String(row.dept || '').trim().toLowerCase();
     const itemName = String(row.itemName || '').trim().toLowerCase();
-    const material = String(row.material || '').trim().toLowerCase();
-    const remarks = String(row.remarksRSP || row.remarks || '').trim().toLowerCase();
 
-    return dn.includes(query) || itemName.includes(query) || material.includes(query) || remarks.includes(query);
+    // 1. 도번 (DN): 맨 앞자리부터 순차 일치 (startsWith)
+    if (isDrawingNumberMatch(dn, query)) return true;
+
+    // 2. 품명 (Part Name): 품명 문자열 포함 일치 (includes)
+    if (itemName && itemName.includes(query)) return true;
+
+    // 3. 재질(Material) 및 비고(Remarks):
+    // 검색어가 순수 숫자(도번 의도)가 아닌 경우에만 재질/비고 검색 허용
+    const isPureNumber = /^\d+$/.test(query);
+    if (!isPureNumber) {
+      const material = String(row.material || '').trim().toLowerCase();
+      const remarks = String(row.remarksRSP || row.remarks || '').trim().toLowerCase();
+      if (material.includes(query) || remarks.includes(query)) return true;
+    }
+
+    return false;
   };
 
   // Filter mold units based on user search term and active exclusions
@@ -299,12 +329,20 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
         return inModel || inShared;
       }
 
-      // Auto-detect 3: Row-level match (DN, Part Name, Material, Remarks)
+      // Auto-detect 3: Row-level match (DN sequential match, Part Name includes, etc.)
       const hasMatchingRow = unit.rows.some(row => isRowMatch(row, query));
       if (hasMatchingRow) return true;
 
-      // Fallback: Check mold name or model name
-      return moldNameLower.includes(query) || displayMoldLower.includes(query) || modelLower.includes(query) || orderTitleLower.includes(query);
+      // Auto-detect 4: Pure numeric search (e.g. "301" or "355")
+      // Match mold if mold name starts with query (e.g. 301#1) or model contains exact numeric code (e.g. CPH-301)
+      if (/^\d+$/.test(query)) {
+        const moldStartsWithQuery = moldNameLower.startsWith(query) || displayMoldLower.startsWith(query);
+        const modelHasExactCode = modelLower.split(/[^a-z0-9]/).includes(query);
+        return moldStartsWithQuery || modelHasExactCode;
+      }
+
+      // Fallback for general text: Check mold name or model name
+      return moldNameLower.includes(query) || displayMoldLower.includes(query) || modelLower.includes(query);
     });
   }, [moldUnits, searchTerm, excludedMoldKeys]);
 
@@ -595,8 +633,8 @@ export const InjectionSearchView: React.FC<InjectionSearchViewProps> = ({ curren
                         const isMatch = isRowMatch(row, query);
                         const dnStr = String(row.dept || '').trim();
                         const nameStr = String(row.itemName || '').trim();
-                        const isDnMatched = !!query && dnStr.toLowerCase().includes(query);
-                        const isNameMatched = !!query && nameStr.toLowerCase().includes(query);
+                        const isDnMatched = isDrawingNumberMatch(dnStr, query);
+                        const isNameMatched = !!query && nameStr.toLowerCase().includes(query.toLowerCase());
 
                         const sharedModels = unit.sharedModelsForParts[row.id] || [];
                         const otherModels = sharedModels.filter(m => m.toUpperCase() !== unit.modelName.toUpperCase());
